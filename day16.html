@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 16 - Week 3 Day 5：pandas 基础 + LLM 数据分析</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#eff6ff,#eef2ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #bfdbfe; }
+  .header .badge { display:inline-block;background:#dbeafe;color:var(--accent);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  pre { background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;overflow-x:auto;font-size:13.5px;line-height:1.65;margin:12px 0;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--text); }
+  code { font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:13px; }
+  .ic { background:#f1f5f9;padding:2px 7px;border-radius:4px;font-size:13px;color:var(--accent);border:1px solid #e2e8f0; }
+  .step { display:flex;gap:14px;margin:16px 0;align-items:flex-start; }
+  .sn { background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;margin-top:2px; }
+  .sc { flex:1; }
+  .sc h4 { font-size:15px;font-weight:600;margin-bottom:6px; }
+  .sc p { font-size:14px;color:var(--text2); }
+  ul,ol { padding-left:22px;margin:8px 0; }
+  li { font-size:14px;color:var(--text2);margin:4px 0; }
+  li strong { color:var(--text); }
+  .tl { list-style:none;padding:0;margin:12px 0; }
+  .tl li { display:flex;align-items:flex-start;gap:10px;padding:8px 12px;margin:6px 0;background:var(--surface2);border-radius:8px;font-size:14px;color:var(--text);cursor:pointer;transition:opacity .2s; }
+  .tl li.done { opacity:.45;text-decoration:line-through; }
+  .tl li .ck { width:20px;height:20px;border:2px solid var(--border);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px;font-size:12px;transition:all .2s; }
+  .tl li.done .ck { background:var(--green);border-color:var(--green);color:#fff; }
+  .ct { width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px; }
+  .ct th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;color:var(--accent);border-bottom:2px solid var(--border); }
+  .ct td { padding:10px 14px;border-bottom:1px solid var(--surface3);color:var(--text2); }
+  .fs { background:linear-gradient(135deg,#faf5ff,#fef3c7);border-color:#e9d5ff; }
+  .fs .section-title { border-bottom-color:#e9d5ff; }
+  .ls { background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-color:#bbf7d0; }
+  .ls .section-title { border-bottom-color:#bbf7d0; }
+  .compare { display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0; }
+  .compare .card { background:var(--surface2);border-radius:8px;padding:16px;border:1px solid var(--surface3); }
+  .compare .card h4 { font-size:14px;font-weight:600;margin-bottom:8px; }
+  .compare .card.good h4 { color:var(--green); }
+  .compare .card.bad h4 { color:var(--red); }
+  .inline-c { background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--accent); }
+  .quiz { background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:18px 20px;margin:14px 0; }
+  .quiz h4 { color:#7c3aed;font-size:15px;margin-bottom:10px; }
+  .quiz p { color:var(--text2);font-size:14px; }
+  h3 { font-size:16px;font-weight:700;color:var(--text);margin:18px 0 10px; }
+  .tag { display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;margin-right:6px; }
+  .tag-py { background:#dbeafe;color:var(--accent); }
+  .tag-llm { background:#fef3c7;color:#b45309; }
+  .tag-know { background:#ede9fe;color:#6d28d9; }
+  .tag-lc { background:#dcfce7;color:#15803d; }
+  .daily-schedule { display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0; }
+  .ds-card { background:var(--surface2);border-radius:8px;padding:14px;text-align:center;border:1px solid var(--surface3); }
+  .ds-card .ds-icon { font-size:24px;margin-bottom:6px; }
+  .ds-card .ds-title { font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px; }
+  .ds-card .ds-time { font-size:12px;color:var(--accent);font-weight:600; }
+  .nav { display:flex;justify-content:space-between;margin-top:20px;padding-top:16px;border-top:1px solid var(--surface3); }
+  .nav a { color:var(--accent);text-decoration:none;font-size:14px;font-weight:600;padding:8px 16px;background:var(--surface2);border-radius:8px;border:1px solid var(--surface3);transition:all .2s; }
+  .nav a:hover { background:var(--accent);color:#fff;border-color:var(--accent); }
+  .sql-tag { background:#fef3c7;color:#b45309;padding:1px 6px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace; }
+  @media(max-width:600px) {
+    body { padding:12px; }
+    .daily-schedule { grid-template-columns:1fr 1fr; }
+    .compare { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== HEADER ========== -->
+<div class="header">
+  <div class="badge">Phase 1A &middot; Week 3 Day 5</div>
+  <h1>Day 16：pandas 基础 + LLM 数据分析</h1>
+  <div class="subtitle">
+    <span class="tag tag-py">pandas 读写/筛选/聚合</span>
+    <span class="tag tag-llm">LLM + 数据分析</span>
+    <span class="tag tag-know">开源 vs 闭源模型对比</span>
+    <span class="tag tag-lc">LeetCode</span>
+  </div>
+</div>
+
+<!-- ========== PROGRESS ========== -->
+<div class="progress-bar">
+  <div class="track"><div class="fill" style="width:14.3%"></div></div>
+  <div class="label">Phase 1A 进度</div>
+  <div class="percent">14.3%</div>
+</div>
+
+<!-- ========== DAILY SCHEDULE ========== -->
+<div class="section">
+  <div class="section-title"><span class="icon">&#128197;</span> 今日学习安排</div>
+  <div class="daily-schedule">
+    <div class="ds-card">
+      <div class="ds-icon">&#128013;</div>
+      <div class="ds-title">pandas 基础</div>
+      <div class="ds-time">~1h</div>
+    </div>
+    <div class="ds-card">
+      <div class="ds-icon">&#129302;</div>
+      <div class="ds-title">LLM + 数据分析</div>
+      <div class="ds-time">~1.5h</div>
+    </div>
+    <div class="ds-card">
+      <div class="ds-icon">&#128214;</div>
+      <div class="ds-title">开源 vs 闭源模型</div>
+      <div class="ds-time">~15min</div>
+    </div>
+    <div class="ds-card">
+      <div class="ds-icon">&#129513;</div>
+      <div class="ds-title">LeetCode</div>
+      <div class="ds-time">~15min</div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== TODO ========== -->
+<div class="section">
+  <div class="section-title"><span class="icon">&#9989;</span> 今日任务清单（点击完成）</div>
+  <ul class="tl" id="todo">
+    <li onclick="toggle(this)"><span class="ck"></span>学习 pandas 基础：读写 CSV（read_csv / to_csv）</li>
+    <li onclick="toggle(this)"><span class="ck"></span>学习 pandas 数据筛选：条件过滤、loc/iloc</li>
+    <li onclick="toggle(this)"><span class="ck"></span>学习 pandas 分组聚合：groupby + agg</li>
+    <li onclick="toggle(this)"><span class="ck"></span>综合练习：用 pandas 分析 AMC 模拟数据集</li>
+    <li onclick="toggle(this)"><span class="ck"></span>实战：pandas 数据摘要 + LLM 生成中文分析报告</li>
+    <li onclick="toggle(this)"><span class="ck"></span>对比 LLM 输出与实际统计数据，验证准确性</li>
+    <li onclick="toggle(this)"><span class="ck"></span>（碎片时间）了解开源 vs 闭源模型各自的优劣</li>
+    <li onclick="toggle(this)"><span class="ck"></span>完成 1 道 LeetCode 简单题</li>
+  </ul>
+</div>
+
+<!-- ========================================================= -->
+<!--          SECTION 1: pandas 基础 - 读写 CSV                  -->
+<!-- ========================================================= -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#128013;</span> pandas 基础（一）：读写 CSV
+    <span class="time-tag">~25min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>&#128161; 为什么要学 pandas？</strong><br>
+    pandas 是 Python 数据分析的<strong>瑞士军刀</strong>。作为数据开发工程师，你天天用 SQL 处理数据 —— pandas 就是 Python 版的 SQL。<br><br>
+    在 LLM 应用中，pandas 的用途：<br>
+    1. 读取业务数据 CSV，预处理后传给 LLM 做分析<br>
+    2. 处理 LLM 返回的结构化数据<br>
+    3. 管理知识库的元数据（文档列表、标签、日期等）
+  </div>
+
+  <div class="concept-box">
+    <strong>&#127919; 两个核心数据结构</strong><br>
+    <code class="ic">DataFrame</code> = 二维表格，就像 Excel 的一张 Sheet，也像 SQL 的一张表<br>
+    <code class="ic">Series</code> = 一维数据，就像表格中的一列<br><br>
+    <strong>90% 的时间你只用 DataFrame</strong>，Series 是 DataFrame 的组成部分。
+  </div>
+
+  <!-- Step 1: 安装 -->
+  <div class="step">
+    <div class="sn">1</div>
+    <div class="sc">
+      <h4>安装 pandas</h4>
+      <p>先确认 pandas 已安装：</p>
+    </div>
+  </div>
+
+  <pre>
+# 在终端运行
+pip install pandas
+
+# 在 Python 中验证
+import pandas as pd
+print(pd.__version__)    # 输出版本号，如 2.2.0
+  </pre>
+
+  <!-- Step 2: 创建模拟数据 -->
+  <div class="step">
+    <div class="sn">2</div>
+    <div class="sc">
+      <h4>创建 AMC 模拟数据集</h4>
+      <p>先用代码生成一份 AMC 项目数据 CSV，后续练习都用它：</p>
+    </div>
+  </div>
+
+  <pre>
+import pandas as pd
+
+# ===== 方法一：用字典创建 DataFrame =====
+data = {
+    "project_name": [
+        "恒大地产债权包", "碧桂园债权包", "万达商业债权",
+        "融创地产债权", "万科商业债权", "华夏幸福债权包",
+        "绿地控股债权", "龙湖地产债权", "新城控股债权", "保利发展债权"
+    ],
+    "region": [
+        "华东", "华南", "华北", "华东", "华南", "华北",
+        "华东", "华南", "华北", "华东"
+    ],
+    "business_type": [
+        "债权转让", "债务重组", "诉讼追偿", "债权转让",
+        "债务重组", "诉讼追偿", "债权转让", "债务重组",
+        "诉讼追偿", "债权转让"
+    ],
+    "acquire_cost": [1200, 800, 500, 950, 680, 420, 760, 530, 310, 890],
+    "recovery_amount": [720, 480, 350, 665, 408, 294, 532, 371, 217, 623],
+    "disposal_cost": [48, 32, 25, 38, 27, 21, 30, 22, 15, 36],
+    "status": [
+        "处置中", "已结案", "处置中", "已结案", "处置中",
+        "已结案", "处置中", "处置中", "已结案", "处置中"
+    ],
+    "acquire_date": [
+        "2024-01-15", "2023-06-20", "2024-03-08", "2023-09-12",
+        "2024-05-03", "2023-11-28", "2024-02-14", "2024-04-18",
+        "2023-08-05", "2024-06-01"
+    ]
+}
+
+df = pd.DataFrame(data)
+print(df)
+print(f"\n共 {len(df)} 条记录，{len(df.columns)} 个字段")
+  </pre>
+
+  <p>输出效果（就像一张表格）：</p>
+  <pre>
+   project_name region business_type  ... disposal_cost   status
+0      恒大地产债权包   华东         债权转让  ...            48     处置中
+1      碧桂园债权包   华南         债务重组  ...            32     已结案
+2      万达商业债权    华北         诉讼追偿  ...            25     处置中
+...                    ...          ...  ...           ...      ...
+9      保利发展债权    华东         债权转让  ...            36     处置中
+  </pre>
+
+  <!-- Step 3: 保存 CSV -->
+  <div class="step">
+    <div class="sn">3</div>
+    <div class="sc">
+      <h4>保存为 CSV 文件</h4>
+      <p>把 DataFrame 存到文件，模拟真实数据处理流程：</p>
+    </div>
+  </div>
+
+  <pre>
+# 保存 CSV（index=False 表示不保存行号）
+df.to_csv("data/amc_projects.csv", index=False, encoding="utf-8-sig")
+print("已保存: data/amc_projects.csv")
+  </pre>
+
+  <div class="tip-box">
+    <strong>&#128161; encoding="utf-8-sig"</strong> 的作用：<br>
+    如果你的 CSV 包含中文，用 <code class="ic">utf-8-sig</code> 编码保存，用 Excel 打开时不会乱码（它会在文件开头加 BOM 标记）。纯 Python 读取用 <code class="ic">utf-8</code> 即可，pandas 会自动处理。
+  </div>
+
+  <!-- Step 4: 读取 CSV -->
+  <div class="step">
+    <div class="sn">4</div>
+    <div class="sc">
+      <h4>从 CSV 文件读取</h4>
+      <p>这是最常用的操作 —— 在 LLM 应用中，你经常需要读取业务数据：</p>
+    </div>
+  </div>
+
+  <pre>
+# 读取 CSV
+df = pd.read_csv("data/amc_projects.csv", encoding="utf-8-sig")
+
+# 快速了解数据（三个必备命令）
+print(df.shape)         # (10, 8) — 10行8列
+print(df.dtypes)        # 每列的数据类型
+print(df.columns.tolist())  # 列名列表
+
+# 前 N 行 / 后 N 行
+print(df.head(3))       # 前 3 行（默认 5 行）
+print(df.tail(2))       # 后 2 行
+
+# 基本统计信息（只对数值列生效）
+print(df.describe())
+  </pre>
+
+  <h3>DataFrame 快速查看速查</h3>
+  <table class="ct">
+    <tr><th>操作</th><th>代码</th><th>说明</th></tr>
+    <tr><td>查看形状</td><td><code class="ic">df.shape</code></td><td>返回 (行数, 列数)</td></tr>
+    <tr><td>查看列名</td><td><code class="ic">df.columns</code></td><td>所有列名</td></tr>
+    <tr><td>查看数据类型</td><td><code class="ic">df.dtypes</code></td><td>每列的类型</td></tr>
+    <tr><td>前 N 行</td><td><code class="ic">df.head(N)</code></td><td>默认 5 行</td></tr>
+    <tr><td>后 N 行</td><td><code class="ic">df.tail(N)</code></td><td>默认 5 行</td></tr>
+    <tr><td>统计摘要</td><td><code class="ic">df.describe()</code></td><td>数值列的均值/最大/最小/分位数</td></tr>
+    <tr><td>查看前几行</td><td><code class="ic">df.info()</code></td><td>行数、列数、内存占用、非空值数量</td></tr>
+  </table>
+</div>
+
+<!-- ========================================================= -->
+<!--          SECTION 2: pandas 数据筛选                        -->
+<!-- ========================================================= -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#128013;</span> pandas 基础（二）：数据筛选
+    <span class="time-tag">~20min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>&#127919; SQL 思维翻译法</strong><br>
+    你已经精通 SQL，学 pandas 最快的方式就是<strong>把 SQL 查询翻译成 pandas 代码</strong>。下面每条操作都配上对应的 SQL，帮你快速建立映射。
+  </div>
+
+  <h3>2.1 条件筛选（WHERE）</h3>
+  <pre>
+import pandas as pd
+df = pd.read_csv("data/amc_projects.csv", encoding="utf-8-sig")
+
+# ===== SQL: SELECT * FROM df WHERE acquire_cost > 800 =====
+high_cost = df[df["acquire_cost"] > 800]
+print(f"收购成本 > 800万 的项目: {len(high_cost)} 个")
+print(high_cost[["project_name", "acquire_cost"]])
+
+# ===== SQL: WHERE region = '华东' AND status = '处置中' =====
+mask = (df["region"] == "华东") & (df["status"] == "处置中")
+result = df[mask]
+print(f"\n华东地区处置中的项目: {len(result)} 个")
+
+# ===== SQL: WHERE business_type IN ('债权转让', '债务重组') =====
+types = ["债权转让", "债务重组"]
+result2 = df[df["business_type"].isin(types)]
+print(f"\n债权转让或债务重组项目: {len(result2)} 个")
+
+# ===== SQL: WHERE project_name LIKE '%地产%' =====
+result3 = df[df["project_name"].str.contains("地产")]
+print(f"\n项目名含'地产'的: {len(result3)} 个")
+print(result3[["project_name"]])
+  </pre>
+
+  <div class="warn-box">
+    <strong>&#9888;&#65039; 条件组合必须用括号 + 位运算符</strong><br>
+    <code class="ic">df[(条件1) &amp; (条件2)]</code> — 用 <code class="ic">&amp;</code> 不是 <code class="ic">and</code><br>
+    <code class="ic">df[(条件1) | (条件2)]</code> — 用 <code class="ic">|</code> 不是 <code class="or</code><br>
+    <code class="ic">df[~条件]</code> — 取反用 <code class="ic">~</code> 不是 <code class="ic">not</code><br><br>
+    这是 pandas 最常见的坑之一 —— 忘了加括号会导致 <code class="ic">ValueError</code>。
+  </div>
+
+  <h3>2.2 选取列和行（SELECT + 行索引）</h3>
+  <pre>
+# ===== SQL: SELECT project_name, acquire_cost FROM df =====
+cols = df[["project_name", "acquire_cost"]]
+
+# ===== loc（按标签选） =====
+# SQL: SELECT * FROM df WHERE region = '华东' LIMIT 3
+subset = df.loc[df["region"] == "华东", ["project_name", "acquire_cost"]].head(3)
+
+# ===== iloc（按位置选，从 0 开始） =====
+# 选取前 3 行的前 4 列
+first_3 = df.iloc[:3, :4]
+
+# ===== 新增计算列（SQL: SELECT *, acquire_cost - recovery_amount AS gap） =====
+df["net_recovery_rate"] = (
+    (df["recovery_amount"] - df["disposal_cost"]) / df["acquire_cost"] * 100
+).round(2)
+print(df[["project_name", "acquire_cost", "recovery_amount", "net_recovery_rate"]])
+  </pre>
+
+  <div class="tip-box">
+    <strong>&#128161; loc vs iloc 记忆法</strong><br>
+    <code class="ic">loc</code> = <strong>label</strong>（标签）→ 用列名和条件<br>
+    <code class="ic">iloc</code> = <strong>integer</strong>（整数）→ 用行号和列号<br><br>
+    <strong>推荐</strong>：日常用 <code class="ic">loc</code>，更安全（不怕列顺序变化）。<code class="ic">iloc</code> 在需要按位置切片时用。
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!--          SECTION 3: pandas 分组聚合                        -->
+<!-- ========================================================= -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#128013;</span> pandas 基础（三）：分组聚合
+    <span class="time-tag">~15min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>&#127919; groupby = SQL 的 GROUP BY</strong><br>
+    分组聚合是数据分析的核心 —— 按某个维度（地区/业务类型/状态）把数据分组，然后对每组做统计（求和/均值/计数）。你天天写 SQL 的 GROUP BY，pandas 版的语法其实更简洁。
+  </div>
+
+  <pre>
+import pandas as pd
+df = pd.read_csv("data/amc_projects.csv", encoding="utf-8-sig")
+
+# ===== 1. 按 region 分组，计算平均收购成本 =====
+# SQL: SELECT region, AVG(acquire_cost), COUNT(*) FROM df GROUP BY region
+region_stats = df.groupby("region").agg(
+    项目数=("project_name", "count"),
+    平均收购成本=("acquire_cost", "mean"),
+    总收购成本=("acquire_cost", "sum"),
+    平均回收金额=("recovery_amount", "mean"),
+).round(2)
+print("=== 按地区统计 ===")
+print(region_stats)
+
+# ===== 2. 按 business_type 分组 =====
+type_stats = df.groupby("business_type").agg(
+    项目数=("project_name", "count"),
+    平均回收金额=("recovery_amount", "mean"),
+    总回收金额=("recovery_amount", "sum"),
+).round(2)
+print("\n=== 按业务类型统计 ===")
+print(type_stats)
+
+# ===== 3. 按 status 分组 =====
+status_stats = df.groupby("status").agg(
+    项目数=("project_name", "count"),
+    平均收购成本=("acquire_cost", "mean"),
+).round(2)
+print("\n=== 按处置状态统计 ===")
+print(status_stats)
+
+# ===== 4. 多维度分组 =====
+# SQL: SELECT region, status, COUNT(*), AVG(acquire_cost) GROUP BY region, status
+multi = df.groupby(["region", "status"]).agg(
+    项目数=("project_name", "count"),
+    平均收购成本=("acquire_cost", "mean"),
+).round(2)
+print("\n=== 按地区+状态交叉统计 ===")
+print(multi)
+  </pre>
+
+  <h3>常用聚合函数对照</h3>
+  <table class="ct">
+    <tr><th>聚合操作</th><th>pandas 写法</th><th>SQL 对应</th></tr>
+    <tr><td>计数</td><td><code class="ic">("列名", "count")</code></td><td>COUNT(*)</td></tr>
+    <tr><td>求和</td><td><code class="ic">("列名", "sum")</code></td><td>SUM(列名)</td></tr>
+    <tr><td>均值</td><td><code class="ic">("列名", "mean")</code></td><td>AVG(列名)</td></tr>
+    <tr><td>最大值</td><td><code class="ic">("列名", "max")</code></td><td>MAX(列名)</td></tr>
+    <tr><td>最小值</td><td><code class="ic">("列名", "min")</code></td><td>MIN(列名)</td></tr>
+    <tr><td>中位数</td><td><code class="ic">("列名", "median")</code></td><td>PERCENTILE_CONT(0.5)</td></tr>
+    <tr><td>标准差</td><td><code class="ic">("列名", "std")</code></td><td>STDDEV(列名)</td></tr>
+  </table>
+
+  <div class="tip-box">
+    <strong>&#128161; pandas 的 agg 命名参数</strong><br>
+    <code class="ic">.agg(自定义名=("列名", "函数"))</code> 这种写法可以给结果列起中文名，输出更易读。这是 pandas 2.0+ 推荐的写法。<br><br>
+    如果想用多个聚合：<code class="ic">.agg(总成本=("acquire_cost", "sum"), 平均成本=("acquire_cost", "mean"))</code>
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!--          SECTION 4: LLM + 数据分析实战                    -->
+<!-- ========================================================= -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#129302;</span> 实战：pandas + LLM 数据分析
+    <span class="time-tag">~1.5h</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>&#128161; 为什么要把数据传给 LLM？</strong><br>
+    pandas 能算出数字，但<strong>不能自动写出分析结论</strong>。而 LLM 擅长把数字翻译成人类可读的分析文本。<br><br>
+    这就是 <strong>"数据 + AI" 的结合点</strong>：<br>
+    <code class="ic">pandas 统计数据</code> → <code class="ic">格式化为文本</code> → <code class="ic">LLM 生成分析报告</code>
+  </div>
+
+  <!-- Step 1 -->
+  <div class="step">
+    <div class="sn">1</div>
+    <div class="sc">
+      <h4>用 pandas 生成数据摘要</h4>
+      <p>先把数据统计出来，转成 LLM 能理解的文本格式：</p>
+    </div>
+  </div>
+
+  <pre>
+import pandas as pd
+from pathlib import Path
+
+# 读取数据
+df = pd.read_csv("data/amc_projects.csv", encoding="utf-8-sig")
+
+# 计算净回收率
+df["net_recovery_rate"] = (
+    (df["recovery_amount"] - df["disposal_cost"]) / df["acquire_cost"] * 100
+).round(2)
+
+# ===== 生成数据摘要（给 LLM 看的） =====
+
+# 1. 整体概况
+total_cost = df["acquire_cost"].sum()
+total_recovery = df["recovery_amount"].sum()
+total_disposal = df["disposal_cost"].sum()
+overall_rate = ((total_recovery - total_disposal) / total_cost * 100)
+total_projects = len(df)
+closed = len(df[df["status"] == "已结案"])
+ongoing = len(df[df["status"] == "处置中"])
+
+# 2. 按地区统计
+region_stats = df.groupby("region").agg(
+    项目数=("project_name", "count"),
+    总收购成本=("acquire_cost", "sum"),
+    总回收金额=("recovery_amount", "sum"),
+    总处置费用=("disposal_cost", "sum"),
+).round(2)
+
+# 3. 按业务类型统计
+type_stats = df.groupby("business_type").agg(
+    项目数=("project_name", "count"),
+    总收购成本=("acquire_cost", "sum"),
+    总回收金额=("recovery_amount", "sum"),
+    总处置费用=("disposal_cost", "sum"),
+).round(2)
+
+# ===== 把统计数据格式化为文本 =====
+summary = f"""
+## AMC 不良资产项目数据摘要
+
+### 一、整体概况
+- 项目总数: {total_projects} 个（已结案 {closed} 个，处置中 {ongoing} 个）
+- 总收购成本: {total_cost} 万元
+- 总回收金额: {total_recovery} 万元
+- 总处置费用: {total_disposal} 万元
+- 整体净回收率: {overall_rate:.2f}%
+
+### 二、按地区统计
+{region_stats.to_string()}
+
+### 三、按业务类型统计
+{type_stats.to_string()}
+
+### 四、各项目明细
+{df[["project_name", "region", "business_type", "acquire_cost",
+      "recovery_amount", "disposal_cost", "net_recovery_rate", "status"
+     ]].to_string(index=False)}
+"""
+
+print(summary)
+  </pre>
+
+  <!-- Step 2 -->
+  <div class="step">
+    <div class="sn">2</div>
+    <div class="sc">
+      <h4>把数据摘要传给 LLM 生成分析报告</h4>
+      <p>用智谱 AI 的 API，让 LLM 基于数据生成专业的中文分析报告：</p>
+    </div>
+  </div>
+
+  <pre>
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="你的智谱API Key",
+    base_url="https://open.bigmodel.cn/api/paas/v4"
+)
+
+# 选择分析维度（模拟用户交互）
+print("请选择分析维度:")
+print("1. 整体概况分析")
+print("2. 地区对比分析")
+print("3. 业务类型分析")
+print("4. 综合分析报告")
+choice = input("请输入选项(1-4): ")
+
+dimension_map = {
+    "1": "整体概况",
+    "2": "地区对比",
+    "3": "业务类型",
+    "4": "综合分析",
+}
+dimension = dimension_map.get(choice, "综合分析")
+
+# 构建 Prompt
+prompt = f"""你是AMC不良资产处置领域的数据分析专家。
+请根据以下数据摘要，撰写一份专业的{dimension}分析报告。
+
+报告要求：
+1. 用中文撰写，语言简洁专业
+2. 引用具体数字支撑结论
+3. 指出数据中的异常或值得关注的问题
+4. 给出处置建议（2-3条）
+5. 格式清晰，使用小标题和要点列表
+6. 控制在 500 字以内
+
+数据摘要：
+{summary}
+"""
+
+response = client.chat.completions.create(
+    model="glm-4-flash",
+    messages=[
+        {"role": "system", "content": "你是AMC不良资产数据分析师，擅长从数据中发现问题和机会。"},
+        {"role": "user", "content": prompt}
+    ],
+    temperature=0.7,
+)
+
+report = response.choices[0].message.content
+print("\n" + "=" * 50)
+print(f"📊 {dimension}分析报告")
+print("=" * 50)
+print(report)
+
+# 保存报告到文件
+from datetime import datetime
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+report_file = f"data/analysis_report_{timestamp}.txt"
+Path(report_file).write_text(report, encoding="utf-8")
+print(f"\n报告已保存: {report_file}")
+  </pre>
+
+  <!-- Step 3 -->
+  <div class="step">
+    <div class="sn">3</div>
+    <div class="sc">
+      <h4>验证 LLM 输出的准确性</h4>
+      <p>AI 分析虽然专业，但可能有<strong>幻觉</strong>（数字说错、编造数据）。必须验证！</p>
+    </div>
+  </div>
+
+  <pre>
+# ===== 验证技巧：让 LLM 先做计算，再和 pandas 结果对比 =====
+
+# 方法1：直接对比关键数字
+print("=== 验证 LLM 报告中的关键数字 ===")
+print(f"实际总收购成本: {total_cost} 万元")
+print(f"实际总回收金额: {total_recovery} 万元")
+print(f"实际整体净回收率: {overall_rate:.2f}%")
+
+# 方法2：让 LLM 自己做计算题，检查数学能力
+calc_prompt = f"""根据以下数据，请计算：
+1. 华东地区的总收购成本是多少？
+2. 债权转让类项目的平均回收金额是多少？
+3. 净回收率最高的项目是哪个？
+
+数据：
+{df.to_string(index=False)}
+
+请给出计算过程和结果。
+"""
+
+response = client.chat.completions.create(
+    model="glm-4-flash",
+    messages=[{"role": "user", "content": calc_prompt}],
+    temperature=0.0,  # temperature=0 减少随机性，适合计算题
+)
+print(response.choices[0].message.content)
+
+# 方法3：pandas 独立验证
+print("\n=== pandas 独立验证 ===")
+print(f"华东地区总收购成本: {df[df['region']=='华东']['acquire_cost'].sum()} 万元")
+print(f"债权转让平均回收金额: {df[df['business_type']=='债权转让']['recovery_amount'].mean():.2f} 万元")
+best = df.loc[df["net_recovery_rate"].idxmax()]
+print(f"净回收率最高: {best['project_name']} ({best['net_recovery_rate']}%)")
+  </pre>
+
+  <div class="tip-box">
+    <strong>&#128161; LLM 做数学运算的局限</strong><br>
+    <strong>永远不要让 LLM 做精确计算</strong>！LLM 是语言模型，不是计算器。<br><br>
+    正确做法：<br>
+    1. <strong>pandas 算数字</strong>（精确可靠）<br>
+    2. <strong>LLM 写分析</strong>（语言表达专业）<br>
+    3. <strong>人工验证关键数据</strong>（防止幻觉）<br><br>
+    在上面的代码中，我们用 <code class="ic">temperature=0.0</code> 做计算题可以稍微提高准确率，但仍不保证 100% 正确。
+  </div>
+
+  <h3>完整工作流图解</h3>
+  <pre>
+业务数据 CSV
+    |
+    v
+pandas 读取 + 统计
+    |
+    v
+生成结构化数据摘要文本
+    |
+    v
+构建 Prompt（数据 + 分析要求）
+    |
+    v
+LLM API 调用 → 生成分析报告
+    |
+    v
+pandas 验证关键数字 → 保存报告
+  </pre>
+</div>
+
+<!-- ========================================================= -->
+<!--          SECTION 5: 碎片知识 - 开源 vs 闭源               -->
+<!-- ========================================================= -->
+<div class="section fs">
+  <div class="section-title">
+    <span class="icon">&#128214;</span> 碎片知识：开源 vs 闭源模型对比
+    <span class="time-tag">~15min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>&#127919; 作为 LLM 应用工程师，你必须了解模型选型</strong><br>
+    什么时候用 GPT-4 / Claude（闭源 API）？什么时候用 Qwen / Llama（开源自部署）？这不是技术信仰问题，而是<strong>成本、数据安全、性能的综合权衡</strong>。
+  </div>
+
+  <table class="ct">
+    <tr><th>维度</th><th>闭源模型（GPT-4 / Claude / GLM）</th><th>开源模型（Qwen / Llama / DeepSeek）</th></tr>
+    <tr>
+      <td><strong>使用方式</strong></td>
+      <td>API 调用，按 token 付费</td>
+      <td>下载到本地或云端服务器运行</td>
+    </tr>
+    <tr>
+      <td><strong>费用</strong></td>
+      <td>按量付费，大规模使用成本高</td>
+      <td>一次部署，无限调用（硬件成本）</td>
+    </tr>
+    <tr>
+      <td><strong>数据安全</strong></td>
+      <td>数据发送到第三方服务器</td>
+      <td>数据不出本地，完全可控</td>
+    </tr>
+    <tr>
+      <td><strong>性能</strong></td>
+      <td>旗舰级效果最好（GPT-4o / Claude-3.5）</td>
+      <td>70B+ 接近闭源，小模型差距明显</td>
+    </tr>
+    <tr>
+      <td><strong>延迟</strong></td>
+      <td>网络延迟 + 排队</td>
+      <td>本地推理更快（需足够 GPU）</td>
+    </tr>
+    <tr>
+      <td><strong>定制化</strong></td>
+      <td>只能通过 Prompt 工程</td>
+      <td>可微调注入领域知识</td>
+    </tr>
+    <tr>
+      <td><strong>适用场景</strong></td>
+      <td>通用任务、快速原型、非敏感数据</td>
+      <td>金融/医疗等敏感数据、大规模调用、领域微调</td>
+    </tr>
+  </table>
+
+  <h3>主流模型推荐（2025-2026）</h3>
+  <table class="ct">
+    <tr><th>阵营</th><th>模型</th><th>厂商</th><th>特点</th></tr>
+    <tr><td>闭源</td><td>GPT-4o</td><td>OpenAI</td><td>综合最强，多模态</td></tr>
+    <tr><td>闭源</td><td>Claude 3.5 Sonnet</td><td>Anthropic</td><td>长上下文、编程能力强</td></tr>
+    <tr><td>闭源</td><td>GLM-4</td><td>智谱AI</td><td>国内领先，中文优秀</td></tr>
+    <tr><td>闭源</td><td>通义千问 Max</td><td>阿里</td><td>中文理解好，价格低</td></tr>
+    <tr><td>开源</td><td>Qwen2.5-72B</td><td>阿里</td><td>中文最强开源，多尺寸</td></tr>
+    <tr><td>开源</td><td>Llama 3.1-70B</td><td>Meta</td><td>英文最强开源，生态好</td></tr>
+    <tr><td>开源</td><td>DeepSeek-V3</td><td>深度求索</td><td>性价比极高，MoE架构</td></tr>
+  </table>
+
+  <div class="tip-box">
+    <strong>&#128161; 你的 AMC 项目怎么选？</strong><br>
+    - <strong>开发阶段</strong>：用智谱 GLM-4-flash API（便宜、中文好、快速验证）<br>
+    - <strong>生产部署</strong>：如果涉及敏感金融数据 → 部署 Qwen2.5 开源模型（数据不出本地）<br>
+    - <strong>微调</strong>：用 Qwen2.5-7B 或 14B（Phase 3 会学）<br>
+    - <strong>复杂推理</strong>：用 GLM-4-Plus 或 GPT-4o API（旗舰模型效果最好）
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!--          SECTION 6: LeetCode                              -->
+<!-- ========================================================= -->
+<div class="section ls">
+  <div class="section-title">
+    <span class="icon">&#129513;</span> LeetCode 每日一题
+    <span class="time-tag">~15min</span>
+  </div>
+
+  <div class="quiz">
+    <h4>&#128218; 今日题目：LeetCode #169 多数元素</h4>
+    <p><strong>难度</strong>：简单 &nbsp;|&nbsp; <strong>标签</strong>：数组、计数</p>
+    <p style="margin-top:10px"><strong>题目</strong>：给定一个大小为 n 的数组 <code class="ic">nums</code>，返回其中<strong>出现次数超过</strong> <code class="ic">n/2</code> <strong>的元素</strong>。你可以假设这个元素一定存在。</p>
+    <p style="margin-top:6px"><strong>示例</strong>：<code class="ic">[3, 2, 3]</code> → <code class="ic">3</code></p>
+    <p style="margin-top:6px"><strong>示例</strong>：<code class="ic">[2, 2, 1, 1, 1, 2, 2]</code> → <code class="ic">2</code></p>
+  </div>
+
+  <h3>思路提示</h3>
+  <p style="font-size:14px;color:var(--text2)">
+    先想简单方法（字典计数），再了解一个巧妙的算法：**摩尔投票法**（Boyer-Moore），只需要 O(1) 额外空间。
+  </p>
+
+  <h3>方法一：字典计数（最直观）</h3>
+  <pre>
+def majorityElement(nums):
+    """方法一：字典计数 —— 直观、易懂、面试可写"""
+    counts = {}
+    for num in nums:
+        counts[num] = counts.get(num, 0) + 1
+        if counts[num] > len(nums) // 2:
+            return num
+    return -1  # 理论上不会走到这里
+
+print(majorityElement([3, 2, 3]))              # 3
+print(majorityElement([2, 2, 1, 1, 1, 2, 2])) # 2
+  </pre>
+
+  <h3>方法二：摩尔投票法（最优解）</h3>
+  <pre>
+def majorityElement_moore(nums):
+    """
+    摩尔投票法核心思想：
+    - 假设第一个元素是"候选人"
+    - 遇到相同的就"票数+1"，遇到不同的就"票数-1"
+    - 票数归零就换下一个候选人
+    - 因为多数元素出现次数 > n/2，最后一定"赢"
+    """
+    candidate = None
+    count = 0
+
+    for num in nums:
+        if count == 0:
+            candidate = num    # 票数归零，换候选人
+        if num == candidate:
+            count += 1        # 相同，票数+1
+        else:
+            count -= 1        # 不同，票数-1
+
+    return candidate
+
+print(majorityElement_moore([3, 2, 3]))              # 3
+print(majorityElement_moore([2, 2, 1, 1, 1, 2, 2])) # 2
+  </pre>
+
+  <div class="tip-box">
+    <strong>&#128161; 本题要点</strong><br>
+    1. 字典计数是万能解法，先写出来保证正确<br>
+    2. 摩尔投票法是经典算法，面试加分项 —— O(n) 时间 + O(1) 空间<br>
+    3. 摩尔投票法只适用于<strong>保证存在</strong>多数元素的情况。如果没有保证，需要二次验证
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!--          SECTION 7: 自测                                  -->
+<!-- ========================================================= -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#9997;&#65039;</span> 今日自测
+  </div>
+
+  <div class="quiz">
+    <h4>&#128221; 自测题（完成后对照答案检查）</h4>
+    <p><strong>Q1</strong>：用 pandas 读取一个 CSV 文件，并筛选出 <code class="ic">acquire_cost > 500</code> 且 <code class="ic">status == "处置中"</code> 的项目。一行代码怎么写？</p>
+    <p><strong>Q2</strong>：用 pandas 的 groupby 按地区分组，计算每个地区的项目数量和平均收购成本。</p>
+    <p><strong>Q3</strong>：为什么不应该让 LLM 做精确的数学运算？正确的工作流是什么？</p>
+    <p><strong>Q4</strong>：你的 AMC 项目应该选闭源模型还是开源模型？说出两个理由。</p>
+  </div>
+
+  <details style="margin-top:12px">
+    <summary style="cursor:pointer;font-size:14px;color:var(--accent);font-weight:600;padding:8px 0">
+      &#128064; 点击查看参考答案
+    </summary>
+    <pre>
+Q1:
+df[(df["acquire_cost"] > 500) &amp; (df["status"] == "处置中")]
+
+Q2:
+df.groupby("region").agg(
+    项目数=("project_name", "count"),
+    平均收购成本=("acquire_cost", "mean")
+).round(2)
+
+Q3:
+LLM 是语言模型不是计算器，可能产生"幻觉"（数字说错）。
+正确工作流：pandas 算数字（精确）→ 格式化为文本 →
+LLM 做分析（语言表达）→ 人工验证关键数字。
+
+Q4:
+建议：开发阶段用智谱 GLM-4-flash API（便宜、中文好），
+生产环境如果涉及敏感金融数据则部署开源 Qwen2.5。
+理由：1）AMC 数据属于金融敏感数据，开源部署数据不出本地更安全
+2）大规模调用时自部署成本更低
+    </pre>
+  </details>
+</div>
+
+<!-- ========================================================= -->
+<!--          SECTION 8: 明日预告                              -->
+<!-- ========================================================= -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#128076;</span> 明日预告：Day 17
+  </div>
+
+  <div class="compare">
+    <div class="card">
+      <h4 style="color:var(--accent)">&#128013; Python</h4>
+      <p style="font-size:14px;color:var(--text2)">
+        <strong>requests HTTP 请求</strong><br>
+        GET / POST 请求、API 调用<br>
+        JSON 响应解析
+      </p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--orange)">&#129302; LLM 实操</h4>
+      <p style="font-size:14px;color:var(--text2)">
+        <strong>对比不同 LLM API</strong><br>
+        分别调用 OpenAI 和国产模型<br>
+        对比同一 Prompt 的返回结果
+      </p>
+    </div>
+  </div>
+  <p style="font-size:14px;color:var(--text2);margin-top:10px">
+    明天学习 HTTP 请求 —— 这是所有 API 调用的基础。之后你就能用 Python 调用各种 LLM 的 REST API 了。
+  </p>
+</div>
+
+<!-- ========== NAV ========== -->
+<div class="nav">
+  <a href="day15.html">&#8592; Day 15</a>
+  <a href="day17.html">Day 17 &#8594;</a>
+</div>
+
+<!-- ========== JS ========== -->
+<script>
+function toggle(el){
+  el.classList.toggle('done');
+  var ck=el.querySelector('.ck');
+  ck.textContent=el.classList.contains('done')?'✓':'';
+}
+</script>
+
+</body>
+</html>

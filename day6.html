@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 6 - Python 条件循环 + LLM 多轮对话实现</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface2: #334155;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --accent: #38bdf8;
+    --accent2: #818cf8;
+    --green: #4ade80;
+    --orange: #fb923c;
+    --red: #f87171;
+    --yellow: #facc15;
+    --border: #475569;
+    --radius: 12px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 20px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .header {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2d1b69 100%);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    border: 1px solid rgba(56, 189, 248, 0.2);
+  }
+  .header .badge {
+    display: inline-block;
+    background: rgba(56, 189, 248, 0.15);
+    color: var(--accent);
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    letter-spacing: 0.5px;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    background: linear-gradient(90deg, #38bdf8, #818cf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .header .subtitle {
+    color: var(--text2);
+    font-size: 15px;
+  }
+  .progress-bar {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 16px 24px;
+    margin-bottom: 24px;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .progress-bar .track {
+    flex: 1;
+    height: 8px;
+    background: var(--surface2);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .progress-bar .fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 4px;
+    transition: width 0.5s;
+  }
+  .progress-bar .label {
+    font-size: 13px;
+    color: var(--text2);
+    white-space: nowrap;
+  }
+  .progress-bar .percent {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    min-width: 42px;
+    text-align: right;
+  }
+  .section {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+  }
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--surface2);
+  }
+  .section-title .icon {
+    font-size: 22px;
+  }
+  .section-title .time-tag {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--orange);
+    background: rgba(251, 146, 60, 0.12);
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+  }
+  .concept-box {
+    background: rgba(56, 189, 248, 0.06);
+    border-left: 3px solid var(--accent);
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    margin: 14px 0;
+    font-size: 14px;
+  }
+  .concept-box strong {
+    color: var(--accent);
+  }
+  .tip-box {
+    background: rgba(74, 222, 128, 0.06);
+    border-left: 3px solid var(--green);
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    margin: 14px 0;
+    font-size: 14px;
+  }
+  .warn-box {
+    background: rgba(251, 146, 60, 0.06);
+    border-left: 3px solid var(--orange);
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    margin: 14px 0;
+    font-size: 14px;
+  }
+  pre {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    overflow-x: auto;
+    font-size: 13.5px;
+    line-height: 1.6;
+    margin: 12px 0;
+    font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  }
+  code {
+    font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    font-size: 13px;
+  }
+  .inline-code {
+    background: var(--surface2);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--accent);
+  }
+  .step {
+    display: flex;
+    gap: 14px;
+    margin: 16px 0;
+    align-items: flex-start;
+  }
+  .step-num {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .step-content {
+    flex: 1;
+  }
+  .step-content h4 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+  .step-content p {
+    font-size: 14px;
+    color: var(--text2);
+  }
+  ul, ol {
+    padding-left: 22px;
+    margin: 8px 0;
+  }
+  li {
+    font-size: 14px;
+    color: var(--text2);
+    margin: 4px 0;
+  }
+  li strong {
+    color: var(--text);
+  }
+  .task-list {
+    list-style: none;
+    padding: 0;
+    margin: 12px 0;
+  }
+  .task-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 12px;
+    margin: 6px 0;
+    background: var(--surface2);
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--text);
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .task-list li.done {
+    opacity: 0.5;
+    text-decoration: line-through;
+  }
+  .task-list li .check {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+    font-size: 12px;
+    transition: all 0.2s;
+  }
+  .task-list li.done .check {
+    background: var(--green);
+    border-color: var(--green);
+    color: #000;
+  }
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 13.5px;
+  }
+  .compare-table th {
+    background: var(--surface2);
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--accent);
+    border-bottom: 2px solid var(--border);
+  }
+  .compare-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--surface2);
+    color: var(--text2);
+  }
+  .compare-table tr:hover td {
+    background: rgba(56, 189, 248, 0.04);
+  }
+  .fragment-section {
+    background: linear-gradient(135deg, rgba(129, 140, 248, 0.08), rgba(251, 146, 60, 0.08));
+    border: 1px solid rgba(129, 140, 248, 0.2);
+  }
+  .fragment-section .section-title {
+    border-bottom-color: rgba(129, 140, 248, 0.2);
+  }
+  .leetcode-section {
+    background: linear-gradient(135deg, rgba(74, 222, 128, 0.06), rgba(56, 189, 248, 0.06));
+    border: 1px solid rgba(74, 222, 128, 0.2);
+  }
+  .leetcode-section .section-title {
+    border-bottom-color: rgba(74, 222, 128, 0.2);
+  }
+  .footer {
+    text-align: center;
+    color: var(--text2);
+    font-size: 13px;
+    padding: 20px;
+    margin-top: 10px;
+  }
+  .keyword { color: #ff7b72; }
+  .string { color: #a5d6ff; }
+  .comment { color: #8b949e; font-style: italic; }
+  .func { color: #d2a8ff; }
+  .builtin { color: #79c0ff; }
+  .var-name { color: #ffa657; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">PHASE 1A · WEEK 2 · DAY 4</div>
+  <h1>Day 6 — Python 条件循环 + LLM 多轮对话实现</h1>
+  <div class="subtitle">2026-05-26（周二）· 用 while 循环构建你的第一个交互式 AI 对话程序</div>
+</div>
+
+<div class="progress-bar">
+  <span class="label">总体进度</span>
+  <div class="track"><div class="fill" style="width: 5.4%"></div></div>
+  <span class="percent">6/112</span>
+</div>
+
+<!-- ============ 1. Python 主课 ============ -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span>
+    Python 主课：条件判断 + 循环控制
+    <span class="time-tag">~60 分钟</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>为什么今天学这个？</strong> — 明天的 LLM 实操要用 <code class="inline-code">while</code> 循环做一个交互式对话程序，循环和条件判断是这个程序的核心骨架。先把骨架搞熟，明天拼装就快了。
+  </div>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-content">
+      <h4>if / elif / else 条件判断</h4>
+      <p>Python 用缩进（4空格）表示代码块，不用花括号。</p>
+    </div>
+  </div>
+
+  <pre><span class="comment"># 基本条件判断</span>
+<span class="var-name">score</span> = <span class="builtin">85</span>
+
+<span class="keyword">if</span> <span class="var-name">score</span> >= <span class="builtin">90</span>:
+    <span class="func">print</span>(<span class="string">"优秀"</span>)
+<span class="keyword">elif</span> <span class="var-name">score</span> >= <span class="builtin">70</span>:
+    <span class="func">print</span>(<span class="string">"良好"</span>)
+<span class="keyword">else</span>:
+    <span class="func">print</span>(<span class="string">"需努力"</span>)
+
+<span class="comment"># AMC 场景示例：根据处置方式推荐策略</span>
+<span class="var-name">disposal_method</span> = <span class="string">"债权转让"</span>
+
+<span class="keyword">if</span> <span class="var-name">disposal_method</span> == <span class="string">"债权转让"</span>:
+    <span class="func">print</span>(<span class="string">"建议准备：资产评估报告 + 债权确权文件"</span>)
+<span class="keyword">elif</span> <span class="var-name">disposal_method</span> == <span class="string">"破产清算"</span>:
+    <span class="func">print</span>(<span class="string">"建议准备：破产申请 + 债权申报材料"</span>)
+<span class="keyword">elif</span> <span class="var-name">disposal_method</span> == <span class="string">"债务重组"</span>:
+    <span class="func">print</span>(<span class="string">"建议准备：重组方案 + 还款能力分析"</span>)</pre>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-content">
+      <h4>比较运算符 & 逻辑运算符速查</h4>
+      <p>明天写对话程序会频繁用到，记一下：</p>
+    </div>
+  </div>
+
+  <table class="compare-table">
+    <tr><th>运算符</th><th>含义</th><th>示例</th></tr>
+    <tr><td><code class="inline-code">==</code></td><td>等于</td><td><code class="inline-code">method == "债权转让"</code></td></tr>
+    <tr><td><code class="inline-code">!=</code></td><td>不等于</td><td><code class="inline-code">status != "已结清"</code></td></tr>
+    <tr><td><code class="inline-code">in</code></td><td>包含于</td><td><code class="inline-code">"退出" in user_input</code></td></tr>
+    <tr><td><code class="inline-code">and / or / not</code></td><td>逻辑与/或/非</td><td><code class="inline-code">amount > 0 and status == "有效"</code></td></tr>
+    <tr><td><code class="inline-code">is None</code></td><td>判断为空</td><td><code class="inline-code">if result is None:</code></td></tr>
+  </table>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-content">
+      <h4>for 循环 + range()</h4>
+      <p>遍历列表、字典最常用的方式。</p>
+    </div>
+  </div>
+
+  <pre><span class="comment"># 遍历列表</span>
+<span class="var-name">projects</span> = [<span class="string">"项目A"</span>, <span class="string">"项目B"</span>, <span class="string">"项目C"</span>]
+<span class="keyword">for</span> <span class="var-name">p</span> <span class="keyword">in</span> <span class="var-name">projects</span>:
+    <span class="func">print</span>(<span class="string">f"处理: <span class="var-name">{p}</span>"</span>)
+
+<span class="comment"># 带索引遍历（用 enumerate，比 range(len()) 更 Pythonic）</span>
+<span class="keyword">for</span> <span class="var-name">i</span>, <span class="var-name">p</span> <span class="keyword">in</span> <span class="builtin">enumerate</span>(<span class="var-name">projects</span>):
+    <span class="func">print</span>(<span class="string">f"第<span class="var-name">{i+1}</span>个: <span class="var-name">{p}</span>"</span>)
+
+<span class="comment"># 遍历字典</span>
+<span class="var-name">info</span> = {<span class="string">"name"</span>: <span class="string">"债务重组"</span>, <span class="string">"amount"</span>: <span class="builtin">5000000</span>}
+<span class="keyword">for</span> <span class="var-name">key</span>, <span class="var-name">value</span> <span class="keyword">in</span> <span class="var-name">info</span>.items():
+    <span class="func">print</span>(<span class="string">f"<span class="var-name">{key}</span>: <span class="var-name">{value}</span>"</span>)</pre>
+
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-content">
+      <h4>while 循环 + break / continue（<span style="color:var(--red)">明天重点用这个</span>）</h4>
+      <p><code class="inline-code">while</code> 循环是交互式程序的核心——程序一直运行，直到用户主动退出。</p>
+    </div>
+  </div>
+
+  <pre><span class="comment"># 基本 while 循环</span>
+<span class="var-name">count</span> = <span class="builtin">0</span>
+<span class="keyword">while</span> <span class="var-name">count</span> < <span class="builtin">3</span>:
+    <span class="func">print</span>(<span class="string">f"第 <span class="var-name">{count+1}</span> 次循环"</span>)
+    <span class="var-name">count</span> += <span class="builtin">1</span>
+
+<span class="comment"># 交互式循环（明天 LLM 项目的骨架）</span>
+<span class="keyword">while</span> <span class="builtin">True</span>:
+    <span class="var-name">user_input</span> = <span class="builtin">input</span>(<span class="string">"请输入（输入 q 退出）: "</span>)
+
+    <span class="keyword">if</span> <span class="var-name">user_input</span>.strip().lower() == <span class="string">"q"</span>:
+        <span class="func">print</span>(<span class="string">"再见！"</span>)
+        <span class="keyword">break</span>          <span class="comment"># 跳出整个循环</span>
+
+    <span class="keyword">if</span> <span class="keyword">not</span> <span class="var-name">user_input</span>.strip():
+        <span class="keyword">continue</span>       <span class="comment"># 跳过空输入，回到循环开头</span>
+
+    <span class="func">print</span>(<span class="string">f"你说了: <span class="var-name">{user_input}</span>"</span>)</pre>
+
+  <div class="tip-box">
+    <strong>💡 break vs continue 记忆法：</strong><br>
+    <code class="inline-code">break</code> = "我受够了，直接走人"（退出整个循环）<br>
+    <code class="inline-code">continue</code> = "这次不算，重来"（跳过本次，继续下一次）
+  </div>
+
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-content">
+      <h4>动手练习（15分钟）</h4>
+      <p>写一个小程序巩固今天的知识点：</p>
+    </div>
+  </div>
+
+  <pre><span class="comment"># 练习：AMC 项目状态判断器</span>
+<span class="comment"># 1. 用 while 循环持续接收用户输入项目金额</span>
+<span class="comment"># 2. if 判断：金额 > 1000万 为"大项目"，> 100万 为"中项目"，否则"小项目"</span>
+<span class="comment"># 3. 输入 q 退出，输入空行用 continue 跳过</span>
+<span class="comment"># 4. 用一个列表记录所有输入过的金额，退出时打印列表</span>
+
+<span class="var-name">amounts</span> = []
+
+<span class="keyword">while</span> <span class="builtin">True</span>:
+    <span class="var-name">raw</span> = <span class="builtin">input</span>(<span class="string">"输入项目金额（万元），q退出: "</span>)
+
+    <span class="keyword">if</span> <span class="var-name">raw</span>.strip().lower() == <span class="string">"q"</span>:
+        <span class="func">print</span>(<span class="string">f"所有项目金额: <span class="var-name">{amounts}</span>"</span>)
+        <span class="func">print</span>(<span class="string">f"共 <span class="builtin">{len</span>(amounts)}</span> 个项目"</span>)
+        <span class="keyword">break</span>
+
+    <span class="keyword">if</span> <span class="keyword">not</span> <span class="var-name">raw</span>.strip():
+        <span class="func">print</span>(<span class="string">"输入不能为空，请重新输入"</span>)
+        <span class="keyword">continue</span>
+
+    <span class="keyword">try</span>:
+        <span class="var-name">amount</span> = <span class="builtin">float</span>(<span class="var-name">raw</span>)
+    <span class="keyword">except</span> <span class="builtin">ValueError</span>:
+        <span class="func">print</span>(<span class="string">"请输入有效数字！"</span>)
+        <span class="keyword">continue</span>
+
+    <span class="var-name">amounts</span>.append(<span class="var-name">amount</span>)
+
+    <span class="keyword">if</span> <span class="var-name">amount</span> > <span class="builtin">1000</span>:
+        <span class="func">print</span>(<span class="string">"🔴 大项目（>1000万）"</span>)
+    <span class="keyword">elif</span> <span class="var-name">amount</span> > <span class="builtin">100</span>:
+        <span class="func">print</span>(<span class="string">"🟠 中项目（100-1000万）"</span>)
+    <span class="keyword">else</span>:
+        <span class="func">print</span>(<span class="string">"🟢 小项目（<100万）"</span>)</pre>
+
+  <div class="warn-box">
+    <strong>⚠️ 注意：</strong>上面的练习里提前用了 <code class="inline-code">try/except</code>（异常处理），这是第3周 Day 2 的正式内容。今天先照着用，理解"防止程序因用户乱输入而崩溃"的意图即可，不用深究。
+  </div>
+</div>
+
+<!-- ============ 2. LLM 实操 ============ -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🤖</span>
+    LLM 实操：多轮对话程序实现
+    <span class="time-tag">~60-90 分钟</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>今天的目标：</strong>用 Python 写一个交互式多轮对话程序，支持历史消息管理。这是所有 AI 对话产品（ChatGPT、豆包等）的核心机制——<strong>把之前的对话历史一起发给模型</strong>，它才能理解上下文。
+  </div>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-content">
+      <h4>理解多轮对话的原理</h4>
+      <p>LLM 本身是"无状态"的——每次调用都是独立的。所谓"多轮对话"，本质是：<strong>每次调用时把历史消息一起塞进去</strong>。</p>
+    </div>
+  </div>
+
+  <pre><span class="comment"># OpenAI API 的 messages 参数格式：</span>
+<span class="comment"># messages 是一个列表，每个元素是一个字典 {"role": "...", "content": "..."}</span>
+
+<span class="var-name">messages</span> = [
+    {<span class="string">"role"</span>: <span class="string">"system"</span>,    <span class="string">"content"</span>: <span class="string">"你是AMC不良资产业务专家"</span>},
+    {<span class="string">"role"</span>: <span class="string">"user"</span>,      <span class="string">"content"</span>: <span class="string">"什么是债权转让？"</span>},
+    {<span class="string">"role"</span>: <span class="string">"assistant"</span>, <span class="string">"content"</span>: <span class="string">"债权转让是指..."</span>},
+    {<span class="string">"role"</span>: <span class="string">"user"</span>,      <span class="string">"content"</span>: <span class="string">"那它和债务重组有什么区别？"</span>}  <span class="comment"># 模型能看到上面的历史</span>
+]</pre>
+
+  <div class="tip-box">
+    <strong>💡 三种角色：</strong><br>
+    <code class="inline-code">system</code> — 系统指令，定义模型的人设和行为规则（只发一次）<br>
+    <code class="inline-code">user</code> — 用户说的话<br>
+    <code class="inline-code">assistant</code> — 模型的回复（历史对话中需要保留，让模型知道自己说过什么）
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-content">
+      <h4>完整代码：交互式多轮对话程序</h4>
+      <p>把下面的代码保存为 <code class="inline-code">chat_loop.py</code>，直接运行。</p>
+    </div>
+  </div>
+
+  <pre><span class="keyword">from</span> openai <span class="keyword">import</span> OpenAI
+<span class="keyword">import</span> os
+
+<span class="comment"># ====== 配置 ======</span>
+<span class="comment"># 智谱 API（兼容 OpenAI 格式）</span>
+<span class="var-name">client</span> = OpenAI(
+    api_key=<span class="string">"你的智谱API Key"</span>,
+    base_url=<span class="string">"https://open.bigmodel.cn/api/paas/v4/"</span>
+)
+<span class="var-name">MODEL</span> = <span class="string">"glm-4-flash"</span>
+
+<span class="comment"># 系统提示词（定义 AI 的人设）</span>
+<span class="var-name">SYSTEM_PROMPT</span> = <span class="string">"""你是宁波AMC的不良资产业务专家。
+你的职责：
+1. 回答关于不良资产收购、管理、处置的专业问题
+2. 用通俗易懂的语言解释专业术语
+3. 涉及金额计算时，给出详细的计算步骤
+4. 如果不确定，明确告知而不是编造答案"""</span>
+
+<span class="comment"># 对话历史列表</span>
+<span class="var-name">messages</span> = [
+    {<span class="string">"role"</span>: <span class="string">"system"</span>, <span class="string">"content"</span>: <span class="var-name">SYSTEM_PROMPT</span>}
+]
+
+<span class="comment"># ====== 核心函数 ======</span>
+<span class="keyword">def</span> <span class="func">chat</span>(<span class="var-name">user_input</span>):
+    <span class="string">"""发送消息给 LLM，返回回复"""</span>
+    <span class="comment"># 1. 把用户消息加入历史</span>
+    <span class="var-name">messages</span>.append({<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: <span class="var-name">user_input</span>})
+
+    <span class="comment"># 2. 调用 LLM（传入完整历史）</span>
+    <span class="var-name">response</span> = <span class="var-name">client</span>.chat.completions.create(
+        model=<span class="var-name">MODEL</span>,
+        messages=<span class="var-name">messages</span>,
+        temperature=<span class="builtin">0.7</span>
+    )
+
+    <span class="comment"># 3. 提取回复内容</span>
+    <span class="var-name">reply</span> = <span class="var-name">response</span>.choices[<span class="builtin">0</span>].message.content
+
+    <span class="comment"># 4. 把 AI 回复也加入历史（下次对话时模型能看到）</span>
+    <span class="var-name">messages</span>.append({<span class="string">"role"</span>: <span class="string">"assistant"</span>, <span class="string">"content"</span>: <span class="var-name">reply</span>})
+
+    <span class="keyword">return</span> <span class="var-name">reply</span>
+
+<span class="comment"># ====== 交互式主循环 ======</span>
+<span class="func">print</span>(<span class="string">"="*50</span>)
+<span class="func">print</span>(<span class="string">"  AMC 不良资产智能问答助手"</span>)
+<span class="func">print</span>(<span class="string">"  输入问题开始对话，输入 q 退出"</span>)
+<span class="func">print</span>(<span class="string">"  输入 history 查看对话历史，输入 clear 清除历史"</span>)
+<span class="func">print</span>(<span class="string">"="*50</span>)
+
+<span class="keyword">while</span> <span class="builtin">True</span>:
+    <span class="var-name">user_input</span> = <span class="builtin">input</span>(<span class="string">"\n你: "</span>).strip()
+
+    <span class="comment"># 退出</span>
+    <span class="keyword">if</span> <span class="var-name">user_input</span>.lower() == <span class="string">"q"</span>:
+        <span class="func">print</span>(<span class="string">"再见！"</span>)
+        <span class="keyword">break</span>
+
+    <span class="comment"># 跳过空输入</span>
+    <span class="keyword">if</span> <span class="keyword">not</span> <span class="var-name">user_input</span>:
+        <span class="keyword">continue</span>
+
+    <span class="comment"># 查看历史</span>
+    <span class="keyword">if</span> <span class="var-name">user_input</span> == <span class="string">"history"</span>:
+        <span class="func">print</span>(<span class="string">f"\n当前对话轮数: <span class="builtin">{len</span>(messages) - 1}</span>（不含system）"</span>)
+        <span class="keyword">for</span> <span class="var-name">msg</span> <span class="keyword">in</span> <span class="var-name">messages</span>[<span class="builtin">1</span>:]:
+            <span class="var-name">role</span> = <span class="string">"你"</span> <span class="keyword">if</span> <span class="var-name">msg</span>[<span class="string">"role"</span>] == <span class="string">"user"</span> <span class="keyword">else</span> <span class="string">"AI"</span>
+            <span class="func">print</span>(<span class="string">f"  <span class="var-name">{role}</span>: <span class="var-name">{msg[</span>'content'<span class="var-name">][:50]}</span>..."</span>
+                  <span class="keyword">if</span> <span class="builtin">len</span>(<span class="var-name">msg</span>[<span class="string">"content"</span>]) > <span class="builtin">50</span>
+                  <span class="keyword">else</span> <span class="string">f"  <span class="var-name">{role}</span>: <span class="var-name">{msg[</span>'content'<span class="var-name">]}</span>"</span>)
+        <span class="keyword">continue</span>
+
+    <span class="comment"># 清除历史</span>
+    <span class="keyword">if</span> <span class="var-name">user_input</span> == <span class="string">"clear"</span>:
+        <span class="var-name">messages</span> = [{<span class="string">"role"</span>: <span class="string">"system"</span>, <span class="string">"content"</span>: <span class="var-name">SYSTEM_PROMPT</span>}]
+        <span class="func">print</span>(<span class="string">"对话历史已清除，开始新对话。"</span>)
+        <span class="keyword">continue</span>
+
+    <span class="comment"># 正常对话</span>
+    <span class="keyword">try</span>:
+        <span class="var-name">reply</span> = <span class="func">chat</span>(<span class="var-name">user_input</span>)
+        <span class="func">print</span>(<span class="string">f"\nAI: <span class="var-name">{reply}</span>"</span>)
+    <span class="keyword">except</span> <span class="builtin">Exception</span> <span class="keyword">as</span> <span class="var-name">e</span>:
+        <span class="func">print</span>(<span class="string">f"出错了: <span class="var-name">{e}</span>"</span>)
+        <span class="comment"># 出错时移除刚才加入的 user 消息，避免污染历史</span>
+        <span class="var-name">messages</span>.pop()</pre>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-content">
+      <h4>进阶实验：对话轮数限制</h4>
+      <p>真实产品不会无限保留历史——太长会超出 token 上限且浪费费用。试试加一个滑动窗口：</p>
+    </div>
+  </div>
+
+  <pre><span class="comment"># 在 chat() 函数中加入：只保留最近 N 轮对话</span>
+<span class="var-name">MAX_HISTORY</span> = <span class="builtin">10</span>  <span class="comment"># 保留最近10条消息（5轮对话）</span>
+
+<span class="keyword">def</span> <span class="func">chat</span>(<span class="var-name">user_input</span>):
+    <span class="var-name">messages</span>.append({<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: <span class="var-name">user_input</span>})
+
+    <span class="comment"># 滑动窗口：保留 system + 最近 N 条</span>
+    <span class="var-name">trim_messages</span> = [<span class="var-name">messages</span>[<span class="builtin">0</span>]] + <span class="var-name">messages</span>[-<span class="var-name">MAX_HISTORY</span>:]
+
+    <span class="var-name">response</span> = <span class="var-name">client</span>.chat.completions.create(
+        model=<span class="var-name">MODEL</span>,
+        messages=<span class="var-name">trim_messages</span>,
+        temperature=<span class="builtin">0.7</span>
+    )
+    <span class="var-name">reply</span> = <span class="var-name">response</span>.choices[<span class="builtin">0</span>].message.content
+    <span class="var-name">messages</span>.append({<span class="string">"role"</span>: <span class="string">"assistant"</span>, <span class="string">"content"</span>: <span class="var-name">reply</span>})
+    <span class="keyword">return</span> <span class="var-name">reply</span></pre>
+
+  <div class="tip-box">
+    <strong>💡 实验建议：</strong>用多轮对话测试上下文记忆能力——<br>
+    1. 先问"什么是债权转让？"<br>
+    2. 再问"它一般能回收多少比例？"<br>
+    3. 再问"如果我要做这个，需要准备什么材料？"<br>
+    观察模型是否能记住前面的对话上下文。
+  </div>
+
+  <div class="warn-box">
+    <strong>⚠️ Token 消耗提醒：</strong>每次调用都会把整个 messages 列表发给 API，对话越长，单次调用消耗的 token 越多、费用越高。这就是为什么滑动窗口和上下文管理在生产环境中很重要。
+  </div>
+</div>
+
+<!-- ============ 3. 碎片知识 ============ -->
+<div class="section fragment-section">
+  <div class="section-title">
+    <span class="icon">📖</span>
+    碎片知识：LLM 的幻觉问题（Hallucination）
+    <span class="time-tag">~15 分钟</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>核心概念：</strong>LLM 会"一本正经地胡说八道"——它生成的文本语法流畅、逻辑看起来合理，但内容完全是编造的。这就是<strong>幻觉（Hallucination）</strong>。这是 LLM 应用开发中必须面对的核心问题。
+  </div>
+
+  <p style="margin:12px 0;font-size:14px;color:var(--text2)">用一个 AMC 场景来理解：</p>
+
+  <table class="compare-table">
+    <tr><th>用户提问</th><th>模型幻觉输出（编造）</th></tr>
+    <tr>
+      <td>"宁波市2024年不良资产处置规模是多少？"</td>
+      <td style="color:var(--red)">"根据银保监会数据，2024年宁波市不良资产处置规模达到<span style="text-decoration:underline">328.7亿元</span>，同比增长12.3%..."<br><em>（数字完全是模型编的，真实数据可能完全不同）</em></td>
+    </tr>
+    <tr>
+      <td>"某某AMC的CEO是谁？"</td>
+      <td style="color:var(--red)">"宁波AMC的现任CEO是张某某..."<br><em>（可能张冠李戴，把别的公司的人安过来）</em></td>
+    </tr>
+  </table>
+
+  <p style="margin:14px 0;font-size:14px;color:var(--text2)"><strong style="color:var(--text)">幻觉的 3 大成因：</strong></p>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-content">
+      <h4>训练数据的噪声与错误</h4>
+      <p>模型从海量互联网文本中学习，这些文本本身就包含错误信息、过时信息、相互矛盾的内容。模型只是学到了"哪些词经常一起出现"，而不是"事实是什么"。</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-content">
+      <h4>生成式架构的本质</h4>
+      <p>LLM 是<strong>逐个 token 预测下一个词</strong>的，它的目标是"生成流畅合理的文本"，而不是"说出正确的事实"。它会根据概率选择最可能的下一个词，而不是去数据库里查证。</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-content">
+      <h4>知识截止日期</h4>
+      <p>模型的训练数据有截止日期（比如 GPT-4 训练到 2023 年），超出这个时间的事情它完全不知道，但仍然会试图"回答"，导致编造。</p>
+    </div>
+  </div>
+
+  <p style="margin:18px 0 10px;font-size:14px;color:var(--text2)"><strong style="color:var(--text)">3 种缓解策略（RAG 是最核心的）：</strong></p>
+
+  <table class="compare-table">
+    <tr><th>策略</th><th>原理</th><th>效果</th><th>你后续会学到</th></tr>
+    <tr>
+      <td><strong style="color:var(--green)">RAG（检索增强生成）</strong></td>
+      <td>先从知识库检索相关文档，把文档内容塞进 Prompt，让模型"基于材料回答"</td>
+      <td style="color:var(--green)">★★★★★</td>
+      <td>Phase 2（W6-W9）</td>
+    </tr>
+    <tr>
+      <td><strong style="color:var(--accent)">Prompt 工程</strong></td>
+      <td>在系统提示词中明确要求"如果不确定就说不知道"，限制回答范围</td>
+      <td style="color:var(--orange)">★★★☆☆</td>
+      <td>现在就能用</td>
+    </tr>
+    <tr>
+      <td><strong style="color:var(--accent2)">微调（Fine-tuning）</strong></td>
+      <td>用高质量领域数据微调，让模型更熟悉领域知识，减少编造</td>
+      <td style="color:var(--orange)">★★★☆☆</td>
+      <td>Phase 3（W12）</td>
+    </tr>
+  </table>
+
+  <div class="tip-box">
+    <strong>💡 关键认知：</strong>RAG 为什么是解决幻觉的最佳方案？因为它把"记忆"从模型内部（不可控）搬到了外部知识库（可审查、可更新）。模型只需要做"阅读理解"，不需要"凭记忆回答"。<br><br>
+    这也是为什么 RAG 是 Phase 2 的核心——它是 LLM 应用工程师最硬的技能。
+  </div>
+
+  <p style="margin:14px 0;font-size:14px;color:var(--text2)"><strong style="color:var(--text)">推荐阅读（碎片时间完成）：</strong></p>
+  <ul>
+    <li>OpenAI 官方文档关于 <strong>Hallucination</strong> 的说明（~5分钟阅读）</li>
+    <li>搜索关键词：<code class="inline-code">"LLM hallucination causes and mitigation"</code>（技术博客，~10分钟）</li>
+    <li>思考题：你在 AMC 工作中，哪些场景最怕 LLM 出现幻觉？（提示：涉及金额、法规、合规判断的场景）</li>
+  </ul>
+</div>
+
+<!-- ============ 4. LeetCode ============ -->
+<div class="section leetcode-section">
+  <div class="section-title">
+    <span class="icon">🧩</span>
+    LeetCode 每日一题
+    <span class="time-tag">~15 分钟</span>
+  </div>
+
+  <p style="font-size:14px;color:var(--text2);margin-bottom:14px">
+    今天刷一道经典的 <strong style="color:var(--text)">条件判断 + 循环</strong> 题，正好巩固刚学的 Python 知识。
+  </p>
+
+  <div style="background:var(--surface2);padding:16px 20px;border-radius:8px;margin-bottom:14px">
+    <p style="font-size:13px;color:var(--accent);font-weight:600;margin-bottom:8px">📋 LeetCode #70 · 爬楼梯（Easy）</p>
+    <p style="font-size:14px;color:var(--text);line-height:1.8">
+      假设你正在爬楼梯，需要 <code class="inline-code">n</code> 阶才能到达楼顶。每次你可以爬 1 或 2 个台阶，有多少种不同的方法可以到达楼顶？<br><br>
+      <strong>示例：</strong>n = 3 → 输出 3（1+1+1、1+2、2+1）<br>
+      <strong>提示：</strong>这就是斐波那契数列！<code class="inline-code">f(n) = f(n-1) + f(n-2)</code>
+    </p>
+  </div>
+
+  <pre><span class="comment"># 提示代码框架</span>
+<span class="keyword">def</span> <span class="func">climbStairs</span>(<span class="var-name">n</span>):
+    <span class="keyword">if</span> <span class="var-name">n</span> <= <span class="builtin">2</span>:
+        <span class="keyword">return</span> <span class="var-name">n</span>
+    <span class="var-name">a</span>, <span class="var-name">b</span> = <span class="builtin">1</span>, <span class="builtin">2</span>
+    <span class="keyword">for</span> <span class="var-name">i</span> <span class="keyword">in</span> <span class="builtin">range</span>(<span class="builtin">3</span>, <span class="var-name">n</span> + <span class="builtin">1</span>):
+        <span class="var-name">a</span>, <span class="var-name">b</span> = <span class="var-name">b</span>, <span class="var-name">a</span> + <span class="var-name">b</span>    <span class="comment"># Python 多变量同时赋值！</span>
+    <span class="keyword">return</span> <span class="var-name">b</span>
+
+<span class="comment"># 测试</span>
+<span class="func">print</span>(<span class="func">climbStairs</span>(<span class="builtin">3</span>))  <span class="comment"># 3</span>
+<span class="func">print</span>(<span class="func">climbStairs</span>(<span class="builtin">5</span>))  <span class="comment"># 8</span></pre>
+
+  <p style="font-size:13px;color:var(--text2);margin-top:10px">
+    如果 10 分钟写不出来就看题解，理解后自己重写一遍。重点是<strong style="color:var(--text)">理解 for 循环 + 变量更新的思路</strong>，不需要最优解。
+  </p>
+</div>
+
+<!-- ============ 5. 今日检查清单 ============ -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">✅</span>
+    今日检查清单
+  </div>
+
+  <ul class="task-list" id="checklist">
+    <li onclick="toggle(this)">
+      <div class="check"></div>
+      <span>Python：完成 if/elif/else 条件判断练习（AMC 项目状态判断器）</span>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check"></div>
+      <span>Python：理解 for/while 循环和 break/continue 的区别</span>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check"></div>
+      <span>LLM 实操：运行 chat_loop.py，完成至少 3 轮多轮对话测试</span>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check"></div>
+      <span>LLM 实操：测试上下文记忆——问完"债权转让"后追问相关问题</span>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check"></div>
+      <span>LLM 实操（可选）：实现滑动窗口，设置 MAX_HISTORY=10 观察差异</span>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check"></div>
+      <span>碎片知识：理解 LLM 幻觉的 3 个成因和 3 种缓解策略</span>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check"></div>
+      <span>LeetCode：完成爬楼梯 #70（Easy）</span>
+    </li>
+  </ul>
+</div>
+
+<!-- ============ 6. 明天预告 ============ -->
+<div class="section" style="background:linear-gradient(135deg, rgba(56,189,248,0.06), rgba(129,140,248,0.06));border-color:rgba(56,189,248,0.2)">
+  <div class="section-title">
+    <span class="icon">📅</span>
+    明天预告（Day 7 · Week 2 Day 5）
+  </div>
+  <table class="compare-table">
+    <tr><th>模块</th><th>内容</th></tr>
+    <tr><td>🐍 Python</td><td>函数定义、参数类型（默认参数/*args/**kwargs）、返回值</td></tr>
+    <tr><td>🤖 LLM 实操</td><td><strong>把 LLM 调用封装成函数</strong>：传入 system_prompt + user_prompt，返回结构化结果</td></tr>
+    <tr><td>📖 碎片知识</td><td>上下文窗口与知识截止（Context Length）</td></tr>
+    <tr><td>🧩 LeetCode</td><td>数组简单题</td></tr>
+  </table>
+  <p style="margin-top:12px;font-size:13px;color:var(--text2)">
+    明天进入<strong style="color:var(--text)">函数封装</strong>——把今天写的对话逻辑包装成可复用的函数，开始有"工程化"的感觉了。
+  </p>
+</div>
+
+<div class="footer">
+  📅 Day 6 / 112 · Phase 1A · Week 2 Day 4<br>
+  离线数据开发工程师 → AI大模型应用工程师 · 5个月转型计划
+</div>
+
+<script>
+function toggle(item) {
+  item.classList.toggle('done');
+  const check = item.querySelector('.check');
+  check.textContent = item.classList.contains('done') ? '✓' : '';
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 10 - 周末实战 Part 1：不良资产知识问答小助手</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#eff6ff,#eef2ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #bfdbfe; }
+  .header .badge { display:inline-block;background:#dbeafe;color:var(--accent);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  pre { background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;overflow-x:auto;font-size:13.5px;line-height:1.65;margin:12px 0;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--text); }
+  code { font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:13px; }
+  .ic { background:#f1f5f9;padding:2px 7px;border-radius:4px;font-size:13px;color:var(--accent);border:1px solid #e2e8f0; }
+  .step { display:flex;gap:14px;margin:16px 0;align-items:flex-start; }
+  .sn { background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;margin-top:2px; }
+  .sc { flex:1; }
+  .sc h4 { font-size:15px;font-weight:600;margin-bottom:6px; }
+  .sc p { font-size:14px;color:var(--text2); }
+  ul,ol { padding-left:22px;margin:8px 0; }
+  li { font-size:14px;color:var(--text2);margin:4px 0; }
+  li strong { color:var(--text); }
+  .tl { list-style:none;padding:0;margin:12px 0; }
+  .tl li { display:flex;align-items:flex-start;gap:10px;padding:8px 12px;margin:6px 0;background:var(--surface2);border-radius:8px;font-size:14px;color:var(--text);cursor:pointer;transition:opacity .2s; }
+  .tl li.done { opacity:.45;text-decoration:line-through; }
+  .tl li .ck { width:20px;height:20px;border:2px solid var(--border);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px;font-size:12px;transition:all .2s; }
+  .tl li.done .ck { background:var(--green);border-color:var(--green);color:#fff; }
+  .ct { width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px; }
+  .ct th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;color:var(--accent);border-bottom:2px solid var(--border); }
+  .ct td { padding:10px 14px;border-bottom:1px solid var(--surface3);color:var(--text2); }
+  .fs { background:linear-gradient(135deg,#faf5ff,#fef3c7);border-color:#e9d5ff; }
+  .fs .section-title { border-bottom-color:#e9d5ff; }
+  .ls { background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-color:#bbf7d0; }
+  .ls .section-title { border-bottom-color:#bbf7d0; }
+  .wk { background:linear-gradient(135deg,#fef3c7,#fff7ed);border-color:#fde68a; }
+  .wk .section-title { border-bottom-color:#fde68a; }
+  .footer { text-align:center;color:var(--text3);font-size:13px;padding:20px;margin-top:10px; }
+  .kw { color:#dc2626;font-weight:600; }
+  .st { color:#16a34a; }
+  .cm { color:#94a3b8;font-style:italic; }
+  .fn { color:#7c3aed; }
+  .bi { color:#2563eb; }
+  .vn { color:#c2410c; }
+  .reg { color:#ea580c; }
+  .file-tree { background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 18px;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:13px;line-height:1.8;margin:12px 0; }
+  .file-tree .dir { color:var(--accent);font-weight:600; }
+  .file-tree .file { color:var(--text2); }
+  .file-tree .comment { color:var(--text3);font-style:italic; }
+  .phase-tag { display:inline-block;background:linear-gradient(135deg,#fef3c7,#fff7ed);color:var(--orange);padding:4px 12px;border-radius:16px;font-size:12px;font-weight:600;border:1px solid #fde68a; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">PHASE 1A · WEEK 2 · 周末实战 <span class="phase-tag">PROJECT DAY</span></div>
+  <h1>Day 10 — 周末实战 Part 1：不良资产知识问答小助手</h1>
+  <div class="subtitle">2026-05-30（周六）· 把 Week 2 的所有知识串联成一个完整项目！</div>
+</div>
+
+<div class="progress-bar">
+  <span class="label">总体进度</span>
+  <div class="track"><div class="fill" style="width:8.93%"></div></div>
+  <span class="percent">10/112</span>
+</div>
+
+<!-- ====== 项目总览 ====== -->
+<div class="section" style="background:linear-gradient(135deg,#eff6ff,#eef2ff);border-color:#bfdbfe">
+  <div class="section-title">
+    <span class="icon">🏗️</span> 项目总览：不良资产知识问答小助手
+  </div>
+
+  <div class="concept-box">
+    <strong>今天的目标：</strong>用 Week 2 学的全部技能，从零搭建一个<strong>命令行版 AMC 知识问答助手</strong>。这不是在学新语法，而是在<strong>整合</strong>——把列表/字典/函数/文件读写/正则/LLM API 调用串起来，做一个真正能跑的程序。
+  </div>
+
+  <p style="font-size:14px;color:var(--text2);margin-bottom:14px"><strong style="color:var(--text)">项目功能：</strong></p>
+  <table class="ct">
+    <tr><th>#</th><th>功能</th><th>说明</th><th>用到的技能</th></tr>
+    <tr><td>1</td><td>本地知识库</td><td>JSON 文件存储 20 条 AMC 常见问答对</td><td>JSON 读写（Day 8）</td></tr>
+    <tr><td>2</td><td>关键词搜索</td><td>用户输入 → 先在本地库中匹配</td><td>字符串 in、split（Day 9）</td></tr>
+    <tr><td>3</td><td>LLM 兜底</td><td>本地没匹配到 → 调 LLM API 回答</td><td>函数封装（Day 7）、Prompt 设计</td></tr>
+    <tr><td>4</td><td>对话循环</td><td>while 循环交互，支持 quit 退出</td><td>while + break（Day 6）</td></tr>
+    <tr><td>5</td><td>对话持久化</td><td>自动保存到 JSON，下次启动恢复</td><td>with + JSON（Day 8）</td></tr>
+    <tr><td>6</td><td>输出格式校验</td><td>用正则检查 LLM 回答格式</td><td>re 模块（Day 9）</td></tr>
+  </table>
+
+  <p style="font-size:14px;color:var(--text2);margin:14px 0 8px"><strong style="color:var(--text)">周末两天分工：</strong></p>
+  <div style="display:flex;gap:16px;flex-wrap:wrap">
+    <div style="flex:1;min-width:200px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px 18px">
+      <p style="font-size:14px;font-weight:700;color:var(--green);margin-bottom:6px">今天（周六）Part 1</p>
+      <ul style="font-size:13px">
+        <li>项目结构 + 知识库数据</li>
+        <li>本地搜索模块</li>
+        <li>LLM 兜底模块</li>
+        <li>主程序循环（完整可运行）</li>
+      </ul>
+    </div>
+    <div style="flex:1;min-width:200px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:14px 18px">
+      <p style="font-size:14px;font-weight:700;color:var(--accent);margin-bottom:6px">明天（周日）Part 2</p>
+      <ul style="font-size:13px">
+        <li>对话持久化 + 历史恢复</li>
+        <li>输出格式校验 + 日志</li>
+        <li>测试 + 优化</li>
+        <li>Git 推送到 GitHub</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ====== Step 1: 项目结构 ====== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📁</span> Step 1：创建项目结构
+    <span class="time-tag">~10 分钟</span>
+  </div>
+
+  <div class="step">
+    <div class="sn">1</div>
+    <div class="sc">
+      <h4>创建项目文件夹</h4>
+      <p>在你的学习目录下创建以下结构：</p>
+    </div>
+  </div>
+
+  <div class="file-tree">
+<span class="dir">amc-chatbot/</span>              <span class="comment"># 项目根目录</span>
+├── <span class="file">main.py</span>                    <span class="comment"># 主程序入口（今天完成）</span>
+├── <span class="file">knowledge_base.json</span>        <span class="comment"># AMC 知识库（20 条问答对）</span>
+├── <span class="file">config.py</span>                  <span class="comment"># 配置文件（API Key 等）</span>
+├── <span class="file">llm_client.py</span>              <span class="comment"># LLM 调用模块（封装函数）</span>
+├── <span class="file">search.py</span>                  <span class="comment"># 本地关键词搜索模块</span>
+├── <span class="file">chat_history.json</span>          <span class="comment"># 对话历史（运行后自动生成）</span>
+├── <span class="file">.env</span>                       <span class="comment"># API Key（不提交到 Git！）</span>
+├── <span class="file">.gitignore</span>                <span class="comment"># Git 忽略文件配置</span>
+└── <span class="file">README.md</span>                  <span class="comment"># 项目说明（明天写）</span>
+  </div>
+
+  <div class="tip-box">
+    <strong>💡 为什么要拆成多个文件？</strong>这是<strong>模块化编程</strong>的基本思想。每个文件负责一个功能：config 管配置、llm_client 管调 LLM、search 管搜索、main.py 负责把所有模块"组装"起来。就像你的数据仓库分层（ODS/DWD/DWS/ADS），每层各司其职。
+  </div>
+
+  <div class="step">
+    <div class="sn">2</div>
+    <div class="sc">
+      <h4>初始化 Git 仓库</h4>
+      <p>在项目根目录下执行：</p>
+    </div>
+  </div>
+
+  <pre><span class="cm"># 进入项目目录</span>
+<span class="bi">cd</span> amc-chatbot
+
+<span class="cm"># 初始化 Git</span>
+<span class="bi">git</span> init
+
+<span class="cm"># 创建 .gitignore（保护 API Key 和临时文件）</span></pre>
+
+  <pre><span class="cm"># .gitignore 内容（直接复制）</span>
+<span class="cm"># Python</span>
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+<span class="cm"># 环境变量（绝对不能提交！）</span>
+.env
+
+<span class="cm"># 运行时生成的文件</span>
+chat_history.json
+project_analysis.json
+
+<span class="cm"># IDE</span>
+.vscode/
+.idea/</pre>
+
+  <pre><span class="cm"># 提交初始化</span>
+<span class="bi">git</span> add .
+<span class="bi">git</span> commit -m <span class="st">"初始化 AMC 知识问答助手项目"</span></pre>
+
+  <div class="warn-box">
+    <strong>⚠️ API Key 安全第一：</strong><code class="ic">.env</code> 文件只存在本地，<strong>永远不要提交到 Git</strong>。已经在 .gitignore 里排除了。这是开发者的基本素养，面试也会问到。
+  </div>
+</div>
+
+<!-- ====== Step 2: 知识库数据 ====== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📚</span> Step 2：准备 AMC 知识库数据
+    <span class="time-tag">~20 分钟</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>知识库的作用：</strong>用户的常见问题可以直接从本地回答，不需要每次都调 LLM API。这样做有 3 个好处：<strong>速度快</strong>（零网络延迟）、<strong>省钱</strong>（不消耗 API token）、<strong>答案准确</strong>（预先审核过的标准答案）。
+  </div>
+
+  <div class="step">
+    <div class="sn">1</div>
+    <div class="sc">
+      <h4>创建 knowledge_base.json</h4>
+      <p>20 条 AMC 常见问答对，覆盖核心业务概念。用你熟悉的 AMC 业务知识来填写。</p>
+    </div>
+  </div>
+
+  <pre><span class="cm"># knowledge_base.json</span>
+[
+  {
+    <span class="st">"question"</span>: <span class="st">"什么是不良资产"</span>,
+    <span class="st">"keywords"</span>: [<span class="st">"不良资产"</span>, <span class="st">"NPL"</span>, <span class="st">"不良贷款"</span>],
+    <span class="st">"answer"</span>: <span class="st">"不良资产（Non-Performing Loan, NPL）是指借款人未能按期偿还本息的贷款资产。在AMC（资产管理公司）业务中，不良资产主要包括不良贷款、抵债资产、实物资产等。四大AMC（信达、华融、长城、东方）最初是为处置国有银行不良资产而设立的。"</span>
+  },
+  {
+    <span class="st">"question"</span>: <span class="st">"不良资产的处置方式有哪些"</span>,
+    <span class="st">"keywords"</span>: [<span class="st">"处置方式"</span>, <span class="st">"处置"</span>, <span class="st">"债权转让"</span>, <span class="st">"债务重组"</span>, <span class="st">"诉讼"</span>],
+    <span class="st">"answer"</span>: <span class="st">"不良资产的主要处置方式包括：(1)债权转让：将不良债权打包出售给第三方投资者；(2)债务重组：与债务人协商调整还款条件（展期、减息、债转股等）；(3)诉讼执行：通过法律途径追偿债务；(4)破产清算：对资不抵债的债务人进行破产处理；(5)资产证券化：将不良资产打包发行证券产品；(6)实物资产处置：对抵债的房产、土地等进行拍卖或协议转让。"</span>
+  },
+  {
+    <span class="st">"question"</span>: <span class="st">"什么是净回收率"</span>,
+    <span class="st">"keywords"</span>: [<span class="st">"净回收率"</span>, <span class="st">"回收率"</span>, <span class="st">"回收"</span>],
+    <span class="st">"answer"</span>: <span class="st">"净回收率 = (已回收金额 - 处置费用) / 收购成本 × 100%。其中：已回收金额是通过处置获得的全部收入；处置费用包括律师费、评估费、拍卖费、保管费等。净回收率是衡量不良资产处置效果的核心指标，一般行业平均在 20%-40% 之间。"</span>
+  },
+  {
+    <span class="st">"question"</span>: <span class="st">"什么是C表报送"</span>,
+    <span class="st">"keywords"</span>: [<span class="st">"C表"</span>, <span class="st">"报送"</span>, <span class="st">"监管报送"</span>, <span class="st">"金融办"</span>],
+    <span class="st">"answer"</span>: <span class="st">"C表是省金融办要求AMC定期报送的标准化数据报表，用于监管不良资产收购和处置情况。报送流程通常为：NC账套导出数据 → 生成C表 → 通过帆软FineReport展示审核 → API提交报送。报送规则为月度周期、期内可改、截止日锁定。"</span>
+  },
+  {
+    <span class="st">"question"</span>: <span class="st">"全额口径和自有口径的区别"</span>,
+    <span class="st">"keywords"</span>: [<span class="st">"全额口径"</span>, <span class="st">"自有口径"</span>, <span class="st">"口径"</span>, <span class="st">"出资比例"</span>],
+    <span class="st">"answer"</span>: <span class="st">"全额口径指项目的整体收购成本（含自有资金+第三方资金），自有口径仅指AMC自身出资的部分。在合资项目中，如果AMC出资30%、合作方出资70%，则自有口径 = 全额口径 × 30%。两者在数据报送和分析中需要明确区分，否则会导致数据偏差。"</span>
+  },
+  {
+    <span class="st">"question"</span>: <span class="st">"N02表是什么"</span>,
+    <span class="st">"keywords"</span>: [<span class="st">"N02"</span>, <span class="st">"结构化"</span>, <span class="st">"单户收购"</span>],
+    <span class="st">"answer"</span>: <span class="st">"N02是结构化单户收购项目数据表，记录AMC收购的每一笔不良资产项目信息。关键字段包括：项目类型/合作模式、合作方代码、出资比例、全额收购成本、自有出资成本等。N02项目涉及自有资金与第三方资金的合资结构，需在数据层面实现全额口径与自有口径的区分。"</span>
+  },
+  {
+    <span class="st">"question"</span>: <span class="st">"数据仓库分层架构是什么"</span>,
+    <span class="st">"keywords"</span>: [<span class="st">"数据仓库"</span>, <span class="st">"分层"</span>, <span class="st">"ODS"</span>, <span class="st">"DWD"</span>, <span class="st">"DWS"</span>, <span class="st">"ADS"</span>],
+    <span class="st">"answer"</span>: <span class="st">"数据仓库分层架构：ODS（操作数据层）存储原始数据；DWD（明细数据层）清洗、标准化后的明细数据；DWS（汇总数据层）按主题汇总的轻度聚合数据；ADS（应用数据层）直接服务于报表和应用的高度聚合数据。分层的好处是数据可追溯、可复用、职责清晰。"</span>
+  },
+  {
+    <span class="st">"question"</span>: <span class="st">"什么是债权转让"</span>,
+    <span class="st">"keywords"</span>: [<span class="st">"债权转让"</span>, <span class="st">"债权打包"</span>, <span class="st">"批量转让"</span>],
+    <span class="st">"answer"</span>: <span class="st">"债权转让是指AMC将持有的不良债权（对债务人的追偿权利）转让给第三方投资者。通常以'债权包'形式批量转让，转让价格低于债权面值（即打折转让）。AMC通过差价获得处置收益。批量转让要求公开竞价，转让协议需报监管部门备案。"</span>
+  },
+  {
+    <span class="st">"question"</span>: <span class="st">"什么是债务重组"</span>,
+    <span class="st">"keywords"</span>: [<span class="st">"债务重组"</span>, <span class="st">"债转股"</span>, <span class="st">"展期"</span>, <span class="st">"减息"</span>],
+    <span class="st">"answer"</span>: <span class="st">"债务重组是指AMC与债务人协商，对原有债务条件进行调整，以期最大化回收价值。常见方式包括：(1)展期：延长还款期限；(2)减息/免息：降低或免除利息；(3)债转股：将债权转化为对债务企业的股权；(4)资产抵债：债务人用实物资产抵偿债务。"</span>
+  },
+  {
+    <span class="st">"question"</span>: <span class="st">"什么是抵债资产"</span>,
+    <span class="st">"keywords"</span>: [<span class="st">"抵债资产"</span>, <span class="st">"以物抵债"</span>, <span class="st">"实物资产"</span>],
+    <span class="st">"answer"</span>: <span class="st">"抵债资产是指债务人无法以现金偿还债务时，AMC接受的用于抵偿债务的实物资产，包括房产、土地使用权、机器设备、车辆、股权等。抵债资产需要经过评估、确权、过户等程序后，再通过拍卖或协议方式处置变现。"</span>
+  },
+  {
+    <span class="st">"question"</span>: <span class="st">"Hive SQL和普通SQL有什么区别"</span>,
+    <span class="st">"keywords"</span>: [<span class="st">"Hive"</span>, <span class="st">"Hive SQL"</span>, <span class="st">"CDH"</span>],
+    <span class="st">"answer"</span>: <span class="st">"Hive SQL（HQL）是运行在Hadoop上的SQL方言，主要区别：(1)不支持UPDATE/DELETE（只能INSERT OVERWRITE）；(2)不支持事务（早期版本）；(3)数据存储在HDFS上而非本地磁盘；(4)执行的是MapReduce/Tez/Spark任务而非单机查询；(5)支持分区表、分桶表等大数据特性；(6)在CDH 6.3.2环境中常用。"</span>
+  },
+  {
+    <span class="st">"question"</span>: <span class="st">"ETL是什么"</span>,
+    <span class="st">"keywords"</span>: [<span class="st">"ETL"</span>, <span class="st">"数据管道"</span>, <span class="st">"抽取"</span>],
+    <span class="st">"answer"</span>: <span class="st">"ETL（Extract-Transform-Load）是数据处理的三个核心步骤：Extract（抽取）从源系统提取数据；Transform（转换）清洗、标准化、计算衍生字段；Load（加载）将处理后的数据写入目标表。在AMC数据仓库中，典型的ETL流程是从NC系统抽取原始数据，经过清洗和转换后加载到ODS/DWD/DWS/ADS各层。"</span>
+  },
+  {
+    <span class="st">"question"</span>: <span class="st">"帆软FineReport是什么"</span>,
+    <span class="st">"keywords"</span>: [<span class="st">"帆软"</span>, <span class="st">"FineReport"</span>, <span class="st">"报表"</span>, <span class="st">"cpt"</span>],
+    <span class="st">"answer"</span>: <span class="st">"帆软FineReport是一款企业级BI报表工具，用于制作和展示数据报表。在AMC场景中，11张C表都使用.cpt模板文件进行展示和审核。流程通常是：Hive SQL查询数据 → 写入中间表 → 帆软读取展示 → 业务人员审核 → API提交报送。"</span>
+  },
+  {
+    <span class="st">"question"</span>: <span class="st">"什么是LLM"</span>,
+    <span class="st">"keywords"</span>: [<span class="st">"LLM"</span>, <span class="st">"大语言模型"</span>, <span class="st">"GPT"</span>, <span class="st">"大模型"</span>],
+    <span class="st">"answer"</span>: <span class="st">"LLM（Large Language Model，大语言模型）是基于海量文本数据训练的人工智能模型，能够理解和生成人类语言。代表产品包括：OpenAI的GPT系列、智谱的GLM系列、阿里的Qwen（通义千问）系列、Meta的Llama系列等。LLM可以通过API调用，用于问答、文本生成、代码编写、数据分析等场景。"</span>
+  },
+  {
+    <span class="st">"question"</span>: <span class="st">"什么是RAG"</span>,
+    <span class="st">"keywords"</span>: [<span class="st">"RAG"</span>, <span class="st">"检索增强"</span>, <span class="st">"Retrieval"</span>],
+    <span class="st">"answer"</span>: <span class="st">"RAG（Retrieval-Augmented Generation，检索增强生成）是一种让LLM基于外部知识回答问题的技术。流程：用户提问 → 从知识库中检索相关文档 → 将检索结果作为上下文传给LLM → LLM基于这些文档生成回答。RAG解决了LLM的两个问题：知识截止（不知道最新信息）和幻觉（编造不存在的信息）。"</span>
+  },
+  {
+    <span class="st">"question"</span>: <span class="st">"什么是Prompt Engineering"</span>,
+    <span class="st">"keywords"</span>: [<span class="st">"Prompt"</span>, <span class="st">"提示词"</span>, <span class="st">"Few-shot"</span>, <span class="st">"CoT"</span>],
+    <span class="st">"answer"</span>: <span class="st">"Prompt Engineering（提示工程）是设计输入给LLM的指令以获得最佳输出的技术。三种核心策略：(1)Zero-shot：直接提问，不给示例；(2)Few-shot：给几个示例让模型学习模式；(3)Chain-of-Thought（CoT）：让模型'分步思考'，在Prompt中加入'请一步一步分析'等引导语。CoT对复杂计算和推理任务效果最好。"</span>
+  },
+  {
+    <span class="st">"question"</span>: <span class="st">"什么是Agent"</span>,
+    <span class="st">"keywords"</span>: [<span class="st">"Agent"</span>, <span class="st">"智能体"</span>, <span class="st">"工具调用"</span>, <span class="st">"ReAct"</span>],
+    <span class="st">"answer"</span>: <span class="st">"Agent（智能体）是能自主完成任务的AI系统。与普通LLM不同，Agent可以：(1)使用工具（Tool Use）：调用API、查数据库、搜索文档等；(2)多步推理：自主规划任务步骤；(3)记忆管理：维护上下文和经验。典型模式是ReAct（Reasoning + Acting）：思考→行动→观察→继续思考，循环直到任务完成。"</span>
+  },
+  {
+    <span class="st">"question"</span>: <span class="st">"什么是Embedding"</span>,
+    <span class="st">"keywords"</span>: [<span class="st">"Embedding"</span>, <span class="st">"向量"</span>, <span class="st">"向量化"</span>],
+    <span class="st">"answer"</span>: <span class="st">"Embedding（嵌入）是将文本转换为数值向量的技术。核心思想：语义相似的文本，其向量在空间中的距离越近。例如'债权转让'和'债权打包出售'的向量会非常接近。Embedding是RAG系统的基础——通过计算向量相似度来实现语义搜索，比关键字匹配更智能。"</span>
+  },
+  {
+    <span class="st">"question"</span>: <span class="st">"什么是向量数据库"</span>,
+    <span class="st">"keywords"</span>: [<span class="st">"向量数据库"</span>, <span class="st">"Chroma"</span>, <span class="st">"Milvus"</span>],
+    <span class="st">"answer"</span>: <span class="st">"向量数据库是专门存储和检索Embedding向量的数据库。与传统数据库存数字/文本不同，向量数据库存储高维向量，并支持'相似度搜索'——给定一个查询向量，快速找到最相似的向量。常用产品包括：Chroma（轻量级，适合开发）、Milvus（高性能，适合生产环境）、Pinecone（云服务）。"</span>
+  },
+  {
+    <span class="st">"question"</span>: <span class="st">"大模型为什么会幻觉"</span>,
+    <span class="st">"keywords"</span>: [<span class="st">"幻觉"</span>, <span class="st">"hallucination"</span>, <span class="st">"编造"</span>],
+    <span class="st">"answer"</span>: <span class="st">"LLM幻觉是指模型生成看似合理但实际错误或虚构的内容。三大成因：(1)训练数据中缺少相关信息，模型靠'猜测'填补；(2)模型只会预测下一个词的概率，不'知道'自己在说什么；(3)Prompt引导不当，让模型过度发挥。缓解策略：使用RAG提供真实参考、降低temperature参数、要求模型标注不确定的内容、添加'如果不确定请回答不知道'的指令。"</span>
+  }
+]</pre>
+
+  <div class="tip-box">
+    <strong>💡 数据结构设计要点：</strong>每条问答有 3 个字段——<code class="ic">question</code>（标准问题）、<code class="ic">keywords</code>（关键词列表，用于搜索匹配）、<code class="ic">answer</code>（标准答案）。<code class="ic">keywords</code> 是关键——用户可能不会一字不差地输入问题，所以需要多个同义词/近义词来扩大匹配范围。
+  </div>
+</div>
+
+<!-- ====== Step 3: 配置文件 ====== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚙️</span> Step 3：配置文件 config.py
+    <span class="time-tag">~5 分钟</span>
+  </div>
+
+  <div class="step">
+    <div class="sn">1</div>
+    <div class="sc">
+      <h4>config.py — 集中管理所有配置</h4>
+      <p>把 API Key、模型名等配置集中到一个文件，其他模块从这里 import。这样改配置只需要改一个地方。</p>
+    </div>
+  </div>
+
+  <pre><span class="cm"># config.py</span>
+<span class="kw">import</span> os
+
+<span class="cm"># ====== API 配置 ======</span>
+<span class="cm"># 从环境变量读取 API Key（更安全）</span>
+<span class="vn">ZHIPU_API_KEY</span> = os.getenv(<span class="st">"ZHIPU_API_KEY"</span>, <span class="st">"你的智谱API Key填这里"</span>)
+<span class="vn">ZHIPU_BASE_URL</span> = <span class="st">"https://open.bigmodel.cn/api/paas/v4/"</span>
+<span class="vn">ZHIPU_MODEL</span> = <span class="st">"glm-4-flash"</span>  <span class="cm"># 免费模型，适合学习</span>
+
+<span class="cm"># ====== 系统提示词 ======</span>
+<span class="vn">SYSTEM_PROMPT</span> = <span class="st">"""你是一位专业的AMC（资产管理公司）不良资产业务顾问。
+请用简洁专业的中文回答用户的问题。
+如果问题超出你的知识范围，请诚实说明。
+回答时注意：
+1. 使用AMC行业术语但不要过于晦涩
+2. 如果涉及计算，请给出公式和步骤
+3. 如果涉及政策法规，请注明仅供参考"""</span>
+
+<span class="cm"># ====== 文件路径 ======</span>
+<span class="vn">KNOWLEDGE_BASE_FILE</span> = <span class="st">"knowledge_base.json"</span>
+<span class="vn">CHAT_HISTORY_FILE</span> = <span class="st">"chat_history.json"</span>
+
+<span class="cm"># ====== 搜索配置 ======</span>
+<span class="vn">MIN_KEYWORD_MATCH</span> = <span class="bi">1</span>  <span class="cm"># 最少匹配多少个关键词才算命中</span>
+<span class="vn">MAX_RESULTS</span> = <span class="bi">3</span>        <span class="cm"># 最多返回多少条匹配结果</span></pre>
+
+  <div class="tip-box">
+    <strong>💡 为什么用 os.getenv()？</strong>这是一个好习惯——API Key 存在环境变量或 .env 文件中，代码通过 <code class="ic">os.getenv()</code> 读取。这样即使代码推到 GitHub 也不会泄露密钥。生产环境都是这么做的。
+  </div>
+</div>
+
+<!-- ====== Step 4: 本地搜索模块 ====== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔍</span> Step 4：本地关键词搜索模块 search.py
+    <span class="time-tag">~20 分钟</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>搜索策略：</strong>将用户输入拆分成单个关键词，然后在知识库的 keywords 列表中查找匹配。匹配度 = 匹配到的关键词数量 / 用户输入的关键词总数。返回匹配度最高的几条结果。
+  </div>
+
+  <pre><span class="cm"># search.py</span>
+<span class="kw">import</span> json
+<span class="kw">import</span> re
+<span class="kw">from</span> config <span class="kw">import</span> KNOWLEDGE_BASE_FILE, MIN_KEYWORD_MATCH, MAX_RESULTS
+
+<span class="kw">def</span> <span class="fn">load_knowledge_base</span>() -> <span class="bi">list</span>:
+    <span class="st">"""从 JSON 文件加载知识库"""</span>
+    <span class="kw">try</span>:
+        <span class="kw">with</span> <span class="bi">open</span>(<span class="vn">KNOWLEDGE_BASE_FILE</span>, <span class="st">"r"</span>, encoding=<span class="st">"utf-8"</span>) <span class="kw">as</span> <span class="vn">f</span>:
+            <span class="kw">return</span> json.load(<span class="vn">f</span>)
+    <span class="kw">except</span> FileNotFoundError:
+        <span class="bi">print</span>(<span class="st">f"⚠️ 知识库文件 {<span class="vn">KNOWLEDGE_BASE_FILE</span>} 不存在"</span>)
+        <span class="kw">return</span> []
+    <span class="kw">except</span> json.JSONDecodeError <span class="kw">as</span> <span class="vn">e</span>:
+        <span class="bi">print</span>(<span class="st">f"⚠️ 知识库 JSON 格式错误：{<span class="vn">e</span>}"</span>)
+        <span class="kw">return</span> []
+
+
+<span class="kw">def</span> <span class="fn">extract_keywords</span>(<span class="vn">text</span>: <span class="bi">str</span>) -> <span class="bi">list</span>:
+    <span class="st">"""
+    从用户输入中提取关键词
+
+    处理步骤：
+    1. 去掉标点符号
+    2. 按空格和常见分隔符拆分
+    3. 过滤掉太短的无意义词（1个字的通常没意义）
+    4. 去重
+    """</span>
+    <span class="cm"># 去掉标点符号</span>
+    <span class="vn">cleaned</span> = re.sub(<span class="reg">r'[，。！？、；：""''（）【】《》\s]+'</span>, <span class="st">" "</span>, <span class="vn">text</span>)
+
+    <span class="cm"># 按空格拆分</span>
+    <span class="vn">words</span> = <span class="vn">cleaned</span>.split()
+
+    <span class="cm"># 如果拆分后只有一个长字符串，尝试按2字切分</span>
+    <span class="kw">if</span> <span class="bi">len</span>(<span class="vn">words</span>) == <span class="bi">1</span> <span class="kw">and</span> <span class="bi">len</span>(<span class="vn">words</span>[<span class="bi">0</span>]) > <span class="bi">2</span>:
+        <span class="cm"># 对中文：按2字粒度切分（简单方案，后续可以用分词库）</span>
+        <span class="vn">words</span> = [<span class="vn">words</span>[<span class="bi">0</span>][<span class="vn">i</span>:<span class="vn">i</span>+<span class="bi">2</span>] <span class="kw">for</span> <span class="vn">i</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="bi">len</span>(<span class="vn">words</span>[<span class="bi">0</span>]) - <span class="bi">1</span>)]
+
+    <span class="cm"># 过滤太短的词 + 去重</span>
+    <span class="vn">keywords</span> = <span class="bi">list</span>(<span class="fn">set</span>(<span class="vn">w</span> <span class="kw">for</span> <span class="vn">w</span> <span class="kw">in</span> <span class="vn">words</span> <span class="kw">if</span> <span class="bi">len</span>(<span class="vn">w</span>) >= <span class="bi">2</span>))
+
+    <span class="kw">return</span> <span class="vn">keywords</span>
+
+
+<span class="kw">def</span> <span class="fn">search_knowledge_base</span>(<span class="vn">query</span>: <span class="bi">str</span>, <span class="vn">knowledge_base</span>: <span class="bi">list</span> = <span class="kw">None</span>) -> <span class="bi">list</span>:
+    <span class="st">"""
+    在知识库中搜索匹配的问答对
+
+    匹配逻辑：
+    1. 提取用户输入的关键词
+    2. 遍历知识库每一条
+    3. 计算匹配的关键词数量
+    4. 按匹配度排序，返回前N条
+
+    Returns:
+        匹配到的问答对列表（按匹配度排序）
+    """</span>
+    <span class="kw">if</span> <span class="vn">knowledge_base</span> <span class="kw">is</span> <span class="kw">None</span>:
+        <span class="vn">knowledge_base</span> = <span class="fn">load_knowledge_base</span>()
+
+    <span class="vn">user_keywords</span> = <span class="fn">extract_keywords</span>(<span class="vn">query</span>)
+
+    <span class="cm"># 如果提取不到有效关键词，直接返回空</span>
+    <span class="kw">if</span> <span class="kw">not</span> <span class="vn">user_keywords</span>:
+        <span class="kw">return</span> []
+
+    <span class="vn">results</span> = []
+    <span class="kw">for</span> <span class="vn">item</span> <span class="kw">in</span> <span class="vn">knowledge_base</span>:
+        <span class="cm"># 计算这条知识库条目匹配了多少个关键词</span>
+        <span class="vn">matched</span> = <span class="bi">set</span>(<span class="vn">user_keywords</span>) & <span class="bi">set</span>(<span class="vn">item</span>[<span class="st">"keywords"</span>])
+        <span class="vn">match_count</span> = <span class="bi">len</span>(<span class="vn">matched</span>)
+
+        <span class="kw">if</span> <span class="vn">match_count</span> >= MIN_KEYWORD_MATCH:
+            <span class="vn">results</span>.append({
+                <span class="st">"item"</span>: <span class="vn">item</span>,
+                <span class="st">"match_count"</span>: <span class="vn">match_count</span>,
+                <span class="st">"match_ratio"</span>: <span class="vn">match_count</span> / <span class="bi">len</span>(<span class="vn">user_keywords</span>),
+                <span class="st">"matched_keywords"</span>: <span class="bi">list</span>(<span class="vn">matched</span>)
+            })
+
+    <span class="cm"># 按匹配数量降序排列，取前 N 条</span>
+    <span class="vn">results</span>.sort(key=<span class="kw">lambda</span> <span class="vn">x</span>: <span class="vn">x</span>[<span class="st">"match_count"</span>], reverse=<span class="kw">True</span>)
+    <span class="kw">return</span> <span class="vn">results</span>[:MAX_RESULTS]
+
+
+<span class="cm"># ====== 测试代码（直接运行 search.py 时执行）======</span>
+<span class="kw">if</span> <span class="vn">__name__</span> == <span class="st">"__main__"</span>:
+    <span class="bi">print</span>(<span class="st">"=== 知识库搜索测试 ===\n"</span>)
+
+    <span class="cm"># 测试 1：精确关键词</span>
+    <span class="vn">results</span> = <span class="fn">search_knowledge_base</span>(<span class="st">"什么是不良资产"</span>)
+    <span class="bi">print</span>(<span class="st">f"搜索 '什么是不良资产' → 找到 {<span class="bi">len</span>(<span class="vn">results</span>)} 条"</span>)
+    <span class="kw">for</span> <span class="vn">r</span> <span class="kw">in</span> <span class="vn">results</span>:
+        <span class="bi">print</span>(<span class="st">f"  [{<span class="vn">r</span>['match_count']}个匹配] {<span class="vn">r</span>['item']['question']}"</span>)
+
+    <span class="cm"># 测试 2：部分关键词</span>
+    <span class="vn">results</span> = <span class="fn">search_knowledge_base</span>(<span class="st">"处置方式有哪些"</span>)
+    <span class="bi">print</span>(<span class="st">f"\n搜索 '处置方式有哪些' → 找到 {<span class="bi">len</span>(<span class="vn">results</span>)} 条"</span>)
+    <span class="kw">for</span> <span class="vn">r</span> <span class="kw">in</span> <span class="vn">results</span>:
+        <span class="bi">print</span>(<span class="st">f"  [{<span class="vn">r</span>['match_count']}个匹配] {<span class="vn">r</span>['item']['question']}"</span>)
+
+    <span class="cm"># 测试 3：无关问题</span>
+    <span class="vn">results</span> = <span class="fn">search_knowledge_base</span>(<span class="st">"今天天气怎么样"</span>)
+    <span class="bi">print</span>(<span class="st">f"\n搜索 '今天天气怎么样' → 找到 {<span class="bi">len</span>(<span class="vn">results</span>)} 条"</span>)</pre>
+
+  <div class="step">
+    <div class="sn">2</div>
+    <div class="sc">
+      <h4>运行测试</h4>
+      <p>在终端中运行，确认搜索功能正常：</p>
+    </div>
+  </div>
+
+  <pre><span class="bi">cd</span> amc-chatbot
+<span class="bi">python</span> search.py</pre>
+
+  <div class="tip-box">
+    <strong>💡 什么是 <code class="ic">if __name__ == "__main__"</code>？</strong>这是 Python 的"入口判断"。<code class="ic">__name__</code> 是 Python 给每个文件自动设置的变量：直接运行这个文件时它是 <code class="ic">"__main__"</code>，被其他文件 import 时它是文件名。所以这个 if 块里的代码只在<strong>直接运行</strong>时执行，import 时不会执行——非常适合放测试代码。
+  </div>
+</div>
+
+<!-- ====== Step 5: LLM 调用模块 ====== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🤖</span> Step 5：LLM 调用模块 llm_client.py
+    <span class="time-tag">~15 分钟</span>
+  </div>
+
+  <div class="step">
+    <div class="sn">1</div>
+    <div class="sc">
+      <h4>封装 LLM 调用函数</h4>
+      <p>把 Day 7 学的 ask_llm 封装为独立模块，加上异常处理（为明天 Part 2 的 logging 做准备）。</p>
+    </div>
+  </div>
+
+  <pre><span class="cm"># llm_client.py</span>
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+<span class="kw">from</span> config <span class="kw">import</span> ZHIPU_API_KEY, ZHIPU_BASE_URL, ZHIPU_MODEL, SYSTEM_PROMPT
+
+<span class="cm"># ====== 初始化客户端（只创建一次）======</span>
+<span class="vn">client</span> = OpenAI(
+    api_key=<span class="vn">ZHIPU_API_KEY</span>,
+    base_url=<span class="vn">ZHIPU_BASE_URL</span>
+)
+
+
+<span class="kw">def</span> <span class="fn">ask_llm</span>(
+    <span class="vn">user_prompt</span>: <span class="bi">str</span>,
+    <span class="vn">system_prompt</span>: <span class="bi">str</span> = <span class="kw">None</span>,
+    <span class="vn">temperature</span>: <span class="bi">float</span> = <span class="bi">0.7</span>,
+    <span class="vn">history</span>: <span class="bi">list</span> = <span class="kw">None</span>
+) -> <span class="bi">str</span>:
+    <span class="st">"""
+    调用 LLM API 获取回答
+
+    Args:
+        user_prompt: 用户的问题
+        system_prompt: 系统提示词（默认用 config 里的）
+        temperature: 创造性程度（0=稳定, 1=创造性）
+        history: 对话历史列表（用于多轮对话）
+
+    Returns:
+        LLM 的回答文本
+
+    Raises:
+        Exception: API 调用失败时抛出
+    """</span>
+    <span class="kw">if</span> <span class="vn">system_prompt</span> <span class="kw">is</span> <span class="kw">None</span>:
+        <span class="vn">system_prompt</span> = SYSTEM_PROMPT
+
+    <span class="cm"># 构造消息列表</span>
+    <span class="vn">messages</span> = [{<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: <span class="vn">system_prompt</span>}]
+
+    <span class="cm"># 加入历史对话（如果有）</span>
+    <span class="kw">if</span> <span class="vn">history</span>:
+        <span class="vn">messages</span>.extend(<span class="vn">history</span>)
+
+    <span class="cm"># 加入当前问题</span>
+    <span class="vn">messages</span>.append({<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="vn">user_prompt</span>})
+
+    <span class="kw">try</span>:
+        <span class="vn">response</span> = <span class="vn">client</span>.chat.completions.create(
+            model=<span class="vn">ZHIPU_MODEL</span>,
+            messages=<span class="vn">messages</span>,
+            temperature=<span class="vn">temperature</span>
+        )
+        <span class="kw">return</span> <span class="vn">response</span>.choices[<span class="bi">0</span>].message.content
+
+    <span class="kw">except</span> Exception <span class="kw">as</span> <span class="vn">e</span>:
+        <span class="bi">print</span>(<span class="st">f"❌ LLM API 调用失败：{<span class="vn">e</span>}"</span>)
+        <span class="kw">return</span> <span class="kw">None</span>
+
+
+<span class="cm"># ====== 测试 ======</span>
+<span class="kw">if</span> <span class="vn">__name__</span> == <span class="st">"__main__"</span>:
+    <span class="bi">print</span>(<span class="st">"=== LLM 调用测试 ===\n"</span>)
+
+    <span class="vn">answer</span> = <span class="fn">ask_llm</span>(<span class="st">"请用一句话解释什么是净回收率"</span>)
+    <span class="kw">if</span> <span class="vn">answer</span>:
+        <span class="bi">print</span>(<span class="st">f"LLM 回答：{<span class="vn">answer</span>}"</span>)
+    <span class="kw">else</span>:
+        <span class="bi">print</span>(<span class="st">"调用失败，请检查 API Key"</span>)</pre>
+
+  <div class="tip-box">
+    <strong>💡 模块化设计的好处：</strong><code class="ic">llm_client.py</code> 里的 <code class="ic">ask_llm()</code> 函数，main.py 里只需要 <code class="ic">from llm_client import ask_llm</code> 就能用。以后如果要换模型（比如换成 OpenAI 或通义），只需要改这一个文件——<strong>其他文件完全不用动</strong>。这就是"高内聚、低耦合"的工程思想。
+  </div>
+</div>
+
+<!-- ====== Step 6: 主程序 ====== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚡</span> Step 6：主程序 main.py（把所有模块组装起来）
+    <span class="time-tag">~30 分钟</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>main.py 的职责：</strong>像项目经理一样把各个模块"组装"起来。它不做具体工作（搜索、调 LLM 都交给专门的模块），只负责<strong>控制流程</strong>：读用户输入 → 先搜索本地 → 没结果就调 LLM → 显示回答 → 循环。
+  </div>
+
+  <pre><span class="cm"># main.py — 不良资产知识问答助手（主程序）</span>
+<span class="kw">from</span> search <span class="kw">import</span> search_knowledge_base, load_knowledge_base
+<span class="kw">from</span> llm_client <span class="kw">import</span> ask_llm
+<span class="kw">from</span> config <span class="kw">import</span> SYSTEM_PROMPT
+
+<span class="kw">def</span> <span class="fn">format_local_answer</span>(<span class="vn">results</span>: <span class="bi">list</span>) -> <span class="bi">str</span>:
+    <span class="st">"""将本地搜索结果格式化为友好的回答文本"""</span>
+    <span class="kw">if not</span> <span class="vn">results</span>:
+        <span class="kw">return</span> <span class="kw">None</span>
+
+    <span class="vn">answer</span> = <span class="st">"📚 在本地知识库中找到以下相关信息：\n\n"</span>
+    <span class="kw">for</span> <span class="vn">i</span>, <span class="vn">r</span> <span class="kw">in</span> <span class="fn">enumerate</span>(<span class="vn">results</span>, <span class="bi">1</span>):
+        <span class="vn">item</span> = <span class="vn">r</span>[<span class="st">"item"</span>]
+        <span class="vn">answer</span> += <span class="st">f"【{<span class="vn">i</span>}】{<span class="vn">item</span>['question']}\n"</span>
+        <span class="vn">answer</span> += <span class="st">f"    {<span class="vn">item</span>['answer']}\n\n"</span>
+        <span class="kw">if</span> <span class="vn">r</span>[<span class="st">"matched_keywords"</span>]:
+            <span class="vn">answer</span> += <span class="st">f"    （匹配关键词：{', '.join(<span class="vn">r</span>['matched_keywords'])}）\n\n"</span>
+
+    <span class="kw">return</span> <span class="vn">answer</span>
+
+
+<span class="kw">def</span> <span class="fn">chat_loop</span>():
+    <span class="st">"""
+    主对话循环
+
+    流程：
+    1. 加载知识库
+    2. 显示欢迎信息
+    3. 循环：读输入 → 本地搜索 → LLM 兜底 → 显示回答
+    4. 用户输入 'quit' 或 'exit' 时退出
+    """</span>
+    <span class="cm"># 加载知识库（只加载一次）</span>
+    <span class="vn">kb</span> = <span class="fn">load_knowledge_base</span>()
+    <span class="kw">if not</span> <span class="vn">kb</span>:
+        <span class="bi">print</span>(<span class="st">"⚠️ 知识库加载失败，将直接使用 LLM 回答"</span>)
+
+    <span class="cm"># 对话历史（用于多轮对话上下文）</span>
+    <span class="vn">history</span> = []
+
+    <span class="cm"># ====== 欢迎信息 ======</span>
+    <span class="bi">print</span>()
+    <span class="bi">print</span>(<span class="st">"╔══════════════════════════════════════════════╗"</span>)
+    <span class="bi">print</span>(<span class="st">"║   AMC 不良资产知识问答助手 v1.0            ║"</span>)
+    <span class="bi">print</span>(<span class="st">"║   本地知识库 + LLM 智能回答                  ║"</span>)
+    <span class="bi">print</span>(<span class="st">"╠══════════════════════════════════════════════╣"</span>)
+    <span class="bi">print</span>(<span class="st">"║  输入问题开始对话                            ║"</span>)
+    <span class="bi">print</span>(<span class="st">"║  输入 'quit' 或 'exit' 退出                  ║"</span>)
+    <span class="bi">print</span>(<span class="st">"║  输入 'help' 查看帮助                        ║"</span>)
+    <span class="bi">print</span>(<span class="st">"╚══════════════════════════════════════════════╝"</span>)
+    <span class="bi">print</span>()
+
+    <span class="cm"># ====== 主循环 ======</span>
+    <span class="kw">while</span> <span class="kw">True</span>:
+        <span class="cm"># 读取用户输入</span>
+        <span class="kw">try</span>:
+            <span class="vn">user_input</span> = <span class="bi">input</span>(<span class="st">"👤 你："</span>).strip()
+        <span class="kw">except</span> (KeyboardInterrupt, EOFError):
+            <span class="bi">print</span>(<span class="st">"\n👋 再见！"</span>)
+            <span class="kw">break</span>
+
+        <span class="cm"># 空输入跳过</span>
+        <span class="kw">if not</span> <span class="vn">user_input</span>:
+            <span class="kw">continue</span>
+
+        <span class="cm"># 退出命令</span>
+        <span class="kw">if</span> <span class="vn">user_input</span>.lower() <span class="kw">in</span> (<span class="st">"quit"</span>, <span class="st">"exit"</span>, <span class="st">"退出"</span>, <span class="st">"再见"</span>):
+            <span class="bi">print</span>(<span class="st">"👋 再见！"</span>)
+            <span class="kw">break</span>
+
+        <span class="cm"># 帮助命令</span>
+        <span class="kw">if</span> <span class="vn">user_input</span>.lower() <span class="kw">in</span> (<span class="st">"help"</span>, <span class="st">"帮助"</span>):
+            <span class="bi">print</span>(<span class="st">"""
+💡 使用提示：
+  - 直接输入 AMC 相关问题即可
+  - 系统会先在本地知识库（20条）中搜索
+  - 如果没有匹配结果，会调用 LLM 回答
+  - 支持：不良资产、处置方式、回收率、数据仓库、LLM概念等
+  - 输入 'quit' 退出
+"""</span>)
+            <span class="kw">continue</span>
+
+        <span class="cm"># ====== 第一步：本地知识库搜索 ======</span>
+        <span class="vn">local_results</span> = <span class="fn">search_knowledge_base</span>(<span class="vn">user_input</span>, <span class="vn">kb</span>)
+
+        <span class="kw">if</span> <span class="vn">local_results</span>:
+            <span class="cm"># 本地找到了！直接用本地答案</span>
+            <span class="vn">answer</span> = <span class="fn">format_local_answer</span>(<span class="vn">local_results</span>)
+            <span class="vn">source</span> = <span class="st">"📚 本地知识库"</span>
+        <span class="kw">else</span>:
+            <span class="cm"># 本地没找到，调 LLM</span>
+            <span class="bi">print</span>(<span class="st">"🔍 本地未找到，正在调用 LLM..."</span>)
+            <span class="vn">answer</span> = <span class="fn">ask_llm</span>(
+                user_prompt=<span class="vn">user_input</span>,
+                history=<span class="vn">history</span>
+            )
+            <span class="vn">source</span> = <span class="st">"🤖 LLM 回答"</span>
+
+            <span class="kw">if</span> <span class="vn">answer</span> <span class="kw">is</span> <span class="kw">None</span>:
+                <span class="bi">print</span>(<span class="st">"❌ LLM 调用失败，请稍后重试"</span>)
+                <span class="kw">continue</span>
+
+        <span class="cm"># 显示回答</span>
+        <span class="bi">print</span>()
+        <span class="bi">print</span>(<span class="st">f"{<span class="vn">source</span>}："</span>)
+        <span class="bi">print</span>(<span class="st">f"{'─' * 40}"</span>)
+        <span class="bi">print</span>(<span class="vn">answer</span>)
+        <span class="bi">print</span>(<span class="st">f"{'─' * 40}"</span>)
+        <span class="bi">print</span>()
+
+        <span class="cm"># 更新对话历史</span>
+        <span class="vn">history</span>.append({<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="vn">user_input</span>})
+        <span class="vn">history</span>.append({<span class="st">"role"</span>: <span class="st">"assistant"</span>, <span class="st">"content"</span>: <span class="vn">answer</span>})
+
+        <span class="cm"># 限制历史长度（避免 token 浪费）</span>
+        <span class="kw">if</span> <span class="bi">len</span>(<span class="vn">history</span>) > <span class="bi">20</span>:  <span class="cm"># 最多保留最近 10 轮（20条消息）</span>
+            <span class="vn">history</span> = <span class="vn">history</span>[-<span class="bi">20</span>:]
+
+
+<span class="cm"># ====== 程序入口 ======</span>
+<span class="kw">if</span> <span class="vn">__name__</span> == <span class="st">"__main__"</span>:
+    <span class="fn">chat_loop</span>()</pre>
+
+  <div class="step">
+    <div class="sn">2</div>
+    <div class="sc">
+      <h4>运行程序！</h4>
+      <p>在终端中启动你的第一个 LLM 应用：</p>
+    </div>
+  </div>
+
+  <pre><span class="bi">cd</span> amc-chatbot
+<span class="bi">python</span> main.py</pre>
+
+  <p style="font-size:14px;color:var(--text2);margin-top:12px">
+    你应该看到欢迎界面。试着输入以下问题测试：
+  </p>
+
+  <table class="ct">
+    <tr><th>测试问题</th><th>预期来源</th><th>验证点</th></tr>
+    <tr><td>"什么是不良资产"</td><td>📚 本地知识库</td><td>应返回标准定义，不调 API</td></tr>
+    <tr><td>"净回收率怎么算"</td><td>📚 本地知识库</td><td>应匹配"回收率"关键词</td></tr>
+    <tr><td>"C表报送流程是什么"</td><td>📚 本地知识库</td><td>应匹配"C表"关键词</td></tr>
+    <tr><td>"大模型怎么用于金融风控"</td><td>🤖 LLM 回答</td><td>本地没有，应调用 API</td></tr>
+    <tr><td>"help"</td><td>—</td><td>显示帮助信息</td></tr>
+    <tr><td>"quit"</td><td>—</td><td>正常退出程序</td></tr>
+  </table>
+
+  <div class="tip-box">
+    <strong>🎯 恭喜！</strong>如果程序能正常搜索本地 + 调用 LLM + 退出，你就完成了第一个完整的 LLM 应用。虽然还是命令行，但<strong>核心架构已经到位</strong>——后面只需要加持久化、加日志、加前端。
+  </div>
+
+  <div class="warn-box">
+    <strong>⚠️ 常见问题排查：</strong>
+    <ul style="margin-top:6px">
+      <li><strong>ModuleNotFoundError</strong>：检查是否在 <code class="ic">amc-chatbot/</code> 目录下运行（不是在父目录）</li>
+      <li><strong>知识库加载失败</strong>：检查 <code class="ic">knowledge_base.json</code> 是否和 <code class="ic">main.py</code> 在同一目录</li>
+      <li><strong>LLM 调用失败</strong>：检查 <code class="ic">config.py</code> 里的 API Key 是否正确</li>
+      <li><strong>搜索结果不对</strong>：检查知识库里的 keywords 是否覆盖了用户的提问方式</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ====== Step 7: Git 提交 ====== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">💾</span> Step 7：Git 提交阶段性成果
+    <span class="time-tag">~5 分钟</span>
+  </div>
+
+  <pre><span class="cm"># 查看当前状态</span>
+<span class="bi">git</span> status
+
+<span class="cm"># 添加所有文件</span>
+<span class="bi">git</span> add .
+
+<span class="cm"># 提交</span>
+<span class="bi">git</span> commit -m <span class="st">"完成 Part 1：知识库 + 搜索 + LLM 调用 + 主程序循环"</span>
+
+<span class="cm"># 查看提交历史</span>
+<span class="bi">git</span> log --oneline</pre>
+
+  <div class="tip-box">
+    <strong>💡 Git commit message 规范：</strong>用简短的中文说明"做了什么"。好的 commit message 让你（和面试官）一眼看出每次提交改了什么。例如：<code class="ic">"初始化项目"</code> → <code class="ic">"完成知识库数据准备"</code> → <code class="ic">"完成本地搜索模块"</code> → <code class="ic">"完成 Part 1 核心功能"</code>。
+  </div>
+</div>
+
+<!-- ====== 碎片知识 ====== -->
+<div class="section fs">
+  <div class="section-title">
+    <span class="icon">📖</span> 碎片知识：LLM 发展简史
+    <span class="time-tag">~20 分钟（通勤/午休）</span>
+  </div>
+
+  <p style="font-size:14px;color:var(--text2);margin-bottom:14px">
+    进入 <strong style="color:var(--text)">Week 3</strong> 的碎片知识！今天是 Week 3 Day 1 的碎片：了解 LLM 的发展脉络。不需要写代码，花 20 分钟建立一个全局观。
+  </p>
+
+  <div class="concept-box">
+    <strong>为什么要了解 LLM 发展史？</strong>面试时经常被问到"你了解哪些大模型？"、"GPT 和 BERT 有什么区别？"。有了全局观，你才能在面试中自信地回答——不是背答案，而是<strong>理解它们各自的设计目标和适用场景</strong>。
+  </div>
+
+  <table class="ct">
+    <tr><th>模型/技术</th><th>发布时间</th><th>类型</th><th>核心特点</th><th>适用场景</th></tr>
+    <tr><td><strong>BERT</strong></td><td>2018</td><td>理解型</td><td>双向编码，擅长理解文本语义</td><td>分类、NER、搜索排序</td></tr>
+    <tr><td><strong>GPT-1</strong></td><td>2018</td><td>生成型</td><td>单向解码，从左到右生成文本</td><td>文本续写、对话</td></tr>
+    <tr><td><strong>GPT-2</strong></td><td>2019</td><td>生成型</td><td>参数量扩大，生成质量提升</td><td>零样本生成</td></tr>
+    <tr><td><strong>GPT-3</strong></td><td>2020</td><td>生成型</td><td>175B 参数，涌现能力初现</td><td>Few-shot 学习</td></tr>
+    <tr><td><strong>ChatGPT (GPT-3.5)</strong></td><td>2022.12</td><td>对话型</td><td>RLHF 对齐，"会聊天"的 LLM</td><td>通用对话、编码</td></tr>
+    <tr><td><strong>GPT-4</strong></td><td>2023.03</td><td>多模态</td><td>图文理解，推理能力大幅提升</td><td>复杂推理、图文分析</td></tr>
+    <tr><td><strong>Llama 系列</strong></td><td>2023+</td><td>开源</td><td>Meta 开源，社区生态丰富</td><td>本地部署、微调</td></tr>
+    <tr><td><strong>Qwen 系列</strong></td><td>2023+</td><td>开源/闭源</td><td>阿里出品，中文能力优秀</td><td>中文场景、企业应用</td></tr>
+    <tr><td><strong>GLM 系列</strong></td><td>2023+</td><td>开源/闭源</td><td>智谱AI出品，中英双语</td><td>学术研究、企业应用</td></tr>
+  </table>
+
+  <div class="step">
+    <div class="sn">1</div>
+    <div class="sc">
+      <h4>核心理解：编码器 vs 解码器</h4>
+    </div>
+  </div>
+
+  <p style="font-size:14px;color:var(--text2);margin-bottom:14px">
+    用一个简单的比喻理解两大类模型：
+  </p>
+
+  <div style="display:flex;gap:16px;flex-wrap:wrap;margin:12px 0">
+    <div style="flex:1;min-width:200px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:16px 18px">
+      <p style="font-size:15px;font-weight:700;color:var(--accent);margin-bottom:8px">编码器模型（BERT）</p>
+      <p style="font-size:14px;color:var(--text2);line-height:1.7">像一个<strong>"阅读理解专家"</strong>——给它一段文本，它能理解语义并提取信息。但它不擅长"创造"新文本。</p>
+      <p style="font-size:13px;color:var(--text3);margin-top:8px">代表作：BERT、RoBERTa</p>
+    </div>
+    <div style="flex:1;min-width:200px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:16px 18px">
+      <p style="font-size:15px;font-weight:700;color:#7c3aed;margin-bottom:8px">解码器模型（GPT）</p>
+      <p style="font-size:14px;color:var(--text2);line-height:1.7">像一个<strong>"故事讲述者"</strong>——给它一个开头，它能逐字生成后续内容。现代 LLM 应用开发主要用这类。</p>
+      <p style="font-size:13px;color:var(--text3);margin-top:8px">代表作：GPT系列、Qwen、Llama、GLM</p>
+    </div>
+  </div>
+
+  <p style="margin:14px 0;font-size:14px;color:var(--text2)">
+    <strong style="color:var(--text)">推荐资源：</strong></p>
+  <ul>
+    <li><strong>3Blue1Brown《But what is a GPT?》</strong>（~20min，必看）— 用动画解释 GPT 的核心原理，非常直观</li>
+    <li><strong>搜索关键词</strong>：<code class="ic">"GPT BERT 区别"</code>、<code class="ic">"LLM 发展时间线"</code></li>
+    <li><strong>思考题</strong>：为什么 LLM 应用开发主要用解码器模型（GPT 类），而不是编码器模型（BERT 类）？</li>
+  </ul>
+</div>
+
+<!-- ====== LeetCode ====== -->
+<div class="section ls">
+  <div class="section-title">
+    <span class="icon">🧩</span> LeetCode 每日一题
+    <span class="time-tag">~15 分钟</span>
+  </div>
+
+  <p style="font-size:14px;color:var(--text2);margin-bottom:14px">
+    今天的项目里用了 <code class="ic">set()</code> 交集运算，正好用一道相关题来巩固：
+  </p>
+
+  <div style="background:#f0fdf4;padding:16px 20px;border-radius:8px;margin-bottom:14px;border:1px solid #bbf7d0">
+    <p style="font-size:13px;color:var(--green);font-weight:600;margin-bottom:8px">LeetCode #349 · 两个数组的交集（Easy）</p>
+    <p style="font-size:14px;color:var(--text);line-height:1.8">
+      给定两个数组 <code class="ic">nums1</code> 和 <code class="ic">nums2</code>，返回它们的交集。结果中的每个元素<strong>只出现一次</strong>。<br><br>
+      <strong>示例 1：</strong>nums1 = [1,2,2,1], nums2 = [2,2] → [2]<br>
+      <strong>示例 2：</strong>nums1 = [4,9,5], nums2 = [9,4,9,8,4] → [4,9]（顺序不限）
+    </p>
+  </div>
+
+  <pre><span class="kw">def</span> <span class="fn">intersection</span>(<span class="vn">nums1</span>: <span class="bi">list</span>, <span class="vn">nums2</span>: <span class="bi">list</span>) -> <span class="bi">list</span>:
+    <span class="st">"""返回两个数组的交集（元素唯一）"""</span>
+    <span class="cm"># 方法 1：用 set 交集（一行搞定）</span>
+    <span class="kw">return</span> <span class="bi">list</span>(<span class="fn">set</span>(<span class="vn">nums1</span>) & <span class="fn">set</span>(<span class="vn">nums2</span>))
+
+<span class="cm"># 方法 2：手动实现（理解原理）</span>
+<span class="kw">def</span> <span class="fn">intersection2</span>(<span class="vn">nums1</span>: <span class="bi">list</span>, <span class="vn">nums2</span>: <span class="bi">list</span>) -> <span class="bi">list</span>:
+    <span class="vn">set1</span> = <span class="fn">set</span>(<span class="vn">nums1</span>)  <span class="cm"># 先转集合去重</span>
+    <span class="vn">result</span> = []
+    <span class="kw">for</span> <span class="vn">n</span> <span class="kw">in</span> <span class="vn">nums2</span>:
+        <span class="kw">if</span> <span class="vn">n</span> <span class="kw">in</span> <span class="vn">set1</span>:  <span class="cm"># O(1) 查找</span>
+            <span class="vn">result</span>.append(<span class="vn">n</span>)
+            <span class="vn">set1</span>.remove(<span class="vn">n</span>)  <span class="cm"># 避免重复</span>
+    <span class="kw">return</span> <span class="vn">result</span>
+
+<span class="cm"># 测试</span>
+<span class="bi">print</span>(<span class="fn">intersection</span>([<span class="bi">1</span>,<span class="bi">2</span>,<span class="bi">2</span>,<span class="bi">1</span>], [<span class="bi">2</span>,<span class="bi">2</span>]))             <span class="cm"># [2]</span>
+<span class="bi">print</span>(<span class="fn">intersection</span>([<span class="bi">4</span>,<span class="bi">9</span>,<span class="bi">5</span>], [<span class="bi">9</span>,<span class="bi">4</span>,<span class="bi">9</span>,<span class="bi">8</span>,<span class="bi">4</span>]))        <span class="cm"># [4, 9]</span></pre>
+
+  <p style="font-size:13px;color:var(--text2);margin-top:10px">
+    <strong style="color:var(--text)">关联今天的项目：</strong>search.py 里 <code class="ic">set(user_keywords) & set(item["keywords"])</code> 就是求交集——找出用户关键词和知识库关键词的重合部分。这道题让你更理解这个操作的原理。
+  </p>
+</div>
+
+<!-- ====== 今日检查清单 ====== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">✅</span> 今日检查清单
+  </div>
+
+  <ul class="tl" id="checklist">
+    <li onclick="toggle(this)"><div class="ck"></div><span>创建项目目录结构（amc-chatbot/ + 6 个文件）</span></li>
+    <li onclick="toggle(this)"><div class="ck"></div><span>初始化 Git 仓库 + 配置 .gitignore</span></li>
+    <li onclick="toggle(this)"><div class="ck"></div><span>准备 20 条 AMC 知识库数据（knowledge_base.json）</span></li>
+    <li onclick="toggle(this)"><div class="ck"></div><span>完成 config.py（API Key + 系统提示词 + 路径配置）</span></li>
+    <li onclick="toggle(this)"><div class="ck"></div><span>完成 search.py（本地搜索模块 + 测试通过）</span></li>
+    <li onclick="toggle(this)"><div class="ck"></div><span>完成 llm_client.py（LLM 调用封装 + 测试通过）</span></li>
+    <li onclick="toggle(this)"><div class="ck"></div><span>完成 main.py（主程序循环 + 搜索 + LLM 兜底）</span></li>
+    <li onclick="toggle(this)"><div class="ck"></div><span>运行程序，用 6 个测试问题验证功能正常</span></li>
+    <li onclick="toggle(this)"><div class="ck"></div><span>Git commit 提交 Part 1 阶段性成果</span></li>
+    <li onclick="toggle(this)"><div class="ck"></div><span>碎片知识：了解 LLM 发展简史（BERT/GPT/Llama/Qwen 定位）</span></li>
+    <li onclick="toggle(this)"><div class="ck"></div><span>LeetCode：完成 #349 两个数组的交集</span></li>
+  </ul>
+</div>
+
+<!-- ====== 明天预告 ====== -->
+<div class="section" style="background:linear-gradient(135deg,#eff6ff,#eef2ff);border-color:#bfdbfe">
+  <div class="section-title">
+    <span class="icon">📅</span> 明日预告（Day 11 · 周末实战 Part 2）
+  </div>
+
+  <p style="font-size:14px;color:var(--text2);margin-bottom:14px">
+    今天完成了核心功能，明天将完善项目的<strong>生产级特性</strong>：
+  </p>
+  <ol>
+    <li><strong>对话持久化</strong>：退出后对话自动保存，下次启动恢复上下文</li>
+    <li><strong>异常处理 + logging</strong>：用 logging 模块记录运行日志</li>
+    <li><strong>输出格式校验</strong>：用正则检查 LLM 回答格式</li>
+    <li><strong>代码优化</strong>：添加类型注解、docstring 完善</li>
+    <li><strong>Git 推送到 GitHub</strong>：创建远程仓库，推送代码</li>
+    <li><strong>README.md</strong>：写项目说明文档</li>
+  </ol>
+
+  <p style="margin-top:14px;font-size:14px;color:var(--text2)">
+    明天还需要开始 <strong>Week 3 Day 1</strong> 的 Python 主课：<code class="ic">enumerate/zip/sorted</code> + CoT Prompt 实战。周末项目完成后会平滑衔接到 Week 3 的学习节奏。
+  </p>
+</div>
+
+<div class="footer">
+  Day 10 / 112 · Phase 1A · Week 2 周末实战<br>
+  离线数据开发工程师 → AI大模型应用工程师 · 5个月转型计划
+</div>
+
+<script>
+function toggle(item) {
+  item.classList.toggle('done');
+  const check = item.querySelector('.ck');
+  check.textContent = item.classList.contains('done') ? '✓' : '';
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 11 - 周末实战 Part 2：项目完善 + Git 推送 + Week 2 总结</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#eff6ff,#eef2ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #bfdbfe; }
+  .header .badge { display:inline-block;background:#dbeafe;color:var(--accent);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  pre { background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;overflow-x:auto;font-size:13.5px;line-height:1.65;margin:12px 0;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--text); }
+  code { font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:13px; }
+  .ic { background:#f1f5f9;padding:2px 7px;border-radius:4px;font-size:13px;color:var(--accent);border:1px solid #e2e8f0; }
+  .step { display:flex;gap:14px;margin:16px 0;align-items:flex-start; }
+  .sn { background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;margin-top:2px; }
+  .sc { flex:1; }
+  .sc h4 { font-size:15px;font-weight:600;margin-bottom:6px; }
+  .sc p { font-size:14px;color:var(--text2); }
+  ul,ol { padding-left:22px;margin:8px 0; }
+  li { font-size:14px;color:var(--text2);margin:4px 0; }
+  li strong { color:var(--text); }
+  .tl { list-style:none;padding:0;margin:12px 0; }
+  .tl li { display:flex;align-items:flex-start;gap:10px;padding:8px 12px;margin:6px 0;background:var(--surface2);border-radius:8px;font-size:14px;color:var(--text);cursor:pointer;transition:opacity .2s; }
+  .tl li.done { opacity:.45;text-decoration:line-through; }
+  .tl li .ck { width:20px;height:20px;border:2px solid var(--border);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px;font-size:12px;transition:all .2s; }
+  .tl li.done .ck { background:var(--green);border-color:var(--green);color:#fff; }
+  .ct { width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px; }
+  .ct th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;color:var(--accent);border-bottom:2px solid var(--border); }
+  .ct td { padding:10px 14px;border-bottom:1px solid var(--surface3);color:var(--text2); }
+  .fs { background:linear-gradient(135deg,#faf5ff,#fef3c7);border-color:#e9d5ff; }
+  .fs .section-title { border-bottom-color:#e9d5ff; }
+  .ls { background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-color:#bbf7d0; }
+  .ls .section-title { border-bottom-color:#bbf7d0; }
+  .wk { background:linear-gradient(135deg,#fef3c7,#fff7ed);border-color:#fde68a; }
+  .wk .section-title { border-bottom-color:#fde68a; }
+  .footer { text-align:center;color:var(--text3);font-size:13px;padding:20px;margin-top:10px; }
+  .kw { color:#dc2626;font-weight:600; }
+  .st { color:#16a34a; }
+  .cm { color:#94a3b8;font-style:italic; }
+  .fn { color:#7c3aed; }
+  .bi { color:#2563eb; }
+  .vn { color:#c2410c; }
+  .reg { color:#ea580c; }
+  .file-tree { background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 18px;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:13px;line-height:1.8;margin:12px 0; }
+  .file-tree .dir { color:var(--accent);font-weight:600; }
+  .file-tree .file { color:var(--text2); }
+  .file-tree .comment { color:var(--text3);font-style:italic; }
+  .phase-tag { display:inline-block;background:linear-gradient(135deg,#fef3c7,#fff7ed);color:var(--orange);padding:4px 12px;border-radius:16px;font-size:12px;font-weight:600;border:1px solid #fde68a; }
+  .summary-card { background:#f8fafc;border:1px solid var(--surface3);border-radius:8px;padding:16px 20px;margin:10px 0; }
+  .summary-card h5 { font-size:14px;font-weight:600;color:var(--accent);margin-bottom:8px; }
+  .summary-card ul { margin:4px 0 4px 18px; }
+  .summary-card li { font-size:13.5px;margin:3px 0; }
+  .git-cmd { background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px 18px;margin:10px 0; }
+  .git-cmd pre { background:#f8fafc;border-color:#e2e8f0; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">PHASE 1A · WEEK 2 · 周末实战 <span class="phase-tag">PROJECT DAY</span></div>
+  <h1>Day 11 — 周末实战 Part 2：项目完善 + Git 推送 + Week 2 总结</h1>
+  <div class="subtitle">2026-06-03（周三）· 完成问答助手项目、学会 Git、回顾两周成果</div>
+</div>
+
+<div class="progress-bar">
+  <span class="label">总体进度</span>
+  <div class="track"><div class="fill" style="width:9.82%"></div></div>
+  <span class="percent">11/112</span>
+</div>
+
+<!-- ==================== 第一部分：项目完善 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#128736;</span> 第一部分：问答助手项目完善
+    <span class="time-tag">&#9201; 约 1.5 小时</span>
+  </div>
+
+  <p>Day 10 已经搭建了项目的核心骨架，今天需要<strong>完善功能细节</strong>，让它成为一个真正可用的命令行工具。</p>
+
+  <div class="concept-box">
+    <strong>&#127919; 今日目标</strong>：让问答助手具备完整的功能闭环——用户能搜索、能提问、能退出、对话能保存，并且所有代码提交到 GitHub。
+  </div>
+
+  <h3 style="font-size:16px;margin:16px 0 10px;color:var(--accent);">&#128221; 功能完善清单</h3>
+
+  <div class="step">
+    <div class="sn">1</div>
+    <div class="sc">
+      <h4>完善搜索模块 <code class="ic">search.py</code> —— 增加模糊匹配</h4>
+      <p>Day 10 的搜索只做了精确关键词匹配，现在增加<strong>模糊匹配</strong>：当用户输入的关键词在知识库中没有完全命中时，用 <code class="ic">in</code> 运算符做子串包含匹配。</p>
+    </div>
+  </div>
+
+  <pre><span class="cm"># search.py —— 在原有基础上增加模糊匹配</span>
+
+<span class="kw">def</span> <span class="fn">search_knowledge</span>(query: <span class="bi">str</span>, knowledge_base: <span class="bi">list</span>) -> <span class="bi">list</span>:
+    <span class="st">"""在知识库中搜索匹配的问答对"""</span>
+    results = []
+
+    <span class="kw">for</span> item <span class="kw">in</span> knowledge_base:
+        question = item[<span class="st">"question"</span>].lower()   <span class="cm"># 转小写，统一比较</span>
+        keywords = item[<span class="st">"keywords"</span>].lower()
+        query_lower = query.lower()
+
+        <span class="cm"># 匹配策略 1：精确关键词匹配（优先级高）</span>
+        exact_match = <span class="bi">any</span>(
+            kw <span class="kw">in</span> query_lower
+            <span class="kw">for</span> kw <span class="kw">in</span> keywords.split(<span class="st">","</span>)
+        )
+
+        <span class="cm"># 匹配策略 2：模糊子串匹配（兜底）</span>
+        fuzzy_match = (
+            query_lower <span class="kw">in</span> question
+            <span class="kw">or</span> question <span class="kw">in</span> query_lower
+        )
+
+        <span class="kw">if</span> exact_match:
+            item[<span class="st">"match_type"</span>] = <span class="st">"exact"</span>   <span class="cm"># 标记匹配类型</span>
+            results.append(item)
+        <span class="kw">elif</span> fuzzy_match <span class="kw">and not</span> exact_match:
+            item[<span class="st">"match_type"</span>] = <span class="st">"fuzzy"</span>
+            results.append(item)
+
+    <span class="cm"># 按匹配优先级排序：精确 > 模糊</span>
+    results.sort(key=<span class="kw">lambda</span> x: (<span class="st">0</span> <span class="kw">if</span> x[<span class="st">"match_type"</span>] == <span class="st">"exact"</span> <span class="kw">else</span> <span class="st">1</span>))
+    <span class="kw">return</span> results</pre>
+
+  <div class="tip-box">
+    <strong>&#128161; 代码讲解</strong>：
+    <ul>
+      <li><code class="ic">.lower()</code> —— 把字符串全部转小写，这样 "AMC" 和 "amc" 都能匹配上。这是文本匹配的常见做法</li>
+      <li><code class="ic">any()</code> —— Python 内置函数，只要列表中有<strong>任意一个</strong>为 True 就返回 True。类似 SQL 的 EXISTS</li>
+      <li><code class="ic">lambda x: (0 if ... else 1)</code> —— 匿名函数，用 sort 排序时：返回 0 的排前面，返回 1 的排后面</li>
+      <li>这里用到了你上周学的<strong>列表</strong>、<strong>字典</strong>、<strong>循环</strong>、<strong>函数</strong>、<strong>字符串操作</strong>，一举多得</li>
+    </ul>
+  </div>
+
+  <div class="step">
+    <div class="sn">2</div>
+    <div class="sc">
+      <h4>完善主程序 <code class="ic">main.py</code> —— 增加退出和帮助</h4>
+      <p>让程序支持 <code class="ic">quit</code> / <code class="ic">exit</code> 退出命令，以及 <code class="ic">help</code> 查看使用说明。</p>
+    </div>
+  </div>
+
+  <pre><span class="cm"># main.py —— 完整的主程序循环</span>
+
+<span class="kw">import</span> json
+<span class="kw">from</span> search <span class="kw">import</span> search_knowledge
+<span class="kw">from</span> llm_client <span class="kw">import</span> ask_llm
+
+<span class="kw">def</span> <span class="fn">load_knowledge</span>(filepath: <span class="bi">str</span>) -> <span class="bi">list</span>:
+    <span class="st">"""加载知识库 JSON 文件"""</span>
+    <span class="kw">try</span>:
+        <span class="kw">with</span> <span class="bi">open</span>(filepath, <span class="st">"r"</span>, encoding=<span class="st">"utf-8"</span>) <span class="kw">as</span> f:
+            <span class="kw">return</span> json.load(f)
+    <span class="kw">except</span> FileNotFoundError:
+        print(<span class="st">"&#9888;&#65039; 知识库文件未找到，请检查路径"</span>)
+        <span class="kw">return</span> []
+
+<span class="kw">def</span> <span class="fn">show_help</span>():
+    <span class="st">"""显示帮助信息"""</span>
+    print(<span class="st">"""
+&#128221; &#x4E0D;&#x826F;&#x8D44;&#x4EA7;&#x77E5;&#x8BC6;&#x95EE;&#x7B54;&#x52A9;&#x624B; &#x2014;&#x2014; &#x4F7F;&#x7528;&#x8BF4;&#x660E;
+&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;
+  &#x76F4;&#x63A5;&#x8F93;&#x5165;&#x95EE;&#x9898;    &#x2192;  &#x5148;&#x641C;&#x7D22;&#x77E5;&#x8BC6;&#x5E93;&#xFF0C;&#x672A;&#x5339;&#x914D;&#x5219;&#x8C03;&#x7528; LLM
+  &#x8F93;&#x5165; help       &#x2192;  &#x67E5;&#x770B;&#x672C;&#x5E2E;&#x52A9;
+  &#x8F93;&#x5165; quit/exit  &#x2192;  &#x9000;&#x51FA;&#x7A0B;&#x5E8F;
+  &#x8F93;&#x5165; history     &#x2192;  &#x67E5;&#x770B;&#x5BF9;&#x8BDD;&#x5386;&#x53F2;
+&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;&#x2501;
+"""</span>)
+
+<span class="kw">def</span> <span class="fn">main</span>():
+    <span class="st">"""主程序入口"""</span>
+    knowledge = load_knowledge(<span class="st">"knowledge_base.json"</span>)
+    chat_history = []   <span class="cm"># 对话历史列表</span>
+
+    <span class="bi">print</span>(<span class="st">"&#128172; &#x4E0D;&#x826F;&#x8D44;&#x4EA7;&#x77E5;&#x8BC6;&#x95EE;&#x7B54;&#x52A9;&#x624B;&#xFF08;&#x8F93;&#x5165; help &#x67E5;&#x770B;&#x5E2E;&#x52A9;&#xFF0C;quit &#x9000;&#x51FA;&#xFF09;"</span>)
+
+    <span class="kw">while</span> <span class="bi">True</span>:          <span class="cm"># 无限循环，直到用户输入 quit</span>
+        user_input = <span class="bi">input</span>(<span class="st">"\n&#x1F4DD; &#x4F60;&#x7684;&#x95EE;&#x9898;&#xFF1A;"</span>).strip()
+
+        <span class="cm"># ---- 退出命令 ----</span>
+        <span class="kw">if</span> user_input.lower() <span class="kw">in</span> [<span class="st">"quit"</span>, <span class="st">"exit"</span>, <span class="st">"q"</span>]:
+            <span class="bi">print</span>(<span class="st">"&#x1F6AA1; &#x518D;&#x89C1;&#xFF01;&#x5BF9;&#x8BDD;&#x5DF2;&#x4FDD;&#x5B58;&#x3002;"</span>)
+            <span class="kw">break</span>          <span class="cm"># 跳出 while 循环，程序结束</span>
+
+        <span class="cm"># ---- 帮助命令 ----</span>
+        <span class="kw">elif</span> user_input.lower() == <span class="st">"help"</span>:
+            show_help()
+            <span class="kw">continue</span>      <span class="cm"># 跳过本轮，重新循环</span>
+
+        <span class="cm"># ---- 历史记录命令 ----</span>
+        <span class="kw">elif</span> user_input.lower() == <span class="st">"history"</span>:
+            <span class="kw">if not</span> chat_history:
+                <span class="bi">print</span>(<span class="st">"  &#x6682;&#x65E0;&#x5BF9;&#x8BDD;&#x8BB0;&#x5F55;"</span>)
+            <span class="kw">else</span>:
+                <span class="bi">print</span>(<span class="st">"\n&#128337; &#x5BF9;&#x8BDD;&#x5386;&#x53F2;&#xFF1A;"</span>)
+                <span class="kw">for</span> i, msg <span class="kw">in</span> <span class="bi">enumerate</span>(chat_history, <span class="st">1</span>):
+                    role = <span class="st">"&#x1F4AC; &#x4F60;"</span> <span class="kw">if</span> msg[<span class="st">"role"</span>] == <span class="st">"user"</span> <span class="kw">else</span> <span class="st">"&#x1F916; AI"</span>
+                    <span class="bi">print</span>(f<span class="st">"  {i}. {role}: {msg['content'][:80]}..."</span>)
+            <span class="kw">continue</span>
+
+        <span class="cm"># ---- 空输入跳过 ----</span>
+        <span class="kw">elif not</span> user_input:
+            <span class="kw">continue</span>
+
+        <span class="cm"># ---- 正常问答流程 ----</span>
+        <span class="cm"># 第一步：本地知识库搜索</span>
+        results = search_knowledge(user_input, knowledge)
+
+        <span class="kw">if</span> results:
+            <span class="cm"># 找到匹配，直接返回知识库答案</span>
+            answer = results[<span class="st">0</span>][<span class="st">"answer"</span>]
+            source = results[<span class="st">0</span>][<span class="st">"source"</span>]
+            <span class="bi">print</span>(f<span class="st">"\n&#x1F4D6; &#x3010;&#x77E5;&#x8BC6;&#x5E93;&#x5339;&#x914D;&#x3011;&#xFF1A;{answer}"</span>)
+            <span class="bi">print</span>(f<span class="st">"  &#x2192; &#x6765;&#x6E90;&#xFF1A;{source}"</span>)
+            answer_text = answer
+        <span class="kw">else</span>:
+            <span class="cm"># 没有匹配，调用 LLM</span>
+            <span class="bi">print</span>(<span class="st">"  &#x1F504; &#x77E5;&#x8BC6;&#x5E93;&#x672A;&#x5339;&#x914D;&#xFF0C;&#x6B63;&#x5728;&#x8C03;&#x7528; LLM..."</span>)
+            answer_text = ask_llm(user_input)
+            <span class="bi">print</span>(f<span class="st">"\n&#x1F916; &#x3010;LLM &#x56DE;&#x7B54;&#x3011;&#xFF1A;{answer_text}"</span>)
+
+        <span class="cm"># 保存到对话历史</span>
+        chat_history.append({<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: user_input})
+        chat_history.append({<span class="st">"role"</span>: <span class="st">"assistant"</span>, <span class="st">"content"</span>: answer_text})
+
+    <span class="cm"># ---- 退出时保存对话历史 ----</span>
+    <span class="kw">try</span>:
+        <span class="kw">with</span> <span class="bi">open</span>(<span class="st">"chat_history.json"</span>, <span class="st">"w"</span>, encoding=<span class="st">"utf-8"</span>) <span class="kw">as</span> f:
+            json.dump(chat_history, f, ensure_ascii=<span class="bi">False</span>, indent=<span class="st">2</span>)
+        <span class="bi">print</span>(<span class="st">"&#x1F4BE; &#x5BF9;&#x8BDD;&#x5DF2;&#x4FDD;&#x5B58;&#x5230; chat_history.json"</span>)
+    <span class="kw">except</span> Exception <span class="kw">as</span> e:
+        <span class="bi">print</span>(f<span class="st">"&#x26A0;&#xFE0F; &#x4FDD;&#x5B58;&#x5931;&#x8D25;&#xFF1A;{e}"</span>)
+
+<span class="cm"># 程序入口</span>
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    main()</pre>
+
+  <div class="tip-box">
+    <strong>&#128161; 代码讲解 —— 几个关键 Python 知识点</strong>：
+    <ul>
+      <li><code class="ic">while True</code> —— 无限循环，只有遇到 <code class="ic">break</code> 才会退出。命令行交互程序的标配写法</li>
+      <li><code class="ic">.strip()</code> —— 去掉字符串两端的空格和换行。用户输入 " 你好 " 会变成 "你好"</li>
+      <li><code class="ic">.lower() in ["quit", "exit", "q"]</code> —— 判断用户输入（转小写后）是否在列表中。相当于 SQL 的 IN</li>
+      <li><code class="ic">if __name__ == "__main__"</code> —— Python 的标准入口写法。意思是"只有直接运行这个文件时才执行 main()"，被其他文件 import 时不执行</li>
+      <li><code class="ic">enumerate(chat_history, 1)</code> —— 遍历列表的同时给每个元素编号，从 1 开始。输出就是 1. 2. 3. 而不是 0. 1. 2.</li>
+      <li><code class="ic">f"...{msg['content'][:80]}..."</code> —— 切片语法，只取前 80 个字符，避免历史记录太长刷屏</li>
+      <li><code class="ic">ensure_ascii=False</code> —— 让 json.dump 正常输出中文，否则中文字符会变成 \uXXXX 编码</li>
+    </ul>
+  </div>
+
+  <div class="step">
+    <div class="sn">3</div>
+    <div class="sc">
+      <h4>运行测试</h4>
+      <p>确保项目能跑通，测试以下场景：</p>
+    </div>
+  </div>
+
+  <div class="file-tree"><span class="comment"># 在项目目录下运行</span>
+<span class="file">python main.py</span>
+
+<span class="comment"># 测试用例：</span>
+1. 输入 "什么是不良资产"  &#x2192;  应命中知识库
+2. 输入 "收购成本怎么算"  &#x2192;  应命中知识库
+3. 输入 "未来AMC行业趋势"  &#x2192;  应调用 LLM
+4. 输入 "help"            &#x2192;  显示帮助
+5. 输入 "history"         &#x2192;  显示历史
+6. 输入 "quit"            &#x2192;  退出并保存
+</div>
+</div>
+
+<!-- ==================== 第二部分：Git 基础 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#128187;</span> 第二部分：Git 基础 —— 把项目推到 GitHub
+    <span class="time-tag">&#9201; 约 1 小时</span>
+  </div>
+
+  <p>路线图要求 Phase 1A 结束时把代码推到 GitHub。这是你未来所有项目的标配操作。</p>
+
+  <div class="concept-box">
+    <strong>&#128204; Git 是什么（一句话版）</strong>：Git 是代码的<strong>版本控制系统</strong>，相当于"文档的时光机"——每次修改都可以保存一个版本，随时回退、对比、协作。GitHub 是 Git 的<strong>云端托管平台</strong>（类似网盘，但专门存代码）。
+  </div>
+
+  <h3 style="font-size:16px;margin:16px 0 10px;color:var(--accent);">&#128295; 操作步骤（跟着做就行）</h3>
+
+  <div class="step">
+    <div class="sn">1</div>
+    <div class="sc">
+      <h4>创建 .gitignore 文件</h4>
+      <p>告诉 Git 哪些文件<strong>不要</strong>提交（比如 API Key、缓存文件）。</p>
+    </div>
+  </div>
+
+  <pre><span class="cm"># .gitignore —— 在项目根目录创建这个文件</span>
+<span class="cm"># API 密钥（绝对不能提交！）</span>
+.env
+config_local.py
+
+<span class="cm"># Python 缓存</span>
+__pycache__/
+*.pyc
+*.pyo
+
+<span class="cm"># 虚拟环境</span>
+venv/
+.env/
+
+<span class="cm"># 对话历史（可能含敏感信息）</span>
+chat_history.json
+
+<span class="cm"># IDE 配置</span>
+.vscode/
+.idea/</pre>
+
+  <div class="warn-box">
+    <strong>&#9888;&#65039; 为什么 .gitignore 很重要？</strong>：你的 config.py 里存着 API Key，如果推到公开的 GitHub 仓库，任何人都能看到你的 Key 并盗用。实际工作中，泄露 API Key 是<strong>安全事故</strong>级别的问题。所以 config.py 里读取 API Key 的代码应该改成从 .env 文件读取。
+  </div>
+
+  <div class="step">
+    <div class="sn">2</div>
+    <div class="sc">
+      <h4>在 GitHub 上创建仓库</h4>
+      <p>打开 <a href="https://github.com/new" style="color:var(--accent)">github.com/new</a>，创建一个新仓库：</p>
+      <ul>
+        <li>Repository name: <code class="ic">amc-qa-assistant</code></li>
+        <li>选择 <strong>Private</strong>（私有仓库，保护 API Key）</li>
+        <li>不要勾选 "Add a README"（我们本地已经有了）</li>
+        <li>点击 <strong>Create repository</strong></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="sn">3</div>
+    <div class="sc">
+      <h4>本地初始化 Git 并推送</h4>
+      <p>在项目目录下依次执行以下命令（跟着敲就行）：</p>
+    </div>
+  </div>
+
+  <div class="git-cmd">
+<pre><span class="cm"># Step 1：初始化本地 Git 仓库</span>
+git init
+
+<span class="cm"># Step 2：添加所有文件到暂存区（.gitignore 中的文件会被自动排除）</span>
+git add .
+
+<span class="cm"># Step 3：查看哪些文件会被提交（确认 .gitignore 生效）</span>
+git status
+
+<span class="cm"># Step 4：第一次提交</span>
+git commit -m <span class="st">"feat: AMC 知识问答助手 v1.0 - 基础功能完成"</span>
+
+<span class="cm"># Step 5：关联远程仓库（把下面的 URL 替换成你自己的）</span>
+git remote add origin https://github.com/<span class="vn">你的用户名</span>/amc-qa-assistant.git
+
+<span class="cm"># Step 6：推送到 GitHub</span>
+git branch -M main
+git push -u origin main</pre>
+  </div>
+
+  <div class="tip-box">
+    <strong>&#128161; Git 命令讲解（每个都很有用）</strong>：
+    <ul>
+      <li><code class="ic">git init</code> —— 在当前目录创建一个 .git 隐藏文件夹，开始跟踪代码变化</li>
+      <li><code class="ic">git add .</code> —— 把所有修改过的文件放进"暂存区"（staging area），相当于"我准备提交这些"</li>
+      <li><code class="ic">git status</code> —— 查看当前状态：哪些文件修改了、哪些已暂存、哪些未跟踪。类似 SQL 查询的预览</li>
+      <li><code class="ic">git commit -m "说明"</code> —— 把暂存区的文件正式保存为一个版本（commit）。-m 后面是这次修改的说明</li>
+      <li><code class="ic">git remote add origin URL</code> —— 把本地仓库关联到一个远程地址。origin 是默认的远程名称</li>
+      <li><code class="ic">git push</code> —— 把本地的 commit 推送到远程仓库（GitHub）</li>
+    </ul>
+  </div>
+
+  <div class="step">
+    <div class="sn">4</div>
+    <div class="sc">
+      <h4>后续日常使用 Git（以后每天都用）</h4>
+      <p>以后每次修改代码后，只需 3 步：</p>
+    </div>
+  </div>
+
+  <pre><span class="cm"># 日常最高频的 3 个命令（占 90% 的使用）</span>
+git add .                        <span class="cm"># 1. 暂存所有改动</span>
+git commit -m <span class="st">"描述改了什么"</span>   <span class="cm"># 2. 提交（写清楚改了什么）</span>
+git push                        <span class="cm"># 3. 推送到 GitHub</span>
+
+<span class="cm"># 查看提交历史</span>
+git log --oneline               <span class="cm"># 每行显示一次提交，很简洁</span>
+
+<span class="cm"># commit message 写法建议（简单版）：</span>
+<span class="cm"># feat: 新增了 xxx 功能</span>
+<span class="cm"># fix: 修复了 xxx 问题</span>
+<span class="cm"># refactor: 重构了 xxx</span>
+<span class="cm"># docs: 更新了文档</span></pre>
+</div>
+
+<!-- ==================== 第三部分：碎片知识 ==================== -->
+<div class="section fs">
+  <div class="section-title">
+    <span class="icon">&#128218;</span> 第三部分：碎片知识 —— LLM 发展简史
+    <span class="time-tag">&#9201; 通勤/午休 ~20min</span>
+  </div>
+
+  <p>这是 Week 3 的 D1 碎片知识，帮你建立 LLM 领域的<strong>全景认知</strong>。</p>
+
+  <table class="ct">
+    <tr>
+      <th style="width:25%">模型/技术</th>
+      <th style="width:12%">年份</th>
+      <th style="width:12%">公司</th>
+      <th>定位 & 特点</th>
+    </tr>
+    <tr>
+      <td><strong>BERT</strong></td>
+      <td>2018</td>
+      <td>Google</td>
+      <td>"只懂理解，不会生成"——双向编码模型，擅长文本分类/情感分析/NER 等理解任务。GPT 出来后被逐渐替代</td>
+    </tr>
+    <tr>
+      <td><strong>GPT-1</strong></td>
+      <td>2018</td>
+      <td>OpenAI</td>
+      <td>"单向生成"的起点——证明了大模型 + 大数据 + 大算力的 Scaling Law 方向是对的</td>
+    </tr>
+    <tr>
+      <td><strong>GPT-2</strong></td>
+      <td>2019</td>
+      <td>OpenAI</td>
+      <td>15 亿参数，生成的文本已经有点"人样"了。当时因为太强大被 OpenAI 限制发布</td>
+    </tr>
+    <tr>
+      <td><strong>GPT-3</strong></td>
+      <td>2020</td>
+      <td>OpenAI</td>
+      <td>1750 亿参数，<strong>In-context Learning</strong>（上下文学习）的里程碑——不需要微调，给几个例子就能做新任务</td>
+    </tr>
+    <tr>
+      <td><strong>ChatGPT (GPT-3.5)</strong></td>
+      <td>2022.12</td>
+      <td>OpenAI</td>
+      <td>&#x1F525;&#x2728; <strong>引爆 AI 时代</strong>——加了 RLHF（人类反馈强化学习），对话质量飞跃，全民 AI</td>
+    </tr>
+    <tr>
+      <td><strong>GPT-4</strong></td>
+      <td>2023.03</td>
+      <td>OpenAI</td>
+      <td>多模态（能看图）、推理能力大幅提升，SOTA 性能。目前闭源模型的天花板之一</td>
+    </tr>
+    <tr>
+      <td><strong>Llama 系列</strong></td>
+      <td>2023+</td>
+      <td>Meta</td>
+      <td><strong>开源模型的标杆</strong>——Llama 1/2/3 逐步缩小与 GPT 的差距，推动了整个开源社区的发展</td>
+    </tr>
+    <tr>
+      <td><strong>Qwen（通义千问）</strong></td>
+      <td>2023+</td>
+      <td>阿里</td>
+      <td><strong>国内开源模型第一梯队</strong>——Qwen2.5 系列在各评测中表现优秀，中英文能力均衡，微调生态成熟</td>
+    </tr>
+    <tr>
+      <td><strong>Claude 系列</strong></td>
+      <td>2023+</td>
+      <td>Anthropic</td>
+      <td>安全对齐做得最好，长上下文能力强（200K tokens），适合文档分析场景</td>
+    </tr>
+  </table>
+
+  <div class="concept-box">
+    <strong>&#128204; 一个关键公式：Scaling Law（规模法则）</strong>
+    <p>模型越大 + 数据越多 + 训练越长 → 模型越强。这不是玄学，是 OpenAI 在 2020 年就发现的<strong>经验规律</strong>。这就是为什么各家都在卷参数规模。</p>
+  </div>
+
+  <div class="tip-box">
+    <strong>&#127919; 你需要记住的关键信息</strong>：
+    <ul>
+      <li><strong>闭源模型</strong>（GPT-4、Claude）：能力最强，但要付费，数据不上传</li>
+      <li><strong>开源模型</strong>（Qwen、Llama）：免费，可本地部署、可微调，数据安全</li>
+      <li><strong>LLM 应用工程师</strong>的核心工作：根据场景选择合适的模型 + 设计 Prompt + 构建系统（RAG/Agent）</li>
+    </ul>
+  </div>
+
+  <h3 style="font-size:16px;margin:16px 0 10px;color:var(--accent);">&#127909; 推荐观看</h3>
+  <ul>
+    <li><strong>3Blue1Brown《But what is a GPT?》</strong>——20 分钟理解 GPT 直觉，B站/YouTube 都有</li>
+    <li>搜索关键词："<strong>GPT 原理 3Blue1Brown</strong>"</li>
+  </ul>
+</div>
+
+<!-- ==================== 第四部分：LeetCode ==================== -->
+<div class="section ls">
+  <div class="section-title">
+    <span class="icon">&#129504;</span> 第四部分：LeetCode 每日一题
+    <span class="time-tag">&#9201; ~15min</span>
+  </div>
+
+  <p>Phase 1A 的 LeetCode 主题是<strong>数组 + 字符串</strong>。今天来一道经典题，用到你刚学的 <code class="ic">list</code> 和 <code class="ic">set</code>。</p>
+
+  <h3 style="font-size:16px;margin:16px 0 10px;color:var(--green);">&#128994; LeetCode #217：存在重复元素（简单）</h3>
+
+  <p><strong>题目</strong>：给你一个整数数组 <code class="ic">nums</code>，判断是否存在重复元素。存在返回 <code class="ic">True</code>，不存在返回 <code class="ic">False</code>。</p>
+
+  <p><strong>示例</strong>：</p>
+  <pre>输入：nums = [1, 2, 3, 1]
+输出：True        <span class="cm"># 1 出现了两次</span>
+
+输入：nums = [1, 2, 3, 4]
+输出：False       <span class="cm"># 所有元素都不重复</span></pre>
+
+  <p><strong>思路</strong>：把列表转成集合（set），集合自动去重。如果去重后长度变短了，说明有重复。</p>
+
+  <pre><span class="kw">def</span> <span class="fn">containsDuplicate</span>(nums: <span class="bi">list</span>[<span class="bi">int</span>]) -> <span class="bi">bool</span>:
+    <span class="st">"""判断数组中是否有重复元素"""</span>
+    <span class="kw">return</span> <span class="bi">len</span>(nums) != <span class="bi">len</span>(<span class="bi">set</span>(nums))
+    <span class="cm">#           ^^^^^^^^     ^^^^^^^^^^^^^^^^</span>
+    <span class="cm">#           原始长度      转集合后的长度</span>
+    <span class="cm">#           不相等 = 有元素被去掉了 = 有重复</span>
+
+<span class="cm"># 测试</span>
+<span class="bi">print</span>(containsDuplicate([<span class="st">1</span>, <span class="st">2</span>, <span class="st">3</span>, <span class="st">1</span>]))   <span class="cm"># True</span>
+<span class="bi">print</span>(containsDuplicate([<span class="st">1</span>, <span class="st">2</span>, <span class="st">3</span>, <span class="st">4</span>]))   <span class="cm"># False</span></pre>
+
+  <div class="tip-box">
+    <strong>&#128161; 为什么用 set？</strong>：
+    <ul>
+      <li><code class="ic">set()</code> 是 Python 的集合类型，有两个核心特性：<strong>去重</strong>（重复元素只保留一个）和<strong>快速查找</strong>（O(1) 复杂度）</li>
+      <li><code class="ic">len(set(nums))</code> 就是去重后的元素个数。和原长度一比就知道有没有重复</li>
+      <li>这题还有另一种写法：<code class="ic">seen = set(); for n in nums: if n in seen: return True; seen.add(n)</code>，更直观但代码更长</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ==================== 第五部分：Week 2 总结 ==================== -->
+<div class="section wk">
+  <div class="section-title">
+    <span class="icon">&#127942;</span> 第五部分：Week 2 总结 —— 你已经走了多远？
+    <span class="time-tag">&#9201; ~15min 回顾</span>
+  </div>
+
+  <p>Phase 1A Week 2 结束了。回顾一下这 10 天你掌握了什么：</p>
+
+  <div class="summary-card">
+    <h5>&#128013; Python 技能</h5>
+    <ul>
+      <li>&#x2705; 变量 / 数据类型 / f-string 格式化</li>
+      <li>&#x2705; 列表（list）/ 字典（dict）/ 推导式</li>
+      <li>&#x2705; 元组（tuple）/ 集合（set）/ 类型判断</li>
+      <li>&#x2705; 条件判断（if/elif/else）/ 循环（for/while/break/continue）</li>
+      <li>&#x2705; 函数定义 / 默认参数 / *args / **kwargs / Type Hints</li>
+      <li>&#x2705; 文件读写（JSON/CSV）/ with 上下文管理器</li>
+      <li>&#x2705; 字符串操作 / 正则表达式（re 模块）</li>
+    </ul>
+  </div>
+
+  <div class="summary-card">
+    <h5>&#129302; LLM 实操技能</h5>
+    <ul>
+      <li>&#x2705; 用 openai 库调用 LLM API，打印和解析返回结果</li>
+      <li>&#x2705; 写 Zero-shot / Few-shot / CoT 三种 Prompt 并对比效果</li>
+      <li>&#x2705; 用 tiktoken 统计 token 数量，理解 Tokenization</li>
+      <li>&#x2705; 实现多轮对话程序（messages 历史管理）</li>
+      <li>&#x2705; 把 LLM 调用封装成可复用函数</li>
+      <li>&#x2705; 对话记录持久化到 JSON 文件</li>
+      <li>&#x2705; LLM 输出解析（JSON 结构化提取 + 正则校验）</li>
+      <li>&#x2705; 跑通过 LangChain 的基础 Chain</li>
+      <li>&#x2705; 完成一个完整的命令行问答助手项目</li>
+    </ul>
+  </div>
+
+  <div class="summary-card">
+    <h5>&#128218; 碎片时间知识</h5>
+    <ul>
+      <li>&#x2705; Transformer Self-Attention 概念</li>
+      <li>&#x2705; Tokenization（BPE/SentencePiece）</li>
+      <li>&#x2705; LLM 幻觉成因 & 缓解策略</li>
+      <li>&#x2705; Context Window & Knowledge Cutoff</li>
+      <li>&#x2705; Embedding 概念 & 余弦相似度</li>
+    </ul>
+  </div>
+
+  <div class="summary-card">
+    <h5>&#128187; 工程技能</h5>
+    <ul>
+      <li>&#x2705; Git 基础（init/add/commit/push）</li>
+      <li>&#x2705; 项目推到 GitHub</li>
+      <li>&#x2705; .gitignore 配置</li>
+    </ul>
+  </div>
+
+  <div class="concept-box">
+    <strong>&#127919; 明天预告（Day 12 = Week 3 Day 2）</strong>：Phase 1A Week 3 正式开始！
+    <ul>
+      <li><strong>Python</strong>：enumerate / zip / sorted(key=...) / map / filter</li>
+      <li><strong>LLM 实操</strong>：CoT Prompt 实战——设计 Chain-of-Thought Prompt，让 LLM 分步骤解决 AMC 回收率计算问题</li>
+      <li><strong>碎片知识</strong>：Prompt Engineering 进阶——Self-consistency（多次采样取多数）</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ==================== 今日待办清单 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#9989;</span> 今日待办清单（点击勾选）
+  </div>
+
+  <ul class="tl" id="todo">
+    <li onclick="toggle(this)"><span class="ck"></span> 完善 search.py —— 增加模糊匹配功能</li>
+    <li onclick="toggle(this)"><span class="ck"></span> 完善 main.py —— 增加 quit/exit、help、history 命令</li>
+    <li onclick="toggle(this)"><span class="ck"></span> 运行测试问答助手 —— 6 个测试用例全部通过</li>
+    <li onclick="toggle(this)"><span class="ck"></span> 创建 .gitignore 文件（排除 .env、API Key、__pycache__）</li>
+    <li onclick="toggle(this)"><span class="ck"></span> 在 GitHub 创建仓库 amc-qa-assistant（选 Private）</li>
+    <li onclick="toggle(this)"><span class="ck"></span> Git init → add → commit → push 到 GitHub</li>
+    <li onclick="toggle(this)"><span class="ck"></span> 碎片时间：阅读 LLM 发展简史（GPT-1→GPT-4、Llama、Qwen）</li>
+    <li onclick="toggle(this)"><span class="ck"></span> 碎片时间：观看 3Blue1Brown《But what is a GPT?》视频</li>
+    <li onclick="toggle(this)"><span class="ck"></span> LeetCode #217：存在重复元素（用 set 去重）</li>
+    <li onclick="toggle(this)"><span class="ck"></span> 回顾 Week 2 总结，确认每个知识点都理解了</li>
+  </ul>
+</div>
+
+<div class="footer">
+  Day 11 / 112 &nbsp;|&nbsp; Phase 1A &middot; Week 2 周末实战 Part 2<br>
+  明天：Day 12 &mdash; Week 3 Day 2：enumerate/zip/sorted + CoT Prompt 实战
+</div>
+
+<script>
+function toggle(el) {
+  el.classList.toggle('done');
+  var ck = el.querySelector('.ck');
+  if (el.classList.contains('done')) {
+    ck.innerHTML = '&#10003;';
+  } else {
+    ck.innerHTML = '';
+  }
+}
+</script>
+
+</body>
+</html>
