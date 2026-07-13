@@ -3,4 +3,5 @@
 1.Python学习、
 2.llm学习、
 
-大模型链接：https://shixc1215-hue.github.io/Stark_learning/LLM_120days/dayX.html，修改最后的dataX中的X即可。
+大模型链接：https://shixc1215-hue.github.io/Stark_learning/LLM_120days/dayX.html
+修改最后的dataX中的X即可。
