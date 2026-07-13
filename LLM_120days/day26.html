@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 26 - Phase 1B Day 8：FastAPI进阶（依赖注入/数据库集成/认证）</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#eff6ff,#eef2ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #bfdbfe; }
+  .header .badge { display:inline-block;background:#dbeafe;color:var(--accent);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  pre { background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;overflow-x:auto;font-size:13.5px;line-height:1.65;margin:12px 0;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--text); }
+  code { font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:13px; }
+  .ic { background:#f1f5f9;padding:2px 7px;border-radius:4px;font-size:13px;color:var(--accent);border:1px solid #e2e8f0; }
+  h3 { font-size:16px;font-weight:700;margin:20px 0 10px;color:var(--text); }
+  h4 { font-size:14.5px;font-weight:600;margin:16px 0 8px;color:var(--text2); }
+  p { margin:8px 0;font-size:14.5px;color:var(--text2); }
+  ul,ol { margin:8px 0 8px 20px;font-size:14.5px;color:var(--text2); }
+  li { margin:4px 0; }
+  table { width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px; }
+  th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border);color:var(--text);font-size:13px; }
+  td { padding:10px 14px;border:1px solid var(--border);color:var(--text2); }
+  tr:hover td { background:#f8fafc; }
+  .nav { display:flex;justify-content:space-between;align-items:center;margin-top:20px;padding:16px 20px;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border); }
+  .nav a { color:var(--accent);text-decoration:none;font-weight:600;font-size:14px; }
+  .nav a:hover { text-decoration:underline; }
+  .exercise { background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:1px solid #bbf7d0;border-radius:8px;padding:16px 20px;margin:14px 0; }
+  .exercise h4 { color:var(--green);margin:0 0 10px; }
+  .footer { text-align:center;padding:20px;color:var(--text3);font-size:13px;margin-top:10px; }
+  .kw { color:#7c3aed; } .fn { color:#2563eb; } .st { color:#16a34a; .cm { color:#94a3b8; } .nu { color:#ea580c; }
+</style>
+</head>
+<body>
+
+<!-- 头部 -->
+<div class="header">
+  <div class="badge">PHASE 1B · 工程进阶 · DAY 8</div>
+  <h1>Day 26 - FastAPI 进阶：依赖注入 / 数据库集成 / 认证</h1>
+  <div class="subtitle">从"能跑"到"能上生产"——掌握企业级 API 的三大支柱</div>
+</div>
+
+<!-- 进度条 -->
+<div class="progress-bar">
+  <span class="label">Day 26 / 70</span>
+  <div class="track"><div class="fill" style="width:37.1%"></div></div>
+  <span class="percent">37%</span>
+</div>
+
+<!-- ==================== Section 1 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔧</span> 一、依赖注入（Dependency Injection）——FastAPI 的灵魂
+    <span class="time-tag">20 min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>什么是依赖注入？</strong> 就像你写 SQL 时，数据库连接由平台提供而不是你自己拼字符串。FastAPI 的 <code>Depends()</code> 让你把"公共逻辑"抽成独立函数，多个接口复用同一份代码。不用继承、不用装饰器，一个 <code>Depends</code> 搞定。
+  </div>
+
+  <h3>1.1 最简依赖：公共参数提取</h3>
+  <p>假设你的 API 有 10 个接口都需要 <code>page</code> 和 <code>page_size</code> 分页参数——写 10 遍？不，抽成一个依赖函数：</p>
+  <pre><span class="cm"># common_deps.py —— 公共依赖函数</span>
+<span class="kw">from</span> fastapi <span class="kw">import</span> Query
+
+<span class="kw">def</span> <span class="fn">common_pagination</span>(
+    page: <span class="kw">int</span> = Query(<span class="nu">1</span>, ge=<span class="nu">1</span>, description=<span class="st">"页码，从1开始"</span>),
+    page_size: <span class="kw">int</span> = Query(<span class="nu">20</span>, ge=<span class="nu">1</span>, le=<span class="nu">100</span>, description=<span class="st">"每页条数"</span>)
+):
+    <span class="st">"""分页参数，所有接口复用"""</span>
+    offset = (page - <span class="nu">1</span>) * page_size
+    <span class="kw">return</span> {<span class="st">"page"</span>: page, <span class="st">"page_size"</span>: page_size, <span class="st">"offset"</span>: offset}</pre>
+
+  <pre><span class="cm"># main.py —— 使用依赖</span>
+<span class="kw">from</span> fastapi <span class="kw">import</span> FastAPI, Depends
+<span class="kw">from</span> common_deps <span class="kw">import</span> common_pagination
+
+app = FastAPI()
+
+<span class="kw">@app.get</span>(<span class="st">"/amc/assets"</span>)
+<span class="kw">async def</span> <span class="fn">list_assets</span>(pag: <span class="kw">dict</span> = Depends(common_pagination)):
+    <span class="st"># pag 就是 common_pagination 的返回值</span>
+    sql = <span class="st">f"SELECT * FROM amc_assets LIMIT </span>{pag[<span class="st">'page_size'</span>]}<span class="st"> OFFSET </span>{pag[<span class="st">'offset'</span>]}<span class="st">"</span>
+    <span class="kw">return</span> {<span class="st">"sql"</span>: sql, <span class="st">"page"</span>: pag[<span class="st">"page"</span>]}
+
+<span class="kw">@app.get</span>(<span class="st">"/amc/debtors"</span>)
+<span class="kw">async def</span> <span class="fn">list_debtors</span>(pag: <span class="kw">dict</span> = Depends(common_pagination)):
+    sql = <span class="st">f"SELECT * FROM debtors LIMIT </span>{pag[<span class="st">'page_size'</span>]}<span class="st"> OFFSET </span>{pag[<span class="st">'offset'</span>]}<span class="st">"</span>
+    <span class="kw">return</span> {<span class="st">"sql"</span>: sql, <span class="st">"page"</span>: pag[<span class="st">"page"</span>]}</pre>
+
+  <div class="tip-box">
+    <strong>数据工程师视角：</strong>这就像 SQL 里的 <code>WITH</code> 公共表表达式（CTE）——把重复逻辑抽出来，各处引用。依赖注入就是"函数版 CTE"。
+  </div>
+
+  <h3>1.2 类作为依赖（更强大的状态管理）</h3>
+  <p>当依赖需要维护状态（比如数据库连接池），用类更合适：</p>
+  <pre><span class="kw">from</span> fastapi <span class="kw">import</span> Depends
+
+<span class="kw">class</span> <span class="fn">DBConfig</span>:
+    <span class="st">"""数据库配置依赖 —— 模拟从环境变量/配置文件读取"""</span>
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, env: <span class="kw">str</span> = <span class="st">"dev"</span>):
+        configs = {
+            <span class="st">"dev"</span>:  {<span class="st">"host"</span>: <span class="st">"localhost"</span>, <span class="st">"port"</span>: <span class="nu">3306</span>, <span class="st">"db"</span>: <span class="st">"amc_dev"</span>},
+            <span class="st">"prod"</span>: {<span class="st">"host"</span>: <span class="st">"10.0.1.100"</span>, <span class="st">"port"</span>: <span class="nu">3306</span>, <span class="st">"db"</span>: <span class="st">"amc_prod"</span>},
+        }
+        self.config = configs.get(env, configs[<span class="st">"dev"</span>])
+
+<span class="cm"># 用 Depends(DBConfig) 时，FastAPI 自动实例化 DBConfig()</span>
+<span class="kw">@app.get</span>(<span class="st">"/config"</span>)
+<span class="kw">async def</span> <span class="fn">get_config</span>(db: DBConfig = Depends(DBConfig)):
+    <span class="kw">return</span> db.config</pre>
+
+  <h3>1.3 依赖链（嵌套依赖）</h3>
+  <p>依赖可以依赖其他依赖，形成一条"调用链"。类似 SQL 中 CTE 嵌套 CTE：</p>
+  <pre><span class="kw">def</span> <span class="fn">get_api_key</span>(api_key: <span class="kw">str</span> = Header(<span class="st">"X-API-Key"</span>)):
+    <span class="kw">if not</span> api_key:
+        <span class="kw">raise</span> HTTPException(status_code=<span class="nu">401</span>, detail=<span class="st">"缺少 API Key"</span>)
+    <span class="kw">return</span> api_key
+
+<span class="kw">def</span> <span class="fn">get_db_session</span>(key: <span class="kw">str</span> = Depends(get_api_key)):
+    <span class="st"># 先验证 API Key，再创建数据库会话</span>
+    <span class="cm"># 不同 key 对应不同数据库（多租户）</span>
+    session = create_session_by_key(key)
+    <span class="kw">return</span> session
+
+<span class="kw">@app.get</span>(<span class="st">"/data"</span>)
+<span class="kw">async def</span> <span class="fn">get_data</span>(session = Depends(get_db_session)):
+    <span class="cm"># 自动执行：get_api_key → get_db_session → get_data</span>
+    <span class="kw">return</span> session.query(...)</pre>
+
+  <div class="concept-box">
+    <strong>依赖注入的三大好处：</strong><br>
+    ① <strong>复用</strong> —— 一处定义，多处使用<br>
+    ② <strong>可测试</strong> —— 测试时替换为 mock 依赖，无需改业务代码<br>
+    ③ <strong>自动文档</strong> —— 依赖的参数自动出现在 Swagger 文档中
+  </div>
+</div>
+
+<!-- ==================== Section 2 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🗄️</span> 二、数据库集成：SQLAlchemy + FastAPI
+    <span class="time-tag">20 min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>为什么学这个？</strong> 作为数据开发工程师，你一定熟悉 SQL。FastAPI + SQLAlchemy 让你用 Python 对象来操作数据库表，同时保留写 SQL 的能力。这是从"写脚本"到"做服务"的关键一步。
+  </div>
+
+  <h3>2.1 SQLAlchemy 两种风格</h3>
+  <table>
+    <tr><th>对比项</th><th>Core（SQL表达式）</th><th>ORM（对象关系映射）</th></tr>
+    <tr><td>风格</td><td>像写 SQL，但用 Python 函数</td><td>像操作 Python 对象</td></tr>
+    <tr><td>适合</td><td>复杂查询、报表、ETL</td><td>CRUD、业务逻辑</td></tr>
+    <tr><td>类比</td><td>你日常写的 SQL</td><td>pandas DataFrame 操作</td></tr>
+    <tr><td>学习建议</td><td>数据工程师优先掌握</td><td>了解即可</td></tr>
+  </table>
+
+  <h3>2.2 用 SQLite + Core 风格做一个完整的 CRUD</h3>
+  <pre><span class="cm"># db_demo.py</span>
+<span class="kw">from</span> sqlalchemy <span class="kw">import</span> create_engine, Column, Integer, String, Float, text
+<span class="kw">from</span> sqlalchemy.orm <span class="kw">import</span> sessionmaker, DeclarativeBase
+
+<span class="cm"># 1. 创建引擎（SQLite 文件数据库，适合学习；生产换 MySQL/PostgreSQL）</span>
+engine = create_engine(<span class="st">"sqlite:///amc.db"</span>, echo=<span class="kw">False</span>)
+
+<span class="cm"># 2. 定义 ORM 模型（表结构）</span>
+<span class="kw">class</span> <span class="fn">Base</span>(DeclarativeBase):
+    <span class="kw">pass</span>
+
+<span class="kw">class</span> <span class="fn">NpaAsset</span>(Base):
+    __tablename__ = <span class="st">"npa_assets"</span>  <span class="cm"># 表名</span>
+
+    id = Column(Integer, primary_key=<span class="kw">True</span>, autoincrement=<span class="kw">True</span>)
+    debtor_name = Column(String(<span class="nu">100</span>), nullable=<span class="kw">False</span>, comment=<span class="st">"债务人名称"</span>)
+    asset_type = Column(String(<span class="nu">20</span>), comment=<span class="st">"资产类型: 贷款/债券/保证"</span>)
+    principal = Column(Float, comment=<span class="st">"本金余额(万元)"</span>)
+    status = Column(String(<span class="nu">20</span>), default=<span class="st">"持有"</span>)
+
+<span class="cm"># 3. 建表（如果不存在）</span>
+Base.metadata.create_all(engine)
+
+<span class="cm"># 4. 创建 Session 工厂</span>
+SessionLocal = sessionmaker(bind=engine)
+
+<span class="cm"># 5. CRUD 操作</span>
+<span class="kw">def</span> <span class="fn">create_asset</span>(name, asset_type, principal):
+    <span class="st">"""新增一条不良资产记录"""</span>
+    <span class="kw">with</span> SessionLocal() <span class="kw">as</span> session:
+        asset = NpaAsset(
+            debtor_name=name,
+            asset_type=asset_type,
+            principal=principal
+        )
+        session.add(asset)
+        session.commit()
+        session.refresh(asset)  <span class="cm"># 刷新获取自增ID</span>
+        <span class="kw">return</span> asset
+
+<span class="kw">def</span> <span class="fn">list_assets</span>(status=<span class="kw">None</span>, limit=<span class="nu">20</span>):
+    <span class="st">"""查询资产列表，可按状态过滤"""</span>
+    <span class="kw">with</span> SessionLocal() <span class="kw">as</span> session:
+        query = session.query(NpaAsset)
+        <span class="kw">if</span> status:
+            query = query.filter(NpaAsset.status == status)
+        <span class="kw">return</span> query.limit(limit).all()
+
+<span class="kw">def</span> <span class="fn">get_asset</span>(asset_id: <span class="kw">int</span>):
+    <span class="st">"""按ID查询单条"""</span>
+    <span class="kw">with</span> SessionLocal() <span class="kw">as</span> session:
+        <span class="kw">return</span> session.query(NpaAsset).get(asset_id)
+
+<span class="kw">def</span> <span class="fn">update_asset_status</span>(asset_id: <span class="kw">int</span>, new_status: <span class="kw">str</span>):
+    <span class="st">"""更新资产状态"""</span>
+    <span class="kw">with</span> SessionLocal() <span class="kw">as</span> session:
+        asset = session.query(NpaAsset).get(asset_id)
+        <span class="kw">if not</span> asset:
+            <span class="kw">return None</span>
+        old_status = asset.status
+        asset.status = new_status
+        session.commit()
+        <span class="kw">return</span> {<span class="st">"id"</span>: asset_id, <span class="st">"old"</span>: old_status, <span class="st">"new"</span>: new_status}
+
+<span class="kw">def</span> <span class="fn">delete_asset</span>(asset_id: <span class="kw">int</span>):
+    <span class="st">"""删除资产记录"""</span>
+    <span class="kw">with</span> SessionLocal() <span class="kw">as</span> session:
+        asset = session.query(NpaAsset).get(asset_id)
+        <span class="kw">if not</span> asset:
+            <span class="kw">return False</span>
+        session.delete(asset)
+        session.commit()
+        <span class="kw">return True</span>
+
+<span class="cm"># 测试一下</span>
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    <span class="cm"># 插入测试数据</span>
+    create_asset(<span class="st">"某某贸易公司"</span>, <span class="st">"贷款"</span>, <span class="nu">5000.0</span>)
+    create_asset(<span class="st">"李某"</span>, <span class="st">"保证"</span>, <span class="nu">320.5</span>)
+    create_asset(<span class="st">"A建设集团"</span>, <span class="st">"债券"</span>, <span class="nu">12000.0</span>)
+
+    <span class="cm"># 查询</span>
+    assets = list_assets()
+    <span class="kw">for</span> a <span class="kw">in</span> assets:
+        print(<span class="st">f"  ID=</span>{a.id}<span class="st">, </span>{a.debtor_name}<span class="st">, </span>{a.asset_type}<span class="st">, </span>{a.principal}<span class="st">万, </span>{a.status}<span class="st">"</span>)
+
+    <span class="cm"># 更新</span>
+    result = update_asset_status(<span class="nu">1</span>, <span class="st">"已处置"</span>)
+    print(<span class="st">f"更新结果: </span>{result}<span class="st">"</span>)</pre>
+
+  <h3>2.3 把数据库操作做成 FastAPI 依赖</h3>
+  <p>这是企业级写法——数据库会话的生命周期由框架管理：</p>
+  <pre><span class="cm"># dependencies.py</span>
+<span class="kw">from</span> db_demo <span class="kw">import</span> SessionLocal, NpaAsset
+
+<span class="kw">def</span> <span class="fn">get_db</span>():
+    <span class="st">"""数据库会话依赖 —— 请求结束时自动关闭"""
+    db = SessionLocal()
+    <span class="kw">try</span>:
+        <span class="kw">yield</span> db  <span class="cm"># yield 是关键！生成器依赖</span>
+    <span class="kw">finally</span>:
+        db.close()
+
+<span class="cm"># api.py —— 使用数据库依赖</span>
+<span class="kw">from</span> fastapi <span class="kw">import</span> FastAPI, Depends, HTTPException
+<span class="kw">from</span> sqlalchemy.orm <span class="kw">import</span> Session
+<span class="kw">from</span> dependencies <span class="kw">import</span> get_db
+
+app = FastAPI()
+
+<span class="kw">@app.post</span>(<span class="st">"/assets"</span>)
+<span class="kw">async def</span> <span class="fn">create_asset_api</span>(
+    name: <span class="kw">str</span>, asset_type: <span class="kw">str</span>, principal: <span class="kw">float</span>,
+    db: Session = Depends(get_db)  <span class="cm"># 注入数据库会话</span>
+):
+    asset = NpaAsset(debtor_name=name, asset_type=asset_type, principal=principal)
+    db.add(asset)
+    db.commit()
+    db.refresh(asset)
+    <span class="kw">return</span> {<span class="st">"id"</span>: asset.id, <span class="st">"name"</span>: asset.debtor_name}
+
+<span class="kw">@app.get</span>(<span class="st">"/assets"</span>)
+<span class="kw">async def</span> <span class="fn">list_assets_api</span>(db: Session = Depends(get_db)):
+    assets = db.query(NpaAsset).all()
+    <span class="kw">return</span> [{<span class="st">"id"</span>: a.id, <span class="st">"name"</span>: a.debtor_name, <span class="st">"type"</span>: a.asset_type} <span class="kw">for</span> a <span class="kw">in</span> assets]
+
+<span class="kw">@app.get</span>(<span class="st">"/assets/{asset_id}"</span>)
+<span class="kw">async def</span> <span class="fn">get_asset_api</span>(asset_id: <span class="kw">int</span>, db: Session = Depends(get_db)):
+    asset = db.query(NpaAsset).get(asset_id)
+    <span class="kw">if not</span> asset:
+        <span class="kw">raise</span> HTTPException(<span class="nu">404</span>, <span class="st">f"资产 {asset_id} 不存在"</span>)
+    <span class="kw">return</span> asset
+
+<span class="kw">@app.delete</span>(<span class="st">"/assets/{asset_id}"</span>)
+<span class="kw">async def</span> <span class="fn">delete_asset_api</span>(asset_id: <span class="kw">int</span>, db: Session = Depends(get_db)):
+    asset = db.query(NpaAsset).get(asset_id)
+    <span class="kw">if not</span> asset:
+        <span class="kw">raise</span> HTTPException(<span class="nu">404</span>, <span class="st">f"资产 {asset_id} 不存在"</span>)
+    db.delete(asset)
+    db.commit()
+    <span class="kw">return</span> {<span class="st">"msg"</span>: <span class="st">"删除成功"</span>}</pre>
+
+  <div class="tip-box">
+    <strong>yield 依赖的关键：</strong>普通函数用 <code>return</code>，而数据库会话必须用 <code>yield</code>。<br>
+    <code>yield</code> 之前的代码 = 请求开始时执行<br>
+    <code>yield</code> 之后的代码（<code>finally</code> 块）= 请求结束后执行（关闭连接）
+  </div>
+
+  <div class="warn-box">
+    <strong>注意：</strong>生产环境千万别用 SQLite！SQLite 不支持并发写入。生产环境用 MySQL（<code>pymysql</code> 驱动）或 PostgreSQL（<code>psycopg2</code> 驱动），只需改连接字符串：<br>
+    <code>create_engine("mysql+pymysql://user:pass@host:3306/amc_db")</code>
+  </div>
+</div>
+
+<!-- ==================== Section 3 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔐</span> 三、API 认证与授权
+    <span class="time-tag">15 min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>为什么要认证？</strong> 你的 LLM API 每次调用都要花钱。如果不做认证，任何人都能调用你的接口，费用直接爆炸。认证 = "你是谁"，授权 = "你能干什么"。
+  </div>
+
+  <h3>3.1 方案对比</h3>
+  <table>
+    <tr><th>方案</th><th>复杂度</th><th>适合场景</th><th>类比</th></tr>
+    <tr><td>API Key（Header）</td><td>★☆☆</td><td>内部服务、脚本调用</td><td>门禁卡</td></tr>
+    <tr><td>HTTP Basic Auth</td><td>★☆☆</td><td>简单工具、测试</td><td>用户名+密码</td></tr>
+    <tr><td>JWT Token</td><td>★★☆</td><td>Web 应用、多用户</td><td>临时通行证（带有效期）</td></tr>
+    <tr><td>OAuth 2.0</td><td>★★★</td><td>第三方接入（微信登录等）</td><td>物业代收快递</td></tr>
+  </table>
+
+  <h3>3.2 实战：API Key 认证（最适合数据工程师）</h3>
+  <pre><span class="cm"># auth.py —— API Key 认证方案</span>
+<span class="kw">from</span> fastapi <span class="kw">import</span> Header, HTTPException, Depends
+<span class="kw">from</span> typing <span class="kw">import</span> Optional
+
+<span class="cm"># 模拟的 API Key 存储（生产环境应存数据库/Redis）</span>
+VALID_KEYS = {
+    <span class="st">"sk-data-team-001"</span>: {<span class="st">"name"</span>: <span class="st">"数据团队"</span>, <span class="st">"role"</span>: <span class="st">"admin"</span>},
+    <span class="st">"sk-llm-dev-002"</span>:   {<span class="st">"name"</span>: <span class="st">"LLM开发"</span>, <span class="st">"role"</span>: <span class="st">"user"</span>},
+}
+
+<span class="kw">async def</span> <span class="fn">verify_api_key</span>(
+    x_api_key: Optional[<span class="kw">str</span>] = Header(<span class="kw">None</span>)
+):
+    <span class="st">"""
+    API Key 认证依赖
+    客户端请求时需在 Header 中携带：X-API-Key: sk-xxx
+    """
+    <span class="kw">if not</span> x_api_key:
+        <span class="kw">raise</span> HTTPException(
+            status_code=<span class="nu">401</span>,
+            detail=<span class="st">"缺少 X-API-Key 请求头。请在 Header 中添加 X-API-Key"</span>
+        )
+    <span class="kw">if</span> x_api_key <span class="kw">not in</span> VALID_KEYS:
+        <span class="kw">raise</span> HTTPException(
+            status_code=<span class="nu">403</span>,
+            detail=<span class="st">"无效的 API Key"</span>
+        )
+    <span class="kw">return</span> VALID_KEYS[x_api_key]  <span class="cm"># 返回用户信息</span></pre>
+
+  <h3>3.3 角色权限控制</h3>
+  <pre><span class="kw">def</span> <span class="fn">require_admin</span>(user_info: <span class="kw">dict</span> = Depends(verify_api_key)):
+    <span class="st">"""管理员权限依赖 —— 依赖链：先认证，再鉴权"""</span>
+    <span class="kw">if</span> user_info[<span class="st">"role"</span>] != <span class="st">"admin"</span>:
+        <span class="kw">raise</span> HTTPException(<span class="nu">403</span>, <span class="st">"需要管理员权限"</span>)
+    <span class="kw">return</span> user_info
+
+<span class="cm"># 路由使用</span>
+<span class="kw">@app.get</span>(<span class="st">"/assets"</span>)
+<span class="kw">async def</span> <span class="fn">list_assets</span>(user = Depends(verify_api_key)):
+    <span class="st"># 任何有效 Key 都能访问</span>
+    <span class="kw">return</span> {<span class="st">"user"</span>: user[<span class="st">"name"</span>], <span class="st">"data"</span>: [...]}
+
+<span class="kw">@app.delete</span>(<span class="st">"/assets/{asset_id}"</span>)
+<span class="kw">async def</span> <span class="fn">delete_asset</span>(user = Depends(require_admin)):
+    <span class="st"># 只有 admin 角色才能删除</span>
+    <span class="kw">return</span> {<span class="st">"msg"</span>: <span class="st">"已删除"</span>}</pre>
+
+  <h3>3.4 用 requests 测试认证</h3>
+  <pre><span class="kw">import</span> requests
+
+BASE = <span class="st">"http://localhost:8000"</span>
+HEADERS_OK = {<span class="st">"X-API-Key"</span>: <span class="st">"sk-data-team-001"</span>}
+HEADERS_BAD = {<span class="st">"X-API-Key"</span>: <span class="st">"sk-wrong-key"</span>}
+
+<span class="cm"># 1. 不带 Key → 401</span>
+r = requests.get(<span class="st">f"{BASE}/assets"</span>)
+print(r.status_code)  <span class="cm"># 401</span>
+
+<span class="cm"># 2. 带 Key → 200</span>
+r = requests.get(<span class="st">f"{BASE}/assets"</span>, headers=HEADERS_OK)
+print(r.status_code)  <span class="cm"># 200</span>
+print(r.json())
+
+<span class="cm"># 3. 错误 Key → 403</span>
+r = requests.get(<span class="st">f"{BASE}/assets"</span>, headers=HEADERS_BAD)
+print(r.status_code)  <span class="cm"># 403</span>
+
+<span class="cm"># 4. 非 admin 删除 → 403</span>
+r = requests.delete(<span class="st">f"{BASE}/assets/1"</span>, headers={<span class="st">"X-API-Key"</span>: <span class="st">"sk-llm-dev-002"</span>})
+print(r.status_code)  <span class="cm"># 403</span></pre>
+</div>
+
+<!-- ==================== Section 4 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🤖</span> 四、LLM 实战：带认证 + 数据库的 LLM API 网关
+    <span class="time-tag">20 min</span>
+  </div>
+
+  <p>把今天学的三个知识点串起来，做一个"LLM 资产分析 API 网关"：</p>
+
+  <pre><span class="cm"># llm_gateway.py —— 完整实战</span>
+<span class="kw">from</span> fastapi <span class="kw">import</span> FastAPI, Depends, HTTPException, Header, Query
+<span class="kw">from</span> pydantic <span class="kw">import</span> BaseModel, Field
+<span class="kw">from</span> sqlalchemy <span class="kw">import</span> create_engine, Column, Integer, String, Float, DateTime, Text
+<span class="kw">from</span> sqlalchemy.orm <span class="kw">import</span> sessionmaker, DeclarativeBase
+<span class="kw">from</span> datetime <span class="kw">import</span> datetime
+<span class="kw">from</span> typing <span class="kw">import</span> Optional, List
+<span class="kw">import</span> requests <span class="kw">as</span> http_requests
+<span class="kw">import</span> json, os
+
+<span class="cm"># ======== 配置 ========</span>
+DATABASE_URL = os.getenv(<span class="st">"DB_URL"</span>, <span class="st">"sqlite:///./llm_gateway.db"</span>)
+ZHIPU_API_KEY = os.getenv(<span class="st">"ZHIPU_API_KEY"</span>, <span class="st">"your-key-here"</span>)
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(bind=engine)
+
+<span class="cm"># ======== 数据库模型 ========</span>
+<span class="kw">class</span> <span class="fn">Base</span>(DeclarativeBase):
+    <span class="kw">pass</span>
+
+<span class="kw">class</span> <span class="fn">ChatLog</span>(Base):
+    <span class="st">"""对话日志表 —— 记录每次 LLM 调用"""</span>
+    __tablename__ = <span class="st">"chat_logs"</span>
+
+    id = Column(Integer, primary_key=<span class="kw">True</span>, autoincrement=<span class="kw">True</span>)
+    user_name = Column(String(<span class="nu">50</span>), index=<span class="kw">True</span>)
+    question = Column(Text)
+    answer = Column(Text)
+    model = Column(String(<span class="nu">50</span>))
+    tokens_used = Column(Integer, default=<span class="nu">0</span>)
+    created_at = Column(DateTime, default=datetime.now)
+
+<span class="kw">class</span> <span class="fn">UserQuota</span>(Base):
+    <span class="st">"""用户配额表 —— 控制每个用户的调用量"""</span>
+    __tablename__ = <span class="st">"user_quotas"</span>
+
+    user_name = Column(String(<span class="nu">50</span>), primary_key=<span class="kw">True</span>)
+    daily_limit = Column(Integer, default=<span class="nu">100</span>)
+    daily_used = Column(Integer, default=<span class="nu">0</span>)
+    reset_date = Column(String(<span class="nu">10</span>), default=<span class="st">""</span>)
+
+Base.metadata.create_all(engine)
+
+<span class="cm"># ======== 依赖函数 ========</span>
+<span class="kw">def</span> <span class="fn">get_db</span>():
+    db = SessionLocal()
+    <span class="kw">try</span>:
+        <span class="kw">yield</span> db
+    <span class="kw">finally</span>:
+        db.close()
+
+VALID_KEYS = {
+    <span class="st">"sk-amc-admin"</span>:  <span class="st">"AMC管理员"</span>,
+    <span class="st">"sk-data-dev"</span>:   <span class="st">"数据开发"</span>,
+    <span class="st">"sk-analyst"</span>:    <span class="st">"分析师"</span>,
+}
+
+<span class="kw">async def</span> <span class="fn">auth_dep</span>(x_api_key: Optional[<span class="kw">str</span>] = Header(<span class="kw">None</span>)):
+    <span class="st">"""认证 + 配额检查 依赖"""</span>
+    <span class="kw">if not</span> x_api_key <span class="kw">or</span> x_api_key <span class="kw">not in</span> VALID_KEYS:
+        <span class="kw">raise</span> HTTPException(<span class="nu">401</span>, <span class="st">"认证失败"</span>)
+    <span class="kw">return</span> VALID_KEYS[x_api_key]
+
+<span class="kw">async def</span> <span class="fn">check_quota</span>(
+    user_name: <span class="kw">str</span> = Depends(auth_dep),
+    db: Session = Depends(get_db)
+):
+    <span class="st">"""配额检查依赖 —— 依赖链：auth_dep → check_quota"""</span>
+    today = datetime.now().strftime(<span class="st">"%Y-%m-%d"</span>)
+    quota = db.query(UserQuota).filter_by(user_name=user_name).first()
+
+    <span class="kw">if not</span> quota:
+        <span class="cm"># 首次使用，自动创建配额</span>
+        quota = UserQuota(user_name=user_name, daily_limit=<span class="nu">100</span>, daily_used=<span class="nu">0</span>, reset_date=today)
+        db.add(quota)
+        db.commit()
+
+    <span class="cm"># 跨天自动重置</span>
+    <span class="kw">if</span> quota.reset_date != today:
+        quota.daily_used = <span class="nu">0</span>
+        quota.reset_date = today
+        db.commit()
+
+    <span class="kw">if</span> quota.daily_used >= quota.daily_limit:
+        <span class="kw">raise</span> HTTPException(<span class="nu">429</span>, <span class="st">f"今日配额已用完（{quota.daily_limit}次），明天重置"</span>)
+
+    <span class="kw">return</span> {<span class="st">"user_name"</span>: user_name, <span class="st">"quota"</span>: quota}
+
+<span class="cm"># ======== Pydantic 模型 ========</span>
+<span class="kw">class</span> <span class="fn">ChatRequest</span>(BaseModel):
+    question: <span class="kw">str</span> = Field(..., min_length=<span class="nu">1</span>, max_length=<span class="nu">2000</span>, description=<span class="st">"用户问题"</span>)
+    model: <span class="kw">str</span> = Field(default=<span class="st">"glm-4-flash"</span>, description=<span class="st">"模型名称"</span>)
+
+<span class="kw">class</span> <span class="fn">ChatResponse</span>(BaseModel):
+    answer: <span class="kw">str</span>
+    model: <span class="kw">str</span>
+    tokens_used: <span class="kw">int</span>
+    remaining_quota: <span class="kw">int</span>
+
+<span class="cm"># ======== LLM 调用函数 ========</span>
+<span class="kw">def</span> <span class="fn">call_llm</span>(question: <span class="kw">str</span>, model: <span class="kw">str</span> = <span class="st">"glm-4-flash"</span>) -> <span class="kw">dict</span>:
+    <span class="st">"""调用智谱 AI API"""</span>
+    url = <span class="st">"https://open.bigmodel.cn/api/paas/v4/chat/completions"</span>
+    headers = {
+        <span class="st">"Authorization"</span>: <span class="st">f"Bearer </span>{ZHIPU_API_KEY}<span class="st">"</span>,
+        <span class="st">"Content-Type"</span>: <span class="st">"application/json"</span>
+    }
+    payload = {
+        <span class="st">"model"</span>: model,
+        <span class="st">"messages"</span>: [
+            {<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: <span class="st">"你是AMC（资产管理公司）不良资产分析专家，用简洁专业的方式回答问题。"</span>},
+            {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: question}
+        ],
+        <span class="st">"temperature"</span>: <span class="nu">0.7</span>,
+        <span class="st">"max_tokens"</span>: <span class="nu">500</span>
+    }
+    resp = http_requests.post(url, headers=headers, json=payload, timeout=<span class="nu">30</span>)
+    resp.raise_for_status()
+    data = resp.json()
+    <span class="kw">return</span> {
+        <span class="st">"answer"</span>: data[<span class="st">"choices"</span>][<span class="nu">0</span>][<span class="st">"message"</span>][<span class="st">"content"</span>],
+        <span class="st">"tokens"</span>: data[<span class="st">"usage"</span>].get(<span class="st">"total_tokens"</span>, <span class="nu">0</span>)
+    }
+
+<span class="cm"># ======== FastAPI 应用 ========</span>
+app = FastAPI(title=<span class="st">"LLM 资产分析网关"</span>, version=<span class="st">"1.0"</span>)
+
+<span class="kw">@app.post</span>(<span class="st">"/chat"</span>, response_model=ChatResponse)
+<span class="kw">async def</span> <span class="fn">chat</span>(
+    req: ChatRequest,
+    ctx: <span class="kw">dict</span> = Depends(check_quota),  <span class="cm"># 同时注入认证+配额+数据库</span>
+    db: Session = Depends(get_db)
+):
+    <span class="st">"""
+    核心对话接口
+    流程：认证 → 配额检查 → 调用 LLM → 记录日志 → 扣减配额 → 返回结果
+    """
+    <span class="kw">try</span>:
+        <span class="cm"># 1. 调用 LLM</span>
+        result = call_llm(req.question, req.model)
+
+        <span class="cm"># 2. 记录日志</span>
+        log = ChatLog(
+            user_name=ctx[<span class="st">"user_name"</span>],
+            question=req.question,
+            answer=result[<span class="st">"answer"</span>],
+            model=req.model,
+            tokens_used=result[<span class="st">"tokens"</span>]
+        )
+        db.add(log)
+
+        <span class="cm"># 3. 扣减配额</span>
+        ctx[<span class="st">"quota"</span>].daily_used += <span class="nu">1</span>
+
+        db.commit()
+
+        <span class="kw">return</span> ChatResponse(
+            answer=result[<span class="st">"answer"</span>],
+            model=req.model,
+            tokens_used=result[<span class="st">"tokens"</span>],
+            remaining_quota=ctx[<span class="st">"quota"</span>].daily_limit - ctx[<span class="st">"quota"</span>].daily_used
+        )
+    <span class="kw">except</span> http_requests.RequestException <span class="kw">as</span> e:
+        <span class="kw">raise</span> HTTPException(<span class="nu">502</span>, <span class="st">f"LLM 服务调用失败: </span>{e}<span class="st">"</span>)
+
+<span class="kw">@app.get</span>(<span class="st">"/logs"</span>)
+<span class="kw">async def</span> <span class="fn">get_logs</span>(
+    user_name: <span class="kw">str</span> = Depends(auth_dep),
+    db: Session = Depends(get_db),
+    limit: <span class="kw">int</span> = Query(<span class="nu">20</span>, le=<span class="nu">100</span>)
+):
+    <span class="st">"""查询对话日志"""</span>
+    logs = db.query(ChatLog).order_by(ChatLog.id.desc()).limit(limit).all()
+    <span class="kw">return</span> [{
+        <span class="st">"id"</span>: l.id,
+        <span class="st">"time"</span>: l.created_at.strftime(<span class="st">"%H:%M:%S"</span>),
+        <span class="st">"question"</span>: l.question[:<span class="nu">50</span>],
+        <span class="st">"model"</span>: l.model,
+        <span class="st">"tokens"</span>: l.tokens_used
+    } <span class="kw">for</span> l <span class="kw">in</span> logs]
+
+<span class="kw">@app.get</span>(<span class="st">"/quota"</span>)
+<span class="kw">async def</span> <span class="fn">get_quota</span>(
+    ctx: <span class="kw">dict</span> = Depends(check_quota)
+):
+    <span class="st">"""查看当前配额"""</span>
+    q = ctx[<span class="st">"quota"</span>]
+    <span class="kw">return</span> {
+        <span class="st">"user"</span>: ctx[<span class="st">"user_name"</span>],
+        <span class="st">"used"</span>: q.daily_used,
+        <span class="st">"limit"</span>: q.daily_limit,
+        <span class="st">"remaining"</span>: q.daily_limit - q.daily_used
+    }</pre>
+
+  <h3>4.1 测试整个流程</h3>
+  <pre><span class="kw">import</span> requests
+
+BASE = <span class="st">"http://localhost:8000"</span>
+HEADERS = {<span class="st">"X-API-Key"</span>: <span class="st">"sk-amc-admin"</span>}
+
+<span class="cm"># 1. 查看配额</span>
+r = requests.get(<span class="st">f"{BASE}/quota"</span>, headers=HEADERS)
+print(<span class="st">"配额:"</span>, r.json())
+
+<span class="cm"># 2. 发起对话</span>
+r = requests.post(<span class="st">f"{BASE}/chat"</span>, headers=HEADERS, json={
+    <span class="st">"question"</span>: <span class="st">"什么是不良资产批量转让？与单笔转让相比有什么优劣势？"</span>
+})
+print(<span class="st">"回答:"</span>, r.json()[<span class="st">"answer"</span>])
+print(<span class="st">"剩余配额:"</span>, r.json()[<span class="st">"remaining_quota"</span>])
+
+<span class="cm"># 3. 查看日志</span>
+r = requests.get(<span class="st">f"{BASE}/logs"</span>, headers=HEADERS)
+print(<span class="st">"日志:"</span>, r.json())
+
+<span class="cm"># 4. 不带 Key 试试 → 401</span>
+r = requests.get(<span class="st">f"{BASE}/quota"</span>)
+print(r.status_code, r.json())</pre>
+
+  <div class="concept-box">
+    <strong>这个实战的架构：</strong><br>
+    客户端请求 → API Key 认证 → 配额检查 → LLM 调用 → 日志记录 → 返回结果<br>
+    每一步都用 <code>Depends()</code> 串联，业务代码只关心"调 LLM + 记日志"。这就是依赖注入的威力——<strong>横切关注点（认证/限流/日志）与业务逻辑完全分离</strong>。
+  </div>
+</div>
+
+<!-- ==================== Section 5 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📐</span> 五、FastAPI 进阶技巧速查
+    <span class="time-tag">10 min</span>
+  </div>
+
+  <h3>5.1 Pydantic 校验进阶</h3>
+  <pre><span class="kw">from</span> pydantic <span class="kw">import</span> BaseModel, Field, field_validator
+<span class="kw">from</span> typing <span class="kw">import</span> Literal
+
+<span class="kw">class</span> <span class="fn">AssetCreate</span>(BaseModel):
+    debtor_name: <span class="kw">str</span> = Field(..., min_length=<span class="nu">2</span>, max_length=<span class="nu">100</span>, description=<span class="st">"债务人名称"</span>)
+    asset_type: Literal[<span class="st">"贷款"</span>, <span class="st">"债券"</span>, <span class="st">"保证"</span>, <span class="st">"抵债资产"</span>]  <span class="cm"># 枚举约束</span>
+    principal: <span class="kw">float</span> = Field(..., gt=<span class="nu">0</span>, description=<span class="st">"本金(万元)，必须大于0"</span>)
+    status: <span class="kw">str</span> = Field(default=<span class="st">"持有"</span>)
+
+    <span class="nd">@field_validator</span>(<span class="st">"debtor_name"</span>)
+    <span class="kw">def</span> <span class="fn">name_must_not_contain_sql</span>(cls, v):
+        <span class="st">"""防 SQL 注入校验"""</span>
+        dangerous = [<span class="st">"DROP"</span>, <span class="st">"DELETE"</span>, <span class="st">"INSERT"</span>, <span class="st">"--"</span>, <span class="st">";"</span>]
+        <span class="kw">if</span> any(kw <span class="kw">in</span> v.upper() <span class="kw">for</span> kw <span class="kw">in</span> dangerous):
+            <span class="kw">raise</span> ValueError(<span class="st">"名称包含非法字符"</span>)
+        <span class="kw">return</span> v.strip()
+
+<span class="cm"># 测试校验</span>
+<span class="kw">try</span>:
+    AssetCreate(debtor_name=<span class="st">"test; DROP TABLE assets--"</span>, asset_type=<span class="st">"贷款"</span>, principal=<span class="nu">100</span>)
+<span class="kw">except</span> Exception <span class="kw">as</span> e:
+    print(e)  <span class="cm"># 名称包含非法字符</span>
+
+<span class="kw">try</span>:
+    AssetCreate(debtor_name=<span class="st">"李某"</span>, asset_type=<span class="st">"股票"</span>, principal=<span class="nu">100</span>)  <span class="cm"># 无效枚举</span>
+<span class="kw">except</span> Exception <span class="kw">as</span> e:
+    print(e)  <span class="cm"># Input should be '贷款'|'债券'|'保证'|'抵债资产'</span></pre>
+
+  <h3>5.2 全局异常处理 + 统一响应格式</h3>
+  <pre><span class="kw">from</span> fastapi <span class="kw">import</span> Request
+<span class="kw">from</span> fastapi.responses <span class="kw">import</span> JSONResponse
+
+<span class="kw">class</span> <span class="fn">APIResponse</span>(BaseModel):
+    code: <span class="kw">int</span> = <span class="nu">0</span>
+    message: <span class="kw">str</span> = <span class="st">"success"</span>
+    data: <span class="kw">dict</span> | <span class="kw">list</span> | <span class="kw">None</span> = <span class="kw">None</span>
+
+<span class="cm"># 全局异常处理器 —— 所有未被捕获的异常都会走这里</span>
+<span class="kw">@app.exception_handler</span>(Exception)
+<span class="kw">async def</span> <span class="fn">global_exception_handler</span>(request: Request, exc: Exception):
+    <span class="kw">return</span> JSONResponse(
+        status_code=<span class="nu">500</span>,
+        content={<span class="st">"code"</span>: -<span class="nu">1</span>, <span class="st">"message"</span>: <span class="st">f"服务器内部错误: </span>{exc}<span class="st">"</span>, <span class="st">"data"</span>: <span class="kw">None</span>}
+    )
+
+<span class="cm"># 使用统一响应</span>
+<span class="kw">@app.get</span>(<span class="st">"/health"</span>)
+<span class="kw">async def</span> <span class="fn">health_check</span>():
+    <span class="kw">return</span> APIResponse(data={<span class="st">"status"</span>: <span class="st">"ok"</span>, <span class="st">"version"</span>: <span class="st">"1.0"</span>})</pre>
+
+  <h3>5.3 FastAPI 配置管理</h3>
+  <pre><span class="kw">from</span> pydantic_settings <span class="kw">import</span> BaseSettings
+
+<span class="kw">class</span> <span class="fn">AppConfig</span>(BaseSettings):
+    <span class="st">"""应用配置 —— 自动从环境变量读取"""</span>
+    app_name: <span class="kw">str</span> = <span class="st">"LLM Gateway"</span>
+    debug: <span class="kw">bool</span> = <span class="kw">False</span>
+    db_url: <span class="kw">str</span> = <span class="st">"sqlite:///./default.db"</span>
+    zhipu_api_key: <span class="kw">str</span> = <span class="st">""</span>
+    daily_quota: <span class="kw">int</span> = <span class="nu">100</span>
+
+    <span class="kw">class</span> <span class="fn">Config</span>:
+        env_file = <span class="st">".env"</span>  <span class="cm"># 从 .env 文件读取</span>
+
+<span class="cm"># 启动时加载</span>
+config = AppConfig()  <span class="cm"># 自动读取环境变量</span>
+print(config.db_url)   <span class="cm"># 如果设了 DB_URL 环境变量，会自动覆盖默认值</span></pre>
+</div>
+
+<!-- ==================== Section 6: 练习 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">✍️</span> 六、今日练习
+    <span class="time-tag">15 min</span>
+  </div>
+
+  <div class="exercise">
+    <h4>练习 1：完善 LLM 网关（必做）</h4>
+    <p>在 <code>llm_gateway.py</code> 基础上添加以下功能：</p>
+    <ul>
+      <li>添加 <code>GET /stats</code> 接口，返回统计信息：总调用次数、今日调用次数、总 token 消耗</li>
+      <li>添加 <code>DELETE /logs/{log_id}</code> 接口，仅 admin 角色可删除日志</li>
+      <li>提示：用 <code>db.query(ChatLog).count()</code> 做统计，<code>func.sum()</code> 做 token 汇总</li>
+    </ul>
+  </div>
+
+  <div class="exercise">
+    <h4>练习 2：多模型切换（推荐）</h4>
+    <p>扩展 <code>ChatRequest</code> 支持多模型：</p>
+    <ul>
+      <li><code>model</code> 字段用 <code>Literal["glm-4-flash", "glm-4-plus", "glm-4"]</code> 限制可选模型</li>
+      <li>不同模型有不同的 <code>max_tokens</code> 限制（flash: 500, plus: 2000, glm-4: 4000）</li>
+      <li>用 <code>@field_validator("model")</code> 实现</li>
+    </ul>
+  </div>
+
+  <div class="exercise">
+    <h4>练习 3：LeetCode #146 · LRU 缓存（挑战）</h4>
+    <p>用 <code>OrderedDict</code> 实现 LRU 缓存（这是面试高频题，也是 API 限流的底层原理）：</p>
+    <pre><span class="kw">from</span> collections <span class="kw">import</span> OrderedDict
+
+<span class="kw">class</span> <span class="fn">LRUCache</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, capacity: <span class="kw">int</span>):
+        self.cache = OrderedDict()
+        self.capacity = capacity
+
+    <span class="kw">def</span> <span class="fn">get</span>(self, key: <span class="kw">int</span>) -> <span class="kw">int</span>:
+        <span class="cm"># TODO: 如果 key 存在，移到末尾并返回值；否则返回 -1</span>
+        <span class="kw">pass</span>
+
+    <span class="kw">def</span> <span class="fn">put</span>(self, key: <span class="kw">int</span>, value: <span class="kw">int</span>) -> <span class="kw">None</span>:
+        <span class="cm"># TODO: 如果 key 已存在则更新；否则插入。</span>
+        <span class="cm">#       超出容量时删除最久未使用的（第一个）</span>
+        <span class="kw">pass</span>
+
+<span class="cm"># 测试</span>
+cache = LRUCache(<span class="nu">2</span>)
+cache.put(<span class="nu">1</span>, <span class="nu">1</span>)
+cache.put(<span class="nu">2</span>, <span class="nu">2</span>)
+print(cache.get(<span class="nu">1</span>))  <span class="cm"># 1</span>
+cache.put(<span class="nu">3</span>, <span class="nu">3</span>)  <span class="cm"># 淘汰 key=2</span>
+print(cache.get(<span class="nu">2</span>))  <span class="cm"># -1</span></pre>
+  </div>
+</div>
+
+<!-- ==================== 总结 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📋</span> 今日知识地图
+  </div>
+
+  <table>
+    <tr><th>知识点</th><th>核心概念</th><th>数据工程师类比</th></tr>
+    <tr><td>依赖注入</td><td><code>Depends()</code> / yield 依赖 / 依赖链</td><td>SQL CTE / 存储过程参数</td></tr>
+    <tr><td>SQLAlchemy</td><td>ORM 模型 / Session / CRUD</td><td>写 SQL 变成写 Python</td></tr>
+    <tr><td>API 认证</td><td>API Key / Header / 角色权限</td><td>数据库用户权限管理</td></tr>
+    <tr><td>Pydantic 进阶</td><td>Literal / field_validator / Settings</td><td>数据校验规则 / 配置管理</td></tr>
+    <tr><td>综合实战</td><td>LLM 网关 = 认证 + 配额 + LLM + 日志</td><td>数据平台 API 层</td></tr>
+  </table>
+
+  <div class="tip-box">
+    <strong>今日核心收获：</strong>FastAPI 的依赖注入让"认证、数据库、配额检查"这些横切逻辑与业务代码完全解耦。你只需要在路由参数里加一个 <code>Depends(xxx)</code>，框架自动帮你串起来。这种设计模式在数据平台开发中非常常见——Airflow 的 Plugin 机制、dbt 的 macro 系统，本质上都是"依赖注入"的思想。
+  </div>
+</div>
+
+<!-- 导航 -->
+<div class="nav">
+  <a href="day25.html">← Day 25: FastAPI 入门</a>
+  <span style="color:var(--text3);font-size:13px">Day 26 / 70</span>
+  <a href="day27.html">Day 27: 工程化实践 →</a>
+</div>
+
+<div class="footer">
+  LLM 转型学习计划 · 数据工程师专属 Python 进阶之路 · Day 26
+</div>
+
+</body>
+</html>

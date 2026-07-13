@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 20 - Phase 1B Day 2：面向对象进阶（继承/封装/@property/重构ChatBot）</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#faf5ff,#eff6ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #e9d5ff; }
+  .header .badge { display:inline-block;background:#e9d5ff;color:#7c3aed;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,#7c3aed,var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:#7c3aed;min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#faf5ff;border-left:3px solid #7c3aed;padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:#7c3aed; }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  pre { background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;overflow-x:auto;font-size:13.5px;line-height:1.65;margin:12px 0;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--text); }
+  code { font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:13px; }
+  .ic { background:#f1f5f9;padding:2px 7px;border-radius:4px;font-size:13px;color:var(--accent);border:1px solid #e2e8f0; }
+  .hl { color:#7c3aed;font-weight:600; }
+  .gh { color:var(--green);font-weight:600; }
+  .rh { color:var(--red);font-weight:600; }
+  .oh { color:var(--orange);font-weight:600; }
+  h4 { margin:18px 0 8px;font-size:15px;font-weight:700;color:var(--accent2); }
+  p { margin:8px 0;font-size:14.5px;color:var(--text); }
+  ul,ol { margin:6px 0 6px 20px;font-size:14.5px; }
+  li { margin:4px 0; }
+  .dual { display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0; }
+  .dual .panel { background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px; }
+  .dual .panel h4 { margin-top:0;color:var(--accent); }
+  .dual .panel .tag { font-size:11px;padding:2px 8px;border-radius:10px;display:inline-block;margin-bottom:8px;font-weight:600; }
+  .dual .panel .tag.py { background:#dbeafe;color:#2563eb; }
+  .dual .panel .tag.llm { background:#fce7f3;color:#be185d; }
+  .exercise { background:linear-gradient(135deg,#fffbeb,#fff7ed);border:1px solid #fde68a;border-radius:var(--radius);padding:20px 24px;margin:14px 0; }
+  .exercise h4 { color:var(--orange);margin-top:0; }
+  .nav { display:flex;justify-content:space-between;align-items:center;margin-top:28px;padding:16px 24px;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border); }
+  .nav a { color:var(--accent);text-decoration:none;font-weight:600;font-size:14px; }
+  .nav .summary { font-size:13px;color:var(--text3); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Phase 1B &middot; Python 工程进阶</div>
+  <h1>Day 20：面向对象进阶 &mdash; 继承、封装、@property</h1>
+  <div class="subtitle">继承体系设计 &rarr; 访问控制封装 &rarr; @property 属性管理 &rarr; 用继承重构 AMC ChatBot</div>
+</div>
+
+<div class="progress-bar">
+  <div class="label">Day 20 / 70</div>
+  <div class="track"><div class="fill" style="width:28.6%"></div></div>
+  <div class="percent">28.6%</div>
+</div>
+
+<!-- ======================== Section 1 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#x1F9E9;</span> 知识点一：继承（Inheritance）
+    <span class="time-tag">~25 min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>核心思想：</strong>继承是面向对象三大特性之一，允许子类复用父类的属性和方法，并在其基础上扩展或覆盖（重写）。就像 AM C 不良资产分类体系 &mdash;&mdash; <span class="hl">金融不良资产</span> 和 <span class="hl">非金不良资产</span> 都继承自 <span class="hl">不良资产</span> 这个基类，共享&ldquo;债务人、本金、利率&rdquo;等属性，同时各有自己的特殊属性。
+  </div>
+
+  <h4>1.1 基本语法：子类继承父类</h4>
+<pre>
+class Parent:
+    """父类（基类）：不良资产基类"""
+    def __init__(self, debtor_name, principal, interest_rate):
+        self.debtor_name = debtor_name    # 债务人名称
+        self.principal = principal        # 本金（万元）
+        self.interest_rate = interest_rate  # 利率（年化）
+
+    def calc_total(self, years=1):
+        """计算本息合计"""
+        interest = self.principal * self.interest_rate / 100 * years
+        return self.principal + interest
+
+    def summary(self):
+        return f"{self.debtor_name}: 本金{self.principal}万, 年化{self.interest_rate}%"
+
+
+class Child(Parent):
+    """子类（派生类）：金融不良资产"""
+    def __init__(self, debtor_name, principal, interest_rate, bank):
+        # super() 调用父类的 __init__，避免重复写属性赋值
+        super().__init__(debtor_name, principal, interest_rate)
+        self.bank = bank  # 子类独有的属性：贷款银行
+
+    def summary(self):
+        """方法重写（Override）：覆盖父类的 summary"""
+        parent_info = super().summary()  # 也可以复用父类方法
+        return f"[金融]{parent_info}, 来源:{self.bank}"
+
+
+# 使用
+asset = Child("某某置业", 50000, 4.35, "XX银行")
+print(asset.calc_total(2))   # &#x2705; 继承了父类方法 → 54350.0
+print(asset.summary())        # &#x2705; 子类重写版本 → [金融]某某置业: 本金50000万...
+print(asset.bank)             # &#x2705; 子类独有属性 → XX银行
+</pre>
+
+  <div class="tip-box">
+    <strong>&#x1F4A1; super() 的本质：</strong><code class="ic">super().__init__(...)</code> 不是&ldquo;调用父类的构造函数&rdquo;这么简单。它遵循 <strong>MRO（方法解析顺序）</strong> 链查找下一个类的方法，在多重继承时特别关键。单继承场景下可以简单理解为&ldquo;调父类的同名方法&rdquo;。
+  </div>
+
+  <h4>1.2 继承的类型检查：isinstance() 和 issubclass()</h4>
+<pre>
+print(isinstance(asset, Child))     # True  — asset 是 Child 的实例
+print(isinstance(asset, Parent))    # True  — 子类实例也是父类实例 &#x2B50;
+print(issubclass(Child, Parent))    # True  — Child 是 Parent 的子类
+
+# 实际应用：统一接口处理不同类型的不良资产
+def process_asset(asset):
+    if not isinstance(asset, Parent):
+        raise TypeError("只接受不良资产类型")
+    print(f"处理: {asset.summary()}")
+</pre>
+
+  <h4>1.3 多重继承（了解即可）</h4>
+<pre>
+# Python 支持多重继承，但建议谨慎使用
+class JSONExportable:
+    def to_json(self):
+        import json
+        return json.dumps(self.__dict__, ensure_ascii=False, default=str)
+
+class CSVPrintable:
+    def to_csv_row(self):
+        return ",".join(str(v) for v in self.__dict__.values())
+
+class FinanceAsset(Parent, JSONExportable, CSVPrintable):
+    """金融资产：继承父类 + 两个 mixin 功能类"""
+    pass
+
+fa = FinanceAsset("某某公司", 30000, 3.85, "YY银行")
+print(fa.to_json())    # ✅ 来自 JSONExportable
+print(fa.to_csv_row()) # ✅ 来自 CSVPrintable
+print(fa.summary())    # ✅ 来自 Parent
+</pre>
+
+  <div class="warn-box">
+    <strong>&#x26A0;&#xFE0F; 多重继承陷阱：</strong>多用 <strong>Mixin（混入）</strong> 模式（如上面 JSONExportable 不继承任何类），避免菱形继承问题。用 <code class="ic">ClassName.__mro__</code> 可以查看方法解析顺序。
+  </div>
+</div>
+
+<!-- ======================== Section 2 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#x1F512;</span> 知识点二：封装（Encapsulation）
+    <span class="time-tag">~20 min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>核心思想：</strong>封装是通过访问控制来保护对象内部状态，防止外部代码随意修改导致数据不一致。就像 AMC 监管报表 &mdash; C 表中的&ldquo;不良资产余额&rdquo;不能被随便改成负数，必须经过校验。
+  </div>
+
+  <h4>2.1 Python 的三种访问级别</h4>
+<pre>
+class BadLoanRecord:
+    def __init__(self, loan_id, amount):
+        self.loan_id = loan_id          # 公有属性：外部随便访问
+        self._audit_flag = False        # 受保护（约定）：下划线开头，请勿直接改
+        self.__amount = amount          # 私有属性：双下划线开头，会触发名称改写
+
+    # 通过方法提供受控的读写
+    def get_amount(self):
+        return self.__amount
+
+    def set_amount(self, value):
+        if value < 0:
+            raise ValueError("不良资产余额不能为负数")
+        self.__amount = value
+        self._audit_flag = True  # 修改后标记需要重新审计
+
+    # 受保护方法：子类可以调用，但外部不建议直接调
+    def _validate(self):
+        return self.__amount > 0
+
+
+record = BadLoanRecord("BL-2026-001", 1000)
+
+print(record.loan_id)         # ✅ 公有：直接访问
+print(record.get_amount())    # ✅ 通过方法访问私有属性
+
+record.set_amount(800)        # ✅ 通过方法安全修改（内部会校验）
+# record.__amount = -500      # ❌ 直接赋值无效（名称改写为 _BadLoanRecord__amount）
+# record.set_amount(-500)     # ❌ 校验拦截，抛出 ValueError
+
+# Python 的&ldquo;私有&rdquo;其实是名称改写（Name Mangling）
+print(record._BadLoanRecord__amount)  # 理论上能访问，但千万别这么干
+</pre>
+
+  <div class="dual">
+    <div class="panel">
+      <span class="tag py">Python 风格</span>
+      <h4>约定大于强制</h4>
+      <p>Python 没有 Java 那样的 <code class="ic">private</code> 关键字，<code class="ic">_</code> 和 <code class="ic">__</code> 都是<strong>约定</strong>，不是真正的访问控制。</p>
+      <p><span class="oh">单下划线 _</span>：&ldquo;我是内部用的，外部别碰&rdquo;</p>
+      <p><span class="rh">双下划线 __</span>：&ldquo;我真不想让你碰，已改名&rdquo;</p>
+    </div>
+    <div class="panel">
+      <span class="tag llm">与 LLM 的关联</span>
+      <h4>为什么封装对 LLM 工程重要？</h4>
+      <p>封装 LLM 客户端配置（API Key、模型参数），避免外部代码直接修改 <code class="ic">client.api_key</code>。</p>
+      <p>在 RAG 系统中，向量数据库连接信息用私有属性存储，通过方法统一管理。</p>
+    </div>
+  </div>
+
+  <h4>2.2 __slots__：限制属性动态添加（进阶）</h4>
+<pre>
+class StrictRecord:
+    """固定属性的记录类，节省内存且防止拼写错误"""
+    __slots__ = ('loan_id', 'amount', 'status')
+
+    def __init__(self, loan_id, amount):
+        self.loan_id = loan_id
+        self.amount = amount
+        self.status = "pending"
+
+r = StrictRecord("L001", 5000)
+# r.extra_field = "oops"  # ❌ AttributeError! 不允许添加 slots 之外的属性
+r.amount = 4800           # ✅ 允许修改已定义的属性
+</pre>
+</div>
+
+<!-- ======================== Section 3 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#x1F3AF;</span> 知识点三：@property 属性装饰器
+    <span class="time-tag">~20 min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>核心思想：</strong><code class="ic">@property</code> 让方法像属性一样访问，同时可以对赋值进行校验。这是 Python 实现 <strong>getter/setter</strong> 的优雅方式 &mdash; 代码从 <code class="ic">obj.get_amount()</code> / <code class="ic">obj.set_amount(100)</code> 变成 <code class="ic">obj.amount</code> / <code class="ic">obj.amount = 100</code>，外部调用者完全感知不到内部有校验逻辑。
+  </div>
+
+  <h4>3.1 基础用法：只读属性 + 带校验的赋值</h4>
+<pre>
+class Loan:
+    def __init__(self, loan_id, principal, overdue_days):
+        self.loan_id = loan_id
+        # 用内部属性（带下划线）存储实际值
+        self._principal = principal
+        self._overdue_days = overdue_days
+
+    # --- 只读属性 ---
+    @property
+    def loan_id(self):
+        """贷款编号（只读，外部不能修改）"""
+        return self._loan_id
+
+    @loan_id.setter
+    def loan_id(self, value):
+        self._loan_id = value  # 只在 __init__ 中设置一次
+
+    # --- 带校验的属性 ---
+    @property
+    def principal(self):
+        """本金金额（万元），不允许负值"""
+        return self._principal
+
+    @principal.setter
+    def principal(self, value):
+        if value <= 0:
+            raise ValueError(f"本金必须大于0，当前值: {value}")
+        if value > 1000000:
+            raise ValueError("单笔本金不能超过100亿")
+        self._principal = value
+
+    # --- 计算属性（派生值，不存储） ---
+    @property
+    def overdue_months(self):
+        """逾期天数 → 逾期月数（向上取整）"""
+        import math
+        return math.ceil(self._overdue_days / 30)
+
+    # --- 只读的计算属性（无 setter） ---
+    @property
+    def risk_level(self):
+        """根据逾期月数自动判定风险等级"""
+        if self.overdue_months <= 3:
+            return "关注"
+        elif self.overdue_months <= 12:
+            return "次级"
+        elif self.overdue_months <= 36:
+            return "可疑"
+        else:
+            return "损失"
+
+
+# 使用
+loan = Loan("BL-001", 50000, 120)
+print(loan.principal)        # ✅ 像属性一样读取 → 50000
+print(loan.overdue_months)   # ✅ 计算属性 → 4
+print(loan.risk_level)       # ✅ 自动判定 → "次级"
+
+loan.principal = 48000       # ✅ 正常赋值（内部自动校验）
+# loan.principal = -100      # ❌ ValueError: 本金必须大于0
+# loan.risk_level = "低风险" # ❌ AttributeError: 只读属性没有 setter
+</pre>
+
+  <div class="tip-box">
+    <strong>&#x1F4A1; @property 的使用时机判断：</strong><br>
+    &bull; 如果只是简单读写，用公有属性就好<br>
+    &bull; 如果需要<strong>校验</strong>、<strong>转换</strong>、或<strong>计算派生值</strong>，用 @property<br>
+    &bull; <strong>不要过度使用</strong> &mdash; 每个属性都加 property 会增加代码复杂度
+  </div>
+
+  <h4>3.2 结合 @property 的缓存模式（lru_cache）</h4>
+<pre>
+from functools import lru_cache
+
+class AssetAnalyzer:
+    def __init__(self, assets):
+        self._assets = assets  # 列表，每项是一个字典
+
+    @property
+    @lru_cache(maxsize=1)
+    def total_amount(self):
+        """总金额：首次计算后缓存，数据不变时不再重复计算"""
+        print("  [DEBUG] 正在计算总金额...")  # 只会在第一次打印
+        return sum(a.get("principal", 0) for a in self._assets)
+
+    def invalidate_cache(self):
+        """数据变化后清除缓存"""
+        self.total_amount.fget.cache_clear()
+
+analyzer = AssetAnalyzer([{"principal": 1000}, {"principal": 2000}])
+print(analyzer.total_amount)  # 触发计算并缓存
+print(analyzer.total_amount)  # 直接读缓存，不再打印 DEBUG
+
+analyzer._assets.append({"principal": 500})
+analyzer.invalidate_cache()  # 清缓存
+print(analyzer.total_amount)  # 重新计算 → 3500
+</pre>
+</div>
+
+<!-- ======================== Section 4 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#x1F916;</span> LLM 实战：用继承重构 ChatBot 体系
+    <span class="time-tag">~30 min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>实战目标：</strong>Day 19 我们写了单个 <code class="ic">AMCChatBot</code> 类。今天用<strong>继承体系</strong>重构它 &mdash; 父类处理通用 LLM 通信逻辑，子类聚焦 AMC 业务特化（资产查询、风险评估、催收建议）。
+  </div>
+
+  <div class="dual">
+    <div class="panel">
+      <span class="tag py">Python 知识</span>
+      <h4>继承体系设计</h4>
+      <p><span class="hl">BaseChatBot</span>（父类）</p>
+      <p>&ensp;· API 配置管理</p>
+      <p>&ensp;· send_message() 通用调用</p>
+      <p>&ensp;· 历史记录管理</p>
+      <p><span class="hl">AMCChatBot</span>（子类）</p>
+      <p>&ensp;· AMC 系统提示词</p>
+      <p>&ensp;· query_asset() 资产查询</p>
+      <p>&ensp;· risk_assess() 风险评估</p>
+    </div>
+    <div class="panel">
+      <span class="tag llm">LLM 工程价值</span>
+      <h4>为什么要这么设计？</h4>
+      <p>未来接入<strong>不同 LLM 厂商</strong>时，只需新增子类（如 <code class="ic">ZhipuChatBot</code>、<code class="ic">OpenAIChatBot</code>），不用改业务代码。</p>
+      <p>新增<strong>其他业务场景</strong>（如合规问答 Bot）时，继承 <code class="ic">BaseChatBot</code> 即可，复用全部通信层逻辑。</p>
+    </div>
+  </div>
+
+  <h4>4.1 父类：BaseChatBot</h4>
+<pre>
+class BaseChatBot:
+    """通用 LLM ChatBot 基类
+    封装了 API 调用、历史管理、配置等通用逻辑
+    子类只需关注：系统提示词 + 业务方法
+    """
+
+    def __init__(self, api_key, model="glm-4-flash", base_url=None):
+        # --- 用私有属性保护敏感配置 ---
+        self._api_key = api_key
+        self._model = model
+        self._base_url = base_url or "https://open.bigmodel.cn/api/paas/v4"
+
+        # --- 历史记录 ---
+        self._history = []
+        self._max_history = 50  # 最大保留轮数
+
+        # --- 子类需要设置的属性 ---
+        self._system_prompt = ""
+
+    # --- @property：只读访问配置 ---
+    @property
+    def model(self):
+        return self._model
+
+    @property
+    def message_count(self):
+        """当前历史消息数"""
+        return len(self._history)
+
+    # --- 通用 LLM 调用方法（子类可重写） ---
+    def _call_llm(self, messages):
+        """调用 LLM API 的核心方法（可被子类重写以适配不同厂商）"""
+        try:
+            from openai import OpenAI
+            client = OpenAI(
+                api_key=self._api_key,
+                base_url=self._base_url
+            )
+            response = client.chat.completions.create(
+                model=self._model,
+                messages=messages,
+                temperature=0.7,
+                max_tokens=1024
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            return f"[API 调用失败] {type(e).__name__}: {e}"
+
+    def send_message(self, user_input):
+        """发送消息并获取回复（完整流程）"""
+        self._history.append({"role": "user", "content": user_input})
+
+        # 构造完整消息列表
+        messages = []
+        if self._system_prompt:
+            messages.append({"role": "system", "content": self._system_prompt})
+        messages.extend(self._history)
+
+        # 调用 LLM
+        reply = self._call_llm(messages)
+
+        # 记录回复
+        self._history.append({"role": "assistant", "content": reply})
+
+        # 控制历史长度
+        if len(self._history) > self._max_history * 2:
+            self._history = self._history[-self._max_history * 2:]
+
+        return reply
+
+    def clear_history(self):
+        self._history.clear()
+
+    def export_history(self):
+        """导出对话记录"""
+        import json
+        return json.dumps(self._history, ensure_ascii=False, indent=2)
+</pre>
+
+  <h4>4.2 子类：AMCChatBot（业务特化）</h4>
+<pre>
+class AMCChatBot(BaseChatBot):
+    """AMC 不良资产管理专用 ChatBot
+    继承 BaseChatBot，添加 AMC 业务提示词和专用方法
+    """
+
+    def __init__(self, api_key, model="glm-4-flash"):
+        # 调用父类 __init__
+        super().__init__(api_key=api_key, model=model)
+
+        # 设置 AMC 专用系统提示词
+        self._system_prompt = """你是AMC（资产管理公司）的不良资产分析专家。
+你的职责是帮助分析不良资产数据、解释监管报表、提供催收建议。
+回答时请注意：
+1. 术语准确，符合银保监会规范
+2. 数据敏感信息需脱敏处理
+3. 引用监管文件时注明文号
+4. 不确定的问题明确标注"待核实"
+"""
+
+    # --- AMC 业务方法 ---
+    def query_asset(self, query_text):
+        """资产查询快捷方法"""
+        prompt = f"请根据以下查询分析不良资产情况：{query_text}"
+        return self.send_message(prompt)
+
+    def risk_assess(self, debtor_info):
+        """风险评估快捷方法"""
+        prompt = f"请对以下债务人的风险等级进行评估：\n{debtor_info}"
+        return self.send_message(prompt)
+
+    def explain_report(self, report_type, content):
+        """解释监管报表"""
+        prompt = f"请解释 {report_type} 监管报表中的以下内容：\n{content}"
+        return self.send_message(prompt)
+
+    # --- @property：计算 AMC 相关统计 ---
+    @property
+    def is_amc_bot(self):
+        """标识这是 AMC 专用 Bot"""
+        return True
+
+    @property
+    def business_domain(self):
+        return "不良资产管理"
+
+
+# ===== 使用示例 =====
+bot = AMCChatBot(api_key="your-api-key-here")  # 实际使用替换为真实 Key
+
+# 继承来的通用方法
+print(f"模型: {bot.model}")           # glm-4-flash
+print(f"消息数: {bot.message_count}")   # 0
+
+# AMC 业务方法
+reply = bot.query_asset(
+    "某笔不良贷款，债务人某某置业，本金5亿元，逾期360天，抵押物为商业地产"
+)
+print(reply)
+
+# AMC 专属属性
+print(bot.is_amc_bot)          # True
+print(bot.business_domain)     # 不良资产管理
+
+# 继承来的历史导出
+print(f"当前消息数: {bot.message_count}")
+bot.clear_history()
+</pre>
+
+  <div class="tip-box">
+    <strong>&#x1F4A1; 重构前 vs 重构后对比：</strong><br>
+    Day 19 写法：一个类里塞了 API 调用 + AMC 逻辑 + 历史管理，<strong>500+ 行代码混在一起</strong>。<br>
+    今天写法：父类管通信，子类管业务，各自 <strong>100-200 行</strong>，<strong>新增业务场景只需写子类</strong>。这就是继承在 LLM 工程中的真实价值。
+  </div>
+
+  <h4>4.3 扩展：用子类适配不同 LLM 厂商</h4>
+<pre>
+class DeepSeekChatBot(BaseChatBot):
+    """DeepSeek 适配子类"""
+    def __init__(self, api_key):
+        super().__init__(
+            api_key=api_key,
+            base_url="https://api.deepseek.com/v1",
+            model="deepseek-chat"
+        )
+        self._system_prompt = "你是一个专业的金融分析师。"
+
+    def _call_llm(self, messages):
+        """重写 API 调用以适配 DeepSeek 特有参数"""
+        from openai import OpenAI
+        client = OpenAI(api_key=self._api_key, base_url=self._base_url)
+        response = client.chat.completions.create(
+            model=self._model,
+            messages=messages,
+            temperature=0.3,  # DeepSeek 偏低温度效果更好
+            max_tokens=2048,
+            frequency_penalty=0.5  # DeepSeek 支持的特有参数
+        )
+        return response.choices[0].message.content
+
+
+# 同样是 AMCChatBot，但可以用不同底层模型
+# 只需多重继承一个 Mixin 即可切换厂商
+class AMCDeepSeekBot(AMCChatBot, DeepSeekChatBot):
+    def __init__(self, api_key):
+        # 调用 DeepSeekChatBot 的初始化（因为它在后，按 MRO 会先到它）
+        DeepSeekChatBot.__init__(self, api_key)
+        # 覆盖系统提示词为 AMC 版本
+        self._system_prompt = AMCChatBot.__init__.__code__.co_consts  # 简化演示
+        self._system_prompt = """你是AMC不良资产分析专家（使用DeepSeek模型）。"""
+</pre>
+</div>
+
+<!-- ======================== Section 5 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#x1F4DD;</span> 综合练习 &amp; 每日一题
+    <span class="time-tag">~15 min</span>
+  </div>
+
+  <div class="exercise">
+    <h4>&#x1F3AF; 练习 1：设计不良资产类继承体系</h4>
+    <p>设计以下继承体系，要求用 @property 实现计算属性：</p>
+<pre>
+# 要求实现：
+# 1. Asset 基类：debtor_name, principal, overdue_days
+# 2. 金融不良资产子类：增加 bank, collateral（抵押物）
+# 3. 非金不良资产子类：增加 industry（行业）, contract_type（合同类型）
+# 4. 两个子类都要实现 risk_level 计算属性（标准不同）
+# 5. 所有子类的 principal 都要通过 @property 控制不允许负值
+</pre>
+    <p><strong>提示：</strong>校验逻辑写在谁那里？如果子类都需要相同的校验，写在父类更合适。子类 <code class="ic">__init__</code> 中通过 <code class="ic">self.principal = value</code> 触发父类 setter。</p>
+  </div>
+
+  <div class="exercise">
+    <h4>&#x1F4AA; 练习 2：为 BaseChatBot 添加流式输出支持</h4>
+    <p>在 <code class="ic">BaseChatBot</code> 中新增 <code class="ic">send_message_stream()</code> 方法，使用 OpenAI 兼容接口的 <code class="ic">stream=True</code> 参数，逐字打印回复。</p>
+    <p><strong>提示：</strong><code class="ic">response = client.chat.completions.create(..., stream=True)</code>，然后 <code class="ic">for chunk in response:</code> 遍历。</p>
+  </div>
+
+  <div class="exercise">
+    <h4>&#x1F9E0; LeetCode 每日一题： #278 - 第一个错误版本</h4>
+    <p>你有一个产品经理和一个 API <code class="ic">isBadVersion(version)</code> 返回 bool。找出<strong>第一个</strong>错误版本（之后全部是错误的）。尽量减少调用次数。</p>
+<pre>
+class Solution:
+    def firstBadVersion(self, n: int) -> int:
+        left, right = 1, n
+        while left < right:
+            mid = (left + right) // 2
+            if isBadVersion(mid):
+                right = mid      # mid 可能就是第一个，不能跳过
+            else:
+                left = mid + 1   # mid 及之前都正确，从 mid+1 开始找
+        return left              # left == right，就是答案
+
+# &#x1F4A1; 经典二分查找：O(log n) 时间复杂度
+# AMC类比：在一批按日期排列的不良资产中，找到第一笔违约的
+</pre>
+  </div>
+</div>
+
+<!-- ======================== Section 6 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#x1F4DA;</span> 今日要点总结
+    <span class="time-tag">~5 min</span>
+  </div>
+
+  <div class="dual">
+    <div class="panel">
+      <span class="tag py">Python</span>
+      <h4>知识点清单</h4>
+      <ul>
+        <li><span class="hl">继承</span>：<code class="ic">class Child(Parent)</code>，<code class="ic">super()</code> 调用父类方法</li>
+        <li><span class="hl">方法重写</span>：子类定义同名方法覆盖父类</li>
+        <li><span class="hl">封装</span>：<code class="ic">_protected</code>、<code class="ic">__private</code> 名称改写</li>
+        <li><span class="hl">@property</span>：getter/setter、计算属性、只读属性</li>
+        <li><span class="hl">isinstance / issubclass</span>：类型检查</li>
+        <li><span class="hl">__slots__</span>：固定属性集合</li>
+        <li><span class="hl">Mixin</span>：多重继承的最佳实践</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <span class="tag llm">LLM 工程</span>
+      <h4>实战收获</h4>
+      <ul>
+        <li>设计了 <span class="hl">BaseChatBot → AMCChatBot</span> 继承体系</li>
+        <li>用 <code class="ic">_api_key</code> 保护敏感配置</li>
+        <li>用 <code class="ic">@property</code> 管理计算属性（message_count）</li>
+        <li>通过子类重写 <code class="ic">_call_llm()</code> 适配不同厂商</li>
+        <li>理解了<strong>面向接口编程</strong>在 LLM 中的价值</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="concept-box">
+    <strong>&#x1F3AF; 面向对象设计核心原则：</strong><br>
+    &bull; <strong>单一职责</strong>：一个类只做一件事（BaseChatBot 管通信，AMCChatBot 管业务）<br>
+    &bull; <strong>开闭原则</strong>：对扩展开放（新增子类），对修改封闭（不改父类）<br>
+    &bull; <strong>里氏替换</strong>：子类可以无缝替代父类（isinstance 检查保证）<br>
+    这些原则在后期的 Agent 开发中会频繁使用。
+  </div>
+</div>
+
+<!-- ======================== Footer ======================== -->
+<div class="nav">
+  <a href="day19.html">&larr; Day 19: 面向对象基础</a>
+  <span class="summary">Day 20/70 &middot; Phase 1B Day 2 &middot; 预计学习 1.5h</span>
+  <a href="day21.html">Day 21: 静态方法/类方法 &rarr;</a>
+</div>
+
+</body>
+</html>

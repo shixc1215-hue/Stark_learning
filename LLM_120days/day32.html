@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 32 - 检索（Retrieval）：RAG 在线阶段的核心</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#eff6ff,#eef2ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #bfdbfe; }
+  .header .badge { display:inline-block;background:#dbeafe;color:var(--accent);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .compare-table { width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px; }
+  .compare-table th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border);color:var(--text2);font-size:13px; }
+  .compare-table td { padding:10px 14px;border:1px solid var(--border);vertical-align:top; }
+  .compare-table tr:hover td { background:#f8fafc; }
+  pre { background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;overflow-x:auto;font-size:13.5px;line-height:1.65;margin:12px 0;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--text); }
+  code { background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace; }
+  pre code { background:none;padding:0;border-radius:0;font-size:inherit; }
+  .hl { color:var(--accent);font-weight:600; }
+  .hl2 { color:var(--accent2);font-weight:600; }
+  .hlg { color:var(--green);font-weight:600; }
+  .hlo { color:var(--orange);font-weight:600; }
+  .hlr { color:var(--red);font-weight:600; }
+  h3 { font-size:16px;font-weight:700;margin:20px 0 10px;color:var(--text); }
+  h4 { font-size:15px;font-weight:600;margin:16px 0 8px;color:var(--text2); }
+  p { margin:8px 0;font-size:14.5px; }
+  ul,ol { margin:8px 0 8px 20px;font-size:14.5px; }
+  li { margin:4px 0; }
+  .flow-diagram { background:var(--surface2);border-radius:8px;padding:16px 20px;margin:14px 0;overflow-x:auto;font-family:'Cascadia Code',monospace;font-size:13.5px;line-height:2;white-space:pre;color:var(--text2); }
+  .output-box { background:#1e293b;color:#e2e8f0;border-radius:8px;padding:14px 18px;margin:12px 0;font-family:'Cascadia Code',monospace;font-size:13px;line-height:1.7;overflow-x:auto; }
+  .output-box .prompt { color:#64748b; }
+  .output-box .success { color:#4ade80; }
+  .output-box .accent { color:#60a5fa; }
+  .output-box .warn { color:#fbbf24; }
+  .tag { display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;margin:2px; }
+  .tag-blue { background:#dbeafe;color:var(--accent); }
+  .tag-green { background:#dcfce7;color:var(--green); }
+  .tag-orange { background:#fff7ed;color:var(--orange); }
+  .tag-purple { background:#ede9fe;color:var(--accent2); }
+  .quiz-box { background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:14px 18px;margin:14px 0;font-size:14px; }
+  .quiz-box h4 { color:var(--orange);margin-bottom:8px; }
+  .inline-code { display:inline-block;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:12px 16px;margin:8px 0;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-all;max-width:100%;overflow-x:auto; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="badge">Phase 2 · Day 4 / 14</div>
+  <h1>Day 32 - 检索（Retrieval）：RAG 在线阶段的核心</h1>
+  <div class="subtitle">从向量库中捞出最相关的文档片段 — 用户提问到 LLM 生成前的关键一跃</div>
+</div>
+
+<!-- PROGRESS -->
+<div class="progress-bar">
+  <div class="label">Phase 2 进度</div>
+  <div class="track"><div class="fill" style="width:28.6%"></div></div>
+  <div class="percent">4/14</div>
+</div>
+
+<!-- S1 -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#128269;</span>
+    检索在 RAG 中的位置
+    <span class="time-tag">&#9201; 15 min</span>
+  </div>
+
+  <p>前三天（D29 分块 &rarr; D30 Embedding &rarr; D31 向量库）我们完成了 <span class="hl">离线索引</span>阶段。今天正式进入 <span class="hl">在线检索</span>阶段 &mdash; 用户提问后，系统如何在向量库中找到最相关的文档片段。</p>
+
+  <div class="flow-diagram"><span class="hl">离线阶段</span>（已完成）                  <span class="hl">在线阶段</span>（从今天开始）
+文档 &rarr; 分块 &rarr; Embedding &rarr; 向量库    用户问题 &rarr; Embedding &rarr; <span class="hl">检索</span> &rarr; 组装Prompt &rarr; LLM &rarr; 回答
+  D29      D30       D31            D30       D32今天</div>
+
+  <div class="concept-box">
+    <strong>类比数仓：</strong>离线索引 = 建ETL把数据灌入数仓；在线检索 = 写SQL从数仓查数据。<br>
+    你已经擅长SQL查询了 &mdash; 检索就是"向量世界的SQL"，区别在于：SQL按精确条件过滤，检索按语义相似度排序。
+  </div>
+
+  <h3>检索的核心三步</h3>
+  <ol>
+    <li><span class="hl">Query 变换</span> &mdash; 把用户自然语言问题转成向量</li>
+    <li><span class="hl">Top-K 检索</span> &mdash; 从向量库中找出最相似的 K 个文档片段</li>
+    <li><span class="hl">后处理</span> &mdash; 去重、重排序、截断，确保喂给 LLM 的 Context 质量高</li>
+  </ol>
+</div>
+
+<!-- S2 -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#128013;</span>
+    Python 核心：sorted 高级用法 + 三种检索策略
+    <span class="time-tag">&#9201; 25 min</span>
+  </div>
+
+  <h3>2.1 sorted() 高级用法 &mdash; 检索排序的基石</h3>
+  <p>检索的核心操作就是"按相似度从高到低排序"。Python 的 <code>sorted()</code> 配合 <code>key</code> 参数是利器。</p>
+
+  <pre><code># sorted() 复习 + 检索场景
+documents = [
+    {"id": 1, "text": "不良资产处置流程规范", "score": 0.92},
+    {"id": 2, "text": "信贷风险分类标准", "score": 0.87},
+    {"id": 3, "text": "抵债资产管理办法", "score": 0.78},
+    {"id": 4, "text": "债权转让操作指引", "score": 0.95},
+    {"id": 5, "text": "资产保全工作制度", "score": 0.83},
+]
+
+# 按 score 降序排列（检索结果的默认顺序）
+ranked = sorted(documents, key=lambda doc: doc["score"], reverse=True)
+print("Top-3:", [d["text"][:10] for d in ranked[:3]])
+# Top-3: ['债权转让操作指引', '不良资产处置流程规范', '信贷风险分类标准']
+
+# operator.itemgetter 更快（底层 C 实现）
+from operator import itemgetter
+ranked2 = sorted(documents, key=itemgetter("score"), reverse=True)
+
+# 多级排序：先按 score 降序，score 相同按 id 升序
+ranked3 = sorted(documents, key=lambda d: (-d["score"], d["id"]))</code></pre>
+
+  <h3>2.2 三种检索策略对比</h3>
+  <table class="compare-table">
+    <tr><th>策略</th><th>原理</th><th>适用场景</th><th>类比 SQL</th></tr>
+    <tr>
+      <td><span class="tag tag-blue">关键词检索</span></td>
+      <td>精确匹配关键词</td>
+      <td>专有名词、编号、ID</td>
+      <td>WHERE text LIKE '%keyword%'</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-green">向量检索</span></td>
+      <td>Embedding 语义相似度</td>
+      <td>语义模糊、概念解释</td>
+      <td>ORDER BY similarity DESC</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-purple">混合检索</span></td>
+      <td>关键词 + 向量加权融合</td>
+      <td>生产环境推荐</td>
+      <td>WHERE ... ORDER BY (kw_score + sim)</td>
+    </tr>
+  </table>
+
+  <h3>2.3 关键词检索 &mdash; 字符串匹配方案</h3>
+  <pre><code>def keyword_search(query: str, documents: list[dict], top_k: int = 3) -> list[dict]:
+    """最简单的关键词检索 — 类比 SQL LIKE '%keyword%'"""
+    query_lower = query.lower()
+    scored = []
+    for doc in documents:
+        text = doc["text"].lower()
+        hits = sum(1 for word in query_lower.split() if word in text)
+        if hits > 0:
+            scored.append({**doc, "keyword_score": hits})
+    return sorted(scored, key=lambda d: d["keyword_score"], reverse=True)[:top_k]
+
+# 测试
+docs = [
+    {"id": 1, "text": "不良资产处置管理办法第三章：抵债资产处置流程"},
+    {"id": 2, "text": "关于规范金融资产管理公司不良资产处置的通知"},
+    {"id": 3, "text": "信贷资产风险分类指引第五条"},
+]
+results = keyword_search("抵债资产处置", docs)
+for r in results:
+    print(f"  [{r['keyword_score']}分] {r['text'][:30]}")
+# [2分] 不良资产处置管理办法第三章：抵债资产处置流程
+# [2分] 关于规范金融资产管理公司不良资产处置的通知</code></pre>
+
+  <h3>2.4 向量检索 &mdash; 复用 Day30 的余弦相似度</h3>
+  <pre><code>import math
+
+def cosine_similarity(a: list[float], b: list[float]) -> float:
+    """余弦相似度 — 方向越接近值越接近1"""
+    dot = sum(x * y for x, y in zip(a, b))
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(x * x for x in b))
+    return dot / (norm_a * norm_b + 1e-8)  # +1e-8 防除零
+
+def vector_search(query_vec: list[float], doc_vectors: list[dict], top_k: int = 3) -> list[dict]:
+    """向量检索 — 按语义相似度排序"""
+    scored = []
+    for item in doc_vectors:
+        sim = cosine_similarity(query_vec, item["vector"])
+        scored.append({**item, "similarity": sim})
+    return sorted(scored, key=lambda d: d["similarity"], reverse=True)[:top_k]
+
+# heapq.nsmallest / nlargest 更高效（不用全排序）
+import heapq
+
+def vector_search_fast(query_vec, doc_vectors, top_k=3):
+    """用堆排序找 Top-K — O(N log K) 而非 O(N log N)"""
+    scored = []
+    for item in doc_vectors:
+        sim = cosine_similarity(query_vec, item["vector"])
+        scored.append({**item, "similarity": sim})
+    # nlargest 找相似度最高的 K 个
+    return heapq.nlargest(top_k, scored, key=lambda d: d["similarity"])</code></pre>
+
+  <h3>2.5 混合检索 &mdash; RRF（Reciprocal Rank Fusion）</h3>
+  <div class="concept-box">
+    <strong>RRF 核心思想：</strong>不直接混合分数（量纲不同），而是混合<strong>排名</strong>。<br>
+    公式：RRF_score = 1/(k + rank_keyword) + 1/(k + rank_vector)，通常 k=60。
+  </div>
+
+  <pre><code>def reciprocal_rank_fusion(
+    keyword_results: list[dict],
+    vector_results: list[dict],
+    k: int = 60
+) -> list[dict]:
+    """RRF 混合检索 — 融合关键词和向量两种排名"""
+    scores = {}      # doc_id -> 累计 RRF 分数
+    merged_data = {} # doc_id -> 文档内容
+
+    # 关键词排名贡献
+    for rank, doc in enumerate(keyword_results, start=1):
+        doc_id = doc["id"]
+        scores[doc_id] = scores.get(doc_id, 0) + 1 / (k + rank)
+        merged_data[doc_id] = doc
+
+    # 向量排名贡献
+    for rank, doc in enumerate(vector_results, start=1):
+        doc_id = doc["id"]
+        scores[doc_id] = scores.get(doc_id, 0) + 1 / (k + rank)
+        merged_data[doc_id] = doc
+
+    # 按 RRF 分数降序
+    fused = [
+        {**merged_data[did], "rrf_score": score}
+        for did, score in scores.items()
+    ]
+    return sorted(fused, key=lambda d: d["rrf_score"], reverse=True)
+
+# 测试
+kw_results = [{"id": "A", "text": "债权转让规范"}, {"id": "B", "text": "风险分类指引"}]
+vec_results = [{"id": "B", "text": "风险分类指引"}, {"id": "C", "text": "资产保全制度"}]
+fused = reciprocal_rank_fusion(kw_results, vec_results)
+for item in fused:
+    print(f"  {item['id']}: RRF={item['rrf_score']:.4f} | {item['text']}")
+# A: RRF=0.0164 | 债权转让规范（仅关键词命中）
+# C: RRF=0.0164 | 资产保全制度（仅向量命中）
+# B: RRF=0.0328 | 风险分类指引（两种都命中，分数翻倍！）</code></pre>
+
+  <div class="tip-box">
+    <strong>为什么用排名而不是分数？</strong>关键词分数（命中数）和向量分数（余弦相似度）量纲不同，直接加权没意义。RRF 把两者统一转成排名再融合，简单有效，是工业界最常用的混合检索方案。
+  </div>
+</div>
+
+<!-- S3 -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#128300;</span>
+    Query 变换：让搜索更聪明
+    <span class="time-tag">&#9201; 20 min</span>
+  </div>
+
+  <p>用户输入的查询往往不是最优的搜索语句。比如"什么叫五级分类"太口语化，"不良资产处置方式有哪些"范围太大。<span class="hl">Query 变换</span>就是在搜索前先"改写"查询，提高检索质量。</p>
+
+  <h3>3.1 常见的 Query 变换技术</h3>
+  <table class="compare-table">
+    <tr><th>技术</th><th>做法</th><th>解决什么问题</th><th>复杂度</th></tr>
+    <tr>
+      <td><span class="tag tag-blue">Query 改写</span></td>
+      <td>让 LLM 把口语化查询改写成更清晰的搜索语句</td>
+      <td>查询太口语化/模糊</td>
+      <td>低</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-blue">Query 扩展</span></td>
+      <td>添加同义词、相关术语</td>
+      <td>查询缺少关键术语</td>
+      <td>中</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-green">HyDE</span></td>
+      <td>让 LLM 先生成假设性回答，用回答去检索</td>
+      <td>问题和文档表达差异大</td>
+      <td>高</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-purple">Multi-Query</span></td>
+      <td>生成多个变体查询，分别检索后合并</td>
+      <td>查询角度单一</td>
+      <td>中</td>
+    </tr>
+  </table>
+
+  <h3>3.2 实战：Query 改写器</h3>
+  <pre><code>import json
+from openai import OpenAI  # 或用 zhipuai
+
+client = OpenAI(api_key="your-key", base_url="https://open.bigmodel.cn/api/paas/v4")
+
+def rewrite_query(user_query: str) -> str:
+    """用 LLM 把口语化查询改写为更精确的搜索语句"""
+    response = client.chat.completions.create(
+        model="glm-4-flash",
+        messages=[
+            {
+                "role": "system",
+                "content": """你是一个查询改写助手。用户会输入一个问题，
+你的任务是把问题改写为更精确、更适合检索的搜索语句。
+要求：保留核心意图，去除口语化表达，补充缺失的关键词。
+只输出改写后的查询，不要解释。"""
+            },
+            {"role": "user", "content": user_query}
+        ],
+        temperature=0.0,  # 低温度保证稳定
+    )
+    return response.choices[0].message.content.strip()
+
+# 测试
+print(rewrite_query("什么叫五级分类啊"))
+# "商业银行信贷资产五级分类标准 正常关注次级可疑损失"
+
+print(rewrite_query("不良资产怎么处理"))
+# "不良资产处置方式 债务重组 转让 核销 资产证券化"</code></pre>
+
+  <h3>3.3 实战：Multi-Query 多角度检索</h3>
+  <pre><code>def generate_multi_queries(user_query: str, n: int = 3) -> list[str]:
+    """生成 n 个不同角度的查询变体"""
+    response = client.chat.completions.create(
+        model="glm-4-flash",
+        messages=[
+            {
+                "role": "system",
+                "content": f"根据用户问题，生成 {n} 个不同角度的搜索查询。"
+                           "每个查询从不同侧面切入，每行一个，不要编号。"
+            },
+            {"role": "user", "content": user_query}
+        ],
+        temperature=0.7,  # 高温度增加多样性
+    )
+    text = response.choices[0].message.content
+    return [line.strip() for line in text.strip().split("\n") if line.strip()]
+
+# 测试
+queries = generate_multi_queries("如何评估不良资产的价值")
+for i, q in enumerate(queries, 1):
+    print(f"  变体{i}: {q}")
+# 变体1: 不良资产评估方法 市场比较法 收益现值法
+# 变体2: AMC资产管理公司 资产估值 尽职调查 评估报告
+# 变体3: 抵债资产价值认定 评估程序 重估制度</code></pre>
+
+  <h3>3.4 HyDE：假设性文档嵌入</h3>
+  <div class="concept-box">
+    <strong>HyDE 思路：</strong>用户问"五级分类怎么认定？"，直接拿这个问题去检索效果一般。但如果先让 LLM 生成一段"看起来像答案"的文字，再拿这段文字去检索，匹配度往往更高 &mdash; 因为"答案"和"文档"的语义空间更接近。
+  </div>
+
+  <pre><code>def hyde_search(user_query: str, collection, top_k: int = 3) -> list[dict]:
+    """HyDE: 先让 LLM 生成假设性回答，再用回答去检索"""
+    # Step 1: 让 LLM 生成假设性文档
+    response = client.chat.completions.create(
+        model="glm-4-flash",
+        messages=[
+            {
+                "role": "system",
+                "content": "请根据用户问题，生成一段看起来像官方文档的假设性回答。"
+                           "不需要完全准确，目的是用于语义检索。"
+            },
+            {"role": "user", "content": user_query}
+        ],
+        temperature=0.3,
+    )
+    hypothetical_doc = response.choices[0].message.content
+
+    # Step 2: 用假设性文档去向量库检索
+    results = collection.query(
+        query_texts=[hypothetical_doc],
+        n_results=top_k,
+    )
+    return results
+
+# 对比：原始查询 vs HyDE
+print("--- 原始查询 ---")
+results_raw = collection.query(query_texts=["五级分类怎么认定"], n_results=3)
+
+print("--- HyDE ---")
+results_hyde = hyde_search("五级分类怎么认定", collection)</code></pre>
+
+  <div class="tip-box">
+    <strong>类比数仓：</strong>Query 变换就像用户提了一个模糊的报表需求，你先帮他澄清口径、补充维度条件，再下 SQL 查询。本质上是一样的 &mdash; 帮查询"补齐信息"。
+  </div>
+</div>
+
+<!-- S4 -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#128736;</span>
+    ChromaDB 检索实战：从向量库中捞数据
+    <span class="time-tag">&#9201; 20 min</span>
+  </div>
+
+  <p>Day31 我们学了 ChromaDB 的 CRUD 操作。现在聚焦 <code>collection.query()</code> &mdash; 在线检索阶段的核心 API。</p>
+
+  <pre><code>import chromadb
+
+# 连接持久化向量库（Day31 创建的）
+client = chromadb.PersistentClient(path="./amc_knowledge_base")
+collection = client.get_collection("amc_docs")
+
+# ============ 最基础的查询 ============
+results = collection.query(
+    query_texts=["不良资产处置方式"],   # 用文本查询（Chroma 自动做 Embedding）
+    n_results=5,                       # 返回 Top-5
+)
+print("最相似片段:", results["documents"][0][0][:50])
+
+# ============ 带元数据过滤的查询 ============
+# 只在"处置规范"类别的文档中搜索
+results = collection.query(
+    query_texts=["抵债资产如何处置"],
+    n_results=3,
+    where={"category": "处置规范"},  # 类比 SQL WHERE category = '处置规范'
+)
+
+# ============ 复杂过滤条件 ============
+# 类别为"处置规范" 且 年份 >= 2022
+results = collection.query(
+    query_texts=["债权转让流程"],
+    n_results=3,
+    where={
+        "$and": [
+            {"category": "处置规范"},
+            {"year": {"$gte": 2022}}  # 类比 SQL WHERE year >= 2022
+        ]
+    },
+)
+
+# OR 条件
+results_or = collection.query(
+    query_texts=["风险分类"],
+    n_results=3,
+    where={
+        "$or": [
+            {"category": "风险分类"},
+            {"category": "监管政策"},
+        ]
+    },
+)
+
+# ============ 用已有向量查询（省掉 Embedding 计算）===========
+query_embedding = [...]  # 你预先算好的向量
+results = collection.query(
+    query_embeddings=[query_embedding],
+    n_results=5,
+)
+
+# 查看每个结果的相似度距离
+for i, (doc, dist) in enumerate(zip(
+    results["documents"][0], results["distances"][0]
+)):
+    print(f"  #{i+1} [距离:{dist:.4f}] {doc[:40]}...")</code></pre>
+
+  <div class="concept-box">
+    <strong>ChromaDB query() 返回结构（类比 SQL 结果集）：</strong><br>
+    <code>results["ids"]</code> &mdash; 文档 ID 列表<br>
+    <code>results["documents"]</code> &mdash; 文档内容列表<br>
+    <code>results["metadatas"]</code> &mdash; 元数据字典列表<br>
+    <code>results["distances"]</code> &mdash; 距离值（越小越相似，类似 L2 距离）
+  </div>
+
+  <div class="warn-box">
+    <strong>注意：</strong>ChromaDB 的 <code>distance</code> 是 L2 距离（越小越相似），不是余弦相似度（越大越相似）！<br>
+    两者关系（归一化向量时）：<code>cosine_similarity &asymp; 1 - distance / 2</code>
+  </div>
+</div>
+
+<!-- S5 -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#9881;</span>
+    检索后处理：Context 质量决定 LLM 回答质量
+    <span class="time-tag">&#9201; 15 min</span>
+  </div>
+
+  <p>原始检索结果直接喂给 LLM？不够好。需要做后处理提升 Context 质量。</p>
+
+  <h3>5.1 三种核心后处理</h3>
+  <pre><code># ---------- 1. Context Window 截断 ----------
+def truncate_context(documents: list[str], max_chars: int = 4000) -> list[str]:
+    """把检索结果截断到 LLM 的上下文窗口内
+    类比 SQL: LIMIT 只取前N行，这里按字符数截断"""
+    result = []
+    total = 0
+    for doc in documents:
+        if total + len(doc) > max_chars:
+            break
+        result.append(doc)
+        total += len(doc)
+    return result
+
+# ---------- 2. 相似度阈值过滤 ----------
+def filter_by_threshold(
+    documents: list[str],
+    distances: list[float],
+    max_distance: float = 1.0  # 根据实际情况调整
+) -> list[str]:
+    """过滤掉相似度太低的结果
+    类比 SQL: WHERE score > threshold"""
+    return [doc for doc, dist in zip(documents, distances) if dist <= max_distance]
+
+# ---------- 3. 文档去重 ----------
+def deduplicate_documents(documents: list[str]) -> list[str]:
+    """去除内容重复或高度相似的文档片段"""
+    seen = set()
+    result = []
+    for doc in documents:
+        fingerprint = doc.strip()[:50]  # 用前50字符作为简易指纹
+        if fingerprint not in seen:
+            seen.add(fingerprint)
+            result.append(doc)
+    return result</code></pre>
+
+  <h3>5.2 完整的检索后处理流水线</h3>
+  <pre><code>from dataclasses import dataclass
+
+@dataclass
+class RetrievedChunk:
+    """检索结果的数据结构"""
+    text: str
+    source: str       # 来源文件名
+    distance: float    # 距离（越小越相似）
+    metadata: dict     # 元数据
+
+def post_process(
+    chunks: list[RetrievedChunk],
+    max_chars: int = 4000,
+    max_distance: float = 1.0,
+) -> list[RetrievedChunk]:
+    """完整的后处理流水线：阈值过滤 -> 去重 -> 截断"""
+    # Step 1: 相似度阈值过滤
+    filtered = [c for c in chunks if c.distance <= max_distance]
+    print(f"  阈值过滤: {len(chunks)} -> {len(filtered)} 条")
+
+    # Step 2: 去重
+    deduped = []
+    seen = set()
+    for chunk in filtered:
+        fp = chunk.text.strip()[:50]
+        if fp not in seen:
+            seen.add(fp)
+            deduped.append(chunk)
+    print(f"  去重: {len(filtered)} -> {len(deduped)} 条")
+
+    # Step 3: 按字符数截断（已经按相似度排好序，优先保留高相似度的）
+    truncated = []
+    total = 0
+    for chunk in deduped:
+        if total + len(chunk.text) > max_chars:
+            break
+        truncated.append(chunk)
+        total += len(chunk.text)
+    print(f"  截断: {len(deduped)} -> {len(truncated)} 条, 共 {total} 字符")
+
+    return truncated</code></pre>
+</div>
+
+<!-- S6 -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#127919;</span>
+    LLM 实战：完整 RAG 检索器
+    <span class="time-tag">&#9201; 15 min</span>
+  </div>
+
+  <p>把今天学的内容组装成一个完整的 <span class="hl">RAGRetriever</span> 类：</p>
+
+  <pre><code>class RAGRetriever:
+    """完整的 RAG 检索器 — 组合查询改写 + 向量检索 + 后处理"""
+
+    def __init__(self, collection, llm_client, top_k: int = 10, max_chars: int = 4000):
+        self.collection = collection
+        self.llm = llm_client
+        self.top_k = top_k
+        self.max_chars = max_chars
+
+    def retrieve(self, query: str, rewrite: bool = True) -> RetrievalResult:
+        """完整的检索流程"""
+        # Step 1: Query 改写（可选）
+        rewritten = rewrite_query(query) if rewrite else query
+
+        # Step 2: 向量库检索
+        results = self.collection.query(
+            query_texts=[rewritten],
+            n_results=self.top_k,
+        )
+
+        # Step 3: 组装 Chunk 列表
+        chunks = []
+        for doc, dist, meta in zip(
+            results["documents"][0],
+            results["distances"][0],
+            results["metadatas"][0],
+        ):
+            chunks.append(RetrievedChunk(
+                text=doc,
+                source=meta.get("source", "unknown"),
+                distance=dist,
+                metadata=meta,
+            ))
+
+        # Step 4: 后处理
+        final_chunks = post_process(chunks, max_chars=self.max_chars)
+
+        return RetrievalResult(
+            chunks=final_chunks,
+            query=query,
+            rewritten_query=rewritten,
+            total_candidates=len(chunks),
+            final_count=len(final_chunks),
+        )
+
+# 使用示例
+retriever = RAGRetriever(collection, client)
+result = retriever.retrieve("不良资产有哪些处置方式？")
+print(f"候选: {result.total_candidates} -> 最终: {result.final_count}")
+print(f"改写后: {result.rewritten_query}")
+print(f"Context:\n{result.format_context()[:200]}...")</code></pre>
+
+  <div class="tip-box">
+    <strong>检索管线全链路类比 SQL：</strong><br>
+    Query 改写 = 解析需求补条件 &rarr; 向量库检索 = SELECT * FROM docs ORDER BY similarity &rarr; 后处理 = WHERE/HAVING/LIMIT/OFFSET
+  </div>
+</div>
+
+<!-- S7 -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#128640;</span>
+    检索优化技巧 &amp; 常见陷阱
+    <span class="time-tag">&#9201; 10 min</span>
+  </div>
+
+  <h3>3 个实战优化技巧</h3>
+
+  <pre><code># 技巧1: 命中率日志 — 监控检索质量
+import logging
+logger = logging.getLogger("rag.retrieval")
+
+def retrieve_with_logging(retriever, query: str):
+    result = retriever.retrieve(query)
+    logger.info(
+        "检索日志 | query=%s | rewritten=%s | 候选=%d | 最终=%d | "
+        "avg_dist=%.4f | sources=%s",
+        query, result.rewritten_query,
+        result.total_candidates, result.final_count,
+        sum(c.distance for c in result.chunks) / max(len(result.chunks), 1),
+        [c.source for c in result.chunks],
+    )
+    return result
+
+# 技巧2: 空结果处理 — 兜底策略
+def retrieve_with_fallback(retriever, query: str, min_results: int = 2):
+    """如果检索结果太少，扩大范围重试"""
+    result = retriever.retrieve(query)
+    if result.final_count < min_results:
+        logger.warning(f"检索结果不足({result.final_count}<{min_results})，扩大范围重试")
+        # 扩大 top_k 重试
+        retriever.top_k *= 2
+        result = retriever.retrieve(query, rewrite=False)  # 不再改写，避免二次失真
+        retriever.top_k //= 2  # 恢复
+    return result
+
+# 技巧3: 缓存热门查询 — 减少重复计算
+from functools import lru_cache
+
+@lru_cache(maxsize=128)
+def cached_embedding(text: str) -> str:
+    """缓存 query embedding 结果（返回文本模拟）"""
+    # 实际中缓存 embedding 向量
+    return text</code></pre>
+
+  <div class="warn-box">
+    <strong>检索 Top-5 常见陷阱：</strong>
+    <ol>
+      <li><span class="hlr">Query 太短</span> &mdash; "五级分类"只有4个字，Embedding 信息不足。用 Query 改写补充。</li>
+      <li><span class="hlr">不设阈值</span> &mdash; Top-K 结果可能全不相关。一定要设 max_distance 过滤。</li>
+      <li><span class="hlr">忽略元数据</span> &mdash; 查 2024 年的政策但 2019 年的文档排在前面。加 where 过滤。</li>
+      <li><span class="hlr">Context 超长</span> &mdash; 10 个片段全塞进去超过 Token 限制。做截断。</li>
+      <li><span class="hlr">不做去重</span> &mdash; 同一段内容被多个分块命中，浪费 Context 空间。</li>
+    </ol>
+  </div>
+</div>
+
+<!-- S8 -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#128170;</span>
+    今日练习
+    <span class="time-tag">&#9201; 10 min</span>
+  </div>
+
+  <div class="quiz-box">
+    <h4>练习 1：实现 BM25 关键词检索</h4>
+    <p>在 keyword_search 基础上增加 IDF（逆文档频率）权重：常见词降权，罕见词加权。提示：IDF = log(N / (df + 1))，N=总文档数，df=包含该词的文档数。</p>
+  </div>
+
+  <div class="quiz-box">
+    <h4>练习 2：带缓存的多 Query 检索</h4>
+    <p>用 <code>functools.lru_cache</code> 缓存 Multi-Query 的结果。相同问题不重复调 LLM，直接复用缓存的查询列表。</p>
+  </div>
+
+  <div class="quiz-box">
+    <h4>练习 3：LeetCode #347 — 前 K 个高频元素</h4>
+    <p>给定一个数组，返回出现频率前 K 高的元素。提示：用 <code>heapq.nlargest(k, counter.items(), key=itemgetter(1))</code>，跟检索 Top-K 是同一套路。</p>
+    <pre><code># 模板
+from collections import Counter
+from heapq import nlargest
+from operator import itemgetter
+
+def top_k_frequent(nums: list[int], k: int) -> list[int]:
+    counts = Counter(nums)
+    return [item[0] for item in nlargest(k, counts.items(), key=itemgetter(1))]
+
+# 测试
+print(top_k_frequent([1,1,1,2,2,3], 2))  # [1, 2]</code></pre>
+  </div>
+</div>
+
+<!-- S9 -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#128214;</span>
+    今日总结 &amp; 明日预告
+  </div>
+
+  <div class="concept-box">
+    <strong>Day 32 知识图谱：</strong>
+    <ul>
+      <li><strong>检索核心三步：</strong>Query 变换 &rarr; Top-K 检索 &rarr; 后处理</li>
+      <li><strong>三种策略：</strong>关键词 / 向量 / 混合（RRF）</li>
+      <li><strong>Query 变换：</strong>改写 / 扩展 / HyDE / Multi-Query</li>
+      <li><strong>ChromaDB query()：</strong>query_texts + n_results + where 过滤</li>
+      <li><strong>后处理：</strong>阈值过滤 + 去重 + 截断</li>
+      <li><strong>Python 技能：</strong>sorted(key=) / itemgetter / heapq.nlargest / lru_cache</li>
+    </ul>
+  </div>
+
+  <div class="tip-box">
+    <strong>数仓工程师视角：</strong>检索 = SQL 查询 + 后处理。你已经具备了"数据检索"的直觉，现在要学的是"语义检索"的方法。两者殊途同归 &mdash; 目标都是把最相关的数据找出来。
+  </div>
+
+  <p style="margin-top:16px"><strong>Day 33 预告：</strong><span class="hl2">Reranker 重排序</span> &mdash; 用交叉编码器（Cross-Encoder）对检索结果做二次精排，大幅提升 Top-K 的准确率。同时学习 <code>itertools.chain</code> 和 <code>zip_longest</code>。</p>
+</div>
+
+</body>
+</html>

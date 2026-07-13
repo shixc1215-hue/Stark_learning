@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 31 - 向量数据库：Chroma 持久化存储与高效检索</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#eff6ff,#eef2ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #bfdbfe; }
+  .header .badge { display:inline-block;background:#dbeafe;color:var(--accent);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .milestone-box { background:linear-gradient(135deg,#fef3c7,#fff7ed);border:2px solid #fbbf24;border-radius:var(--radius);padding:20px 24px;margin:14px 0;font-size:14px;color:var(--text); }
+  .milestone-box h4 { color:var(--orange);margin-bottom:8px; }
+  pre { background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;overflow-x:auto;font-size:13.5px;line-height:1.65;margin:12px 0;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--text); }
+  code { background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace; }
+  pre code { background:none;padding:0;border-radius:0;font-size:inherit; }
+  .hl { color:var(--accent);font-weight:600; }
+  .hl2 { color:var(--accent2);font-weight:600; }
+  .hlg { color:var(--green);font-weight:600; }
+  .hlo { color:var(--orange);font-weight:600; }
+  .hlr { color:var(--red);font-weight:600; }
+  h3 { font-size:16px;font-weight:700;margin:20px 0 10px;color:var(--text); }
+  h4 { font-size:15px;font-weight:600;margin:16px 0 8px;color:var(--text2); }
+  p { margin:8px 0;font-size:14.5px; }
+  ul,ol { padding-left:20px;margin:8px 0; }
+  li { margin:4px 0;font-size:14px; }
+  table { width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px; }
+  th,td { padding:10px 14px;text-align:left;border:1px solid var(--border); }
+  th { background:var(--surface2);font-weight:600;font-size:13px; }
+  .compare-table th { background:var(--accent);color:#fff; }
+  .compare-table th:nth-child(2) { background:var(--accent2); }
+  .tag { display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600; }
+  .tag-new { background:#dbeafe;color:var(--accent); }
+  .tag-llm { background:#ede9fe;color:var(--accent2); }
+  .tag-review { background:#dcfce7;color:var(--green); }
+  .footer { text-align:center;padding:24px;color:var(--text3);font-size:13px; }
+  .pipeline { display:flex;align-items:center;gap:4px;margin:16px 0;flex-wrap:wrap;justify-content:center; }
+  .pipeline .step { background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;color:var(--accent); }
+  .pipeline .step.done { background:#dcfce7;border-color:#86efac;color:var(--green); }
+  .pipeline .step.current { background:#fef3c7;border-color:#fbbf24;color:var(--orange); }
+  .pipeline .arrow { color:var(--text3);font-size:16px; }
+</style>
+</head>
+<body>
+
+<!-- 头部 -->
+<div class="header">
+  <div class="badge">Phase 2 · RAG + Agent · Day 3</div>
+  <h1>🗄️ 向量数据库：Chroma 持久化存储与高效检索</h1>
+  <p class="subtitle">RAG 离线索引阶段的最后一块拼图 —— 把 Embedding 存起来、管起来、查得快</p>
+</div>
+
+<!-- 进度条 -->
+<div class="progress-bar">
+  <span class="label">总进度 31/70</span>
+  <div class="track"><div class="fill" style="width:44.3%"></div></div>
+  <span class="percent">44%</span>
+</div>
+
+<!-- RAG管线进度 -->
+<div class="pipeline">
+  <span class="step done">✅ D29 分块</span>
+  <span class="arrow">→</span>
+  <span class="step done">✅ D30 Embedding</span>
+  <span class="arrow">→</span>
+  <span class="step current">🔧 D31 向量库</span>
+  <span class="arrow">→</span>
+  <span class="step">⬜ D32 检索</span>
+  <span class="arrow">→</span>
+  <span class="step">⬜ D33 Reranker</span>
+  <span class="arrow">→</span>
+  <span class="step">⬜ D34-35 评估+端到端</span>
+</div>
+
+<!-- ======================== Section 1 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🤔</span> 为什么需要向量数据库？
+    <span class="time-tag">⏱ 8 min</span>
+  </div>
+
+  <h3>从数仓视角理解向量库</h3>
+  <p>你作为数仓工程师，可以这么类比：</p>
+
+  <table class="compare-table">
+    <tr><th>传统数仓概念</th><th>向量数据库对应</th></tr>
+    <tr><td>表 Table</td><td>Collection（集合）</td></tr>
+    <tr><td>行 Row</td><td>一条 Document（文档）</td></tr>
+    <tr><td>主键 PK</td><td>document ID</td></tr>
+    <tr><td>列 Column</td><td>向量 embedding + 元数据 metadata</td></tr>
+    <tr><td>B+ 树索引</td><td>HNSW / IVF 等近似最近邻索引</td></tr>
+    <tr><td>WHERE 过滤</td><td>where 元数据过滤</td></tr>
+    <tr><td>ORDER BY + LIMIT</td><td>按相似度排序 + 取 Top-K</td></tr>
+  </table>
+
+  <h3>暴力搜索 vs ANN（近似最近邻）</h3>
+  <p>Day 30 中我们手写的是「暴力搜索」——拿 query 向量和 <strong>所有</strong> 向量逐一算余弦相似度。这在数据量小的时候没问题，但当数据量从 100 → 100万 时：</p>
+
+  <pre><code># 暴力搜索 —— O(N×d)，N=文档数，d=向量维度
+def brute_search(query_vec, all_vectors, top_k=5):
+    scores = [(i, cosine_sim(query_vec, v)) for i, v in enumerate(all_vectors)]
+    scores.sort(key=lambda x: x[1], reverse=True)
+    return scores[:top_k]
+
+# 1000 条 → 毫秒级  ✅ 可接受
+# 100 万条 → 每次查询 0.5~2 秒  ⚠️ 太慢
+# 1 亿条 → 每次查询 50~200 秒  ❌ 不可用</code></pre>
+
+  <div class="concept-box">
+    <strong>ANN（Approximate Nearest Neighbor）</strong>的核心思想：不用和 <strong>每条</strong> 数据比，通过索引结构快速定位到「大概率最近的候选集」，再精确计算。<br>
+    <strong>HNSW（Hierarchical Navigable Small World）</strong>是最主流的 ANN 算法 —— 把向量组织成多层图结构，类似"先坐飞机到大致区域，再坐车到具体地点"。精度损失不到 1%，速度提升 100~1000 倍。
+  </div>
+
+  <h3>向量库 vs 自己存 numpy/文件</h3>
+
+  <table>
+    <tr><th>方案</th><th>持久化</th><th>元数据过滤</th><th>ANN 索引</th><th>适用场景</th></tr>
+    <tr><td>numpy.save + JSON</td><td>❌ 手动管理</td><td>❌ 无</td><td>❌ 暴力</td><td>Demo / &lt;1000条</td></tr>
+    <tr><td>sqlite + 向量列</td><td>✅</td><td>✅ SQL WHERE</td><td>❌ 暴力</td><td>中小规模</td></tr>
+    <tr><td><span class="hl">Chroma</span></td><td>✅ 自动</td><td>✅ where 过滤</td><td>✅ HNSW</td><td>中规模 / 学习 / 原型</td></tr>
+    <tr><td>FAISS (Meta)</td><td>❌ 需封装</td><td>❌ 需自建</td><td>✅ 多种算法</td><td>大规模纯检索</td></tr>
+    <tr><td>Milvus / Qdrant</td><td>✅ 分布式</td><td>✅ 标量过滤</td><td>✅ 多算法</td><td>企业级生产</td></tr>
+  </table>
+
+  <div class="tip-box">
+    <strong>💡 学习建议：</strong>先用 Chroma 学会向量库的 <strong>核心概念和操作范式</strong>（增删查改、过滤、持久化），这些概念在任何向量库中都通用。Chroma 语法最简洁，适合入门。
+  </div>
+</div>
+
+<!-- ======================== Section 2 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span> Python 进阶：上下文管理器 + pathlib + JSON 序列化
+    <span class="time-tag">⏱ 12 min</span>
+  </div>
+
+  <h3>1. @contextmanager 装饰器 —— 更灵活的上下文管理</h3>
+  <p>Day 21 学过 <code>__enter__</code>/<code>__exit__</code> 魔术方法来实现 <code>with</code> 语句。Python 还提供了更简洁的方式：</p>
+
+  <pre><code>from contextlib import contextmanager
+
+# 用装饰器写上下文管理器，比写类简单很多
+@contextmanager
+def timer(name: str):
+    """计时上下文：自动记录代码块执行时间"""
+    import time
+    start = time.perf_counter()
+    print(f"[{name}] 开始...")
+    try:
+        yield  # ← yield 之前的代码 = __enter__，yield 之后 = __exit__
+    finally:
+        elapsed = time.perf_counter() - start
+        print(f"[{name}] 完成，耗时 {elapsed:.3f}s")
+
+# 使用
+with timer("向量化"):
+    embeddings = [get_embedding(t) for t in texts]
+# 输出：[向量化] 开始...
+# 输出：[向量化] 完成，耗时 1.234s
+
+
+# 结合连接/关闭数据库的场景
+@contextmanager
+def db_connection(db_path):
+    """模拟数据库连接的上下文管理"""
+    print(f"  连接数据库: {db_path}")
+    conn = {"path": db_path, "active": True}  # 模拟连接对象
+    try:
+        yield conn  # 把连接对象传给 as 后面的变量
+    finally:
+        conn["active"] = False
+        print(f"  关闭数据库连接")
+
+with db_connection("./data/amc.db") as conn:
+    print(f"  当前连接状态: {conn['active']}")
+    # ... 执行查询 ...
+# 输出：连接数据库: ./data/amc.db
+# 输出：当前连接状态: True
+# 输出：关闭数据库连接
+
+
+# 错误处理：yield 处可以 yield 一个值
+@contextmanager
+def safe_file_write(filepath):
+    """安全的文件写入：写入临时文件，成功后原子替换"""
+    import os
+    tmp_path = filepath + ".tmp"
+    f = open(tmp_path, "w", encoding="utf-8")
+    try:
+        yield f
+        f.close()
+        # 成功后原子替换（数据仓库常用技巧，避免写到一半断电）
+        os.replace(tmp_path, filepath)
+    except Exception as e:
+        f.close()
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        raise  # 重新抛出异常
+
+# 使用
+with safe_file_write("output.json") as f:
+    f.write('{"data": "test"}')  # 成功时才替换原文件</code></pre>
+
+  <h3>2. contextlib.closing —— 给没有上下文管理的对象加 with</h3>
+  <pre><code>from contextlib import closing
+import urllib.request
+
+# urllib.request.urlopen 没有 __enter__/__exit__
+# 用 closing 包一下就能用 with 了
+with closing(urllib.request.urlopen("https://httpbin.org/get")) as resp:
+    data = resp.read().decode("utf-8")[:100]
+    print(data)</code></pre>
+
+  <h3>3. pathlib 进阶 —— 不只是路径拼接</h3>
+  <pre><code>from pathlib import Path
+
+# Day 12 学过基本用法，这里看进阶功能
+base = Path("D:/数据/LLM_120days")
+
+# ---- glob/rglob：按模式搜索文件 ----
+# glob 只搜一层，rglob 递归搜索
+html_files = base.glob("day*.html")         # 匹配 day*.html
+all_py_files = base.rglob("**/*.py")         # 递归所有 .py
+
+for f in html_files:
+    print(f.name)        # 文件名（带后缀）→ "day31.html"
+    print(f.stem)        # 文件名（不带后缀）→ "day31"
+    print(f.suffix)       # 后缀 → ".html"
+    print(f.parent)      # 父目录 → Path("D:/数据/LLM_120days")
+
+# ---- stat：获取文件信息 ----
+info = Path("day31.html").stat()
+print(f"大小: {info.st_size} 字节")
+print(f"修改时间: {info.st_mtime}")  # Unix 时间戳
+
+# ---- 判断文件/目录类型 ----
+Path("day31.html").exists()     # True
+Path("day31.html").is_file()    # True
+Path("day31.html").is_dir()     # False
+
+# ---- 读写 ----
+Path("test.txt").write_text("Hello", encoding="utf-8")  # 写
+content = Path("test.txt").read_text(encoding="utf-8")   # 读</code></pre>
+
+  <h3>4. 自定义 JSONEncoder —— 处理特殊类型</h3>
+  <pre><code>import json
+from datetime import datetime
+from pathlib import Path
+
+# 标准 JSON 只支持 dict/list/str/int/float/bool/None
+# 遇到 datetime、set、Path 就会报 TypeError
+
+class AdvancedEncoder(json.JSONEncoder):
+    """自定义 JSON 编码器，处理特殊类型"""
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()       # datetime → 字符串
+        if isinstance(obj, set):
+            return list(obj)            # set → list
+        if isinstance(obj, Path):
+            return str(obj)             # Path → 字符串
+        if isinstance(obj, bytes):
+            return obj.decode("utf-8")  # bytes → 字符串
+        # 其他类型交给父类处理（会抛 TypeError）
+        return super().default(obj)
+
+# 使用
+data = {
+    "report_date": datetime(2026, 6, 30),
+    "categories": {"不良", "关注", "次级"},   # set
+    "file_path": Path("D:/data/report.csv"),
+}
+json_str = json.dumps(data, cls=AdvancedEncoder, ensure_ascii=False, indent=2)
+print(json_str)
+# {
+#   "report_date": "2026-06-30T00:00:00",
+#   "categories": ["次级", "关注", "不良"],   ← set 变成了 list
+#   "file_path": "D:/data/report.csv"
+# }</code></pre>
+</div>
+
+<!-- ======================== Section 3 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🗄️</span> ChromaDB 完整入门
+    <span class="time-tag">⏱ 18 min</span>
+  </div>
+
+  <h3>0. 安装</h3>
+  <pre><code>pip install chromadb</code></pre>
+
+  <h3>1. 创建持久化客户端</h3>
+  <pre><code>import chromadb
+from pathlib import Path
+
+# ---- 持久化客户端：数据存在磁盘，重启不丢失 ----
+# 这是生产环境的推荐用法
+persist_dir = "./chroma_db"  # 数据存储目录（类比数仓的 data/ 目录）
+Path(persist_dir).mkdir(exist_ok=True)  # 目录不存在则创建
+
+client = chromadb.PersistentClient(path=persist_dir)
+print(f"Chroma 版本: {chromadb.__version__}")
+print(f"存储路径: {persist_dir}")
+
+# ---- 内存客户端：适合测试和 Demo ----
+# client = chromadb.EphemeralClient()  # 数据存在内存，进程结束即丢失
+
+# ---- HTTP 客户端：连接远程 Chroma Server ----
+# client = chromadb.HttpClient(host="localhost", port=8000)</code></pre>
+
+  <div class="concept-box">
+    <strong>三种客户端选择：</strong><br>
+    <strong>PersistentClient</strong>（推荐）→ 本地持久化，像 SQLite 一样嵌入使用<br>
+    <strong>EphemeralClient</strong> → 纯内存，适合写单元测试<br>
+    <strong>HttpClient</strong> → 连接独立部署的 Chroma Server，适合多人协作 / 大规模
+  </div>
+
+  <h3>2. Collection（集合）—— 一次 RAG 知识库对应一个 Collection</h3>
+  <pre><code>from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+
+# 创建 Collection
+collection = client.get_or_create_collection(
+    name="amc_knowledge_base",   # 集合名（类比表名）
+    metadata={"description": "AMC不良资产管理知识库", "version": "1.0"},
+    # 如果不指定 embedding_function，Chroma 使用默认的 all-MiniLM-L6-v2
+)
+
+print(f"集合名: {collection.name}")
+print(f"文档数: {collection.count()}")
+
+# 查看所有 Collection
+for c in client.list_collections():
+    print(f"  {c.name} — {c.count()} 条")
+
+# 删除 Collection（⚠️ 不可恢复！）
+# client.delete_collection("amc_knowledge_base")</code></pre>
+
+  <h3>3. 添加文档 —— add() 方法</h3>
+  <pre><code># Chroma 有三种方式添加向量：
+# 方式 A：只传文本 → Chroma 自动调用 Embedding 函数生成向量
+collection.add(
+    documents=[
+        "不良资产处置方式包括催收、重组、转让、核销等",
+        "关注类贷款是指借款人目前有能力偿还，但存在不利因素",
+        "五级分类标准：正常、关注、次级、可疑、损失",
+        "AMC全称Asset Management Company，主要业务是不良资产收购处置",
+    ],
+    ids=["doc_001", "doc_002", "doc_003", "doc_004"],  # ⚠️ 每条必须唯一
+    metadatas=[
+        {"source": "regulation", "chapter": "总则"},
+        {"source": "regulation", "chapter": "分类"},
+        {"source": "regulation", "chapter": "分类"},
+        {"source": "wiki", "chapter": "概述"},
+    ],
+)
+print(f"添加后文档数: {collection.count()}")
+
+# 方式 B：传入预计算的向量（已有 embedding，不用重新算）
+import numpy as np
+vectors = np.random.rand(2, 384).tolist()  # 2 条，维度 384
+collection.add(
+    documents=["不良资产转让协议", "资产评估报告模板"],
+    ids=["doc_005", "doc_006"],
+    embeddings=vectors,  # 直接传入向量，跳过 embedding 计算
+    metadatas=[{"source": "template"}, {"source": "template"}],
+)
+
+# 方式 C：upsert —— 存在则更新，不存在则插入（⭐ 最常用）
+collection.upsert(
+    documents=["关注类贷款是指借款人目前有能力偿还，但存在不利因素（修订版）"],
+    ids=["doc_002"],  # ID 已存在 → 更新
+    metadatas=[{"source": "regulation", "chapter": "分类", "version": "2.0"}],
+)</code></pre>
+
+  <div class="warn-box">
+    <strong>⚠️ 三种添加方式的选择：</strong><br>
+    如果 <strong>实时</strong> 导入少量文本 → 用 <code>documents</code> 参数，Chroma 自动算 embedding<br>
+    如果已有 <strong>预计算</strong> 好的向量 → 用 <code>embeddings</code> 参数，跳过计算<br>
+    如果需要 <strong>幂等</strong> 操作（重复执行不报错）→ 用 <code>upsert()</code>
+  </div>
+
+  <h3>4. 语义检索 —— query() 方法</h3>
+  <pre><code># 基础语义检索
+results = collection.query(
+    query_texts=["什么是不良资产？"],  # 自然语言查询
+    n_results=3,                       # 返回 Top-3
+)
+for i, (doc, dist, mid) in enumerate(zip(
+    results["documents"][0],
+    results["distances"][0],    # ← 距离（越小越相似，Chroma 默认用 L2 距离）
+    results["metadatas"][0],
+)):
+    print(f"  #{i+1} [距离:{dist:.4f}] [{mid['source']}] {doc[:60]}...")
+
+# 注意：Chroma 返回的是 distance（距离），不是 similarity（相似度）
+# L2 距离越小 → 越相似
+# 余弦相似度 = 1 - 余弦距离</code></pre>
+
+  <h3>5. 元数据过滤 —— where 参数</h3>
+  <p>这是向量库最强大的功能之一：<strong>语义匹配 + 结构化过滤</strong> 组合查询。类比 SQL：</p>
+
+  <pre><code>-- SQL 类比
+SELECT * FROM amc_knowledge_base
+WHERE chapter = '分类'
+ORDER BY similarity(embedding_col, query_vec)
+LIMIT 3;</code></pre>
+
+  <pre><code># ---- 基础过滤 ----
+results = collection.query(
+    query_texts=["贷款分类标准"],
+    where={"source": "regulation"},  # 只在 regulation 类文档中搜索
+    n_results=3,
+)
+
+# ---- $and 组合条件 ----
+results = collection.query(
+    query_texts=["资产处置"],
+    where={
+        "$and": [
+            {"source": "regulation"},
+            {"chapter": {"$ne": "总则"}},  # ne = not equal
+        ]
+    },
+    n_results=3,
+)
+
+# ---- $or 或条件 ----
+results = collection.query(
+    query_texts=["AMC业务"],
+    where={
+        "$or": [
+            {"source": "regulation"},
+            {"source": "wiki"},
+        ]
+    },
+    n_results=3,
+)
+
+# ---- $in 包含于 ----
+results = collection.query(
+    query_texts=["不良资产"],
+    where={"chapter": {"$in": ["分类", "处置"]}},  # chapter 是 "分类" 或 "处置"
+    n_results=3,
+)
+
+# ---- 数值比较 ----
+collection.add(
+    documents=["2024年Q3不良资产报告", "2025年Q1不良资产报告"],
+    ids=["doc_100", "doc_101"],
+    metadatas=[{"year": 2024, "quarter": 3}, {"year": 2025, "quarter": 1}],
+)
+results = collection.query(
+    query_texts=["最新报告"],
+    where={"year": {"$gte": 2025}},  # gte = greater than or equal
+    n_results=3,
+)
+
+# ---- where_document：在原文上过滤 ----
+results = collection.query(
+    query_texts=["资产处置"],
+    where_document={"$contains": "转让"},  # 原文包含 "转让" 的才匹配
+    n_results=3,
+)</code></pre>
+
+  <div class="tip-box">
+    <strong>💡 where 过滤速查表：</strong><br>
+    等值: <code>{"field": "value"}</code> · 不等于: <code>{"$ne": "value"}</code><br>
+    包含: <code>{"$in": ["a","b"]}</code> · 数值: <code>{"$gt"/"$gte"/"$lt"/"$lte": num}</code><br>
+    组合: <code>{"$and": [...]}</code> · <code>{"$or": [...]}</code><br>
+    原文过滤: <code>{"$contains": "keyword"}</code>（在 where_document 里）
+  </div>
+
+  <h3>6. 更新与删除</h3>
+  <pre><code># ---- 更新（覆盖） ----
+collection.update(
+    ids=["doc_001"],
+    documents=["不良资产处置方式包括：催收、依法清收、重组、转让、核销等多种方式"],
+    metadatas=[{"source": "regulation", "chapter": "处置", "version": "3.0"}],
+)
+
+# ---- 删除 ----
+collection.delete(ids=["doc_005", "doc_006"])
+print(f"删除后文档数: {collection.count()}")
+
+# ---- 按条件删除 ----
+collection.delete(where={"source": "template"})</code></pre>
+
+  <h3>7. 获取与统计</h3>
+  <pre><code># 获取单条
+doc = collection.get(ids=["doc_001"], include=["documents", "metadatas", "embeddings"])
+print(doc["documents"][0])
+
+# 获取多条
+docs = collection.get(
+    ids=["doc_001", "doc_002", "doc_003"],
+    where={"source": "regulation"},
+)
+
+# 分页获取
+page = collection.get(limit=10, offset=0, include=["documents", "metadatas"])
+
+# 统计
+print(f"总文档数: {collection.count()}")</code></pre>
+</div>
+
+<!-- ======================== Section 4 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔗</span> 自定义 Embedding Function —— 接入智谱 API
+    <span class="time-tag">⏱ 10 min</span>
+  </div>
+
+  <p>Chroma 默认用英文模型 all-MiniLM-L6-v2。我们的 AMC 知识库是中文的，需要换成中文 Embedding：</p>
+
+  <pre><code>import chromadb
+import requests
+from typing import List, Optional
+
+class ZhipuEmbeddingFunction:
+    """
+    自定义 Embedding 函数：对接智谱 embedding-3 API
+    Chroma 要求实现 __call__(self, input: List[str]) -> List[List[float]]
+    """
+
+    def __init__(self, api_key: str, model: str = "embedding-3"):
+        self.api_key = api_key
+        self.model = model
+        self.url = "https://open.bigmodel.cn/api/paas/v4/embeddings"
+
+    def __call__(self, input: List[str]) -> List[List[float]]:
+        """
+        Chroma 在 add()/query() 时会自动调用这个方法
+        input: 文本列表（可能是一条，也可能是多条）
+        返回: 向量列表（每条文本对应一个向量）
+        """
+        # 批量请求
+        resp = requests.post(
+            self.url,
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            json={"model": self.model, "input": input},
+            timeout=30,
+        )
+        resp.raise_for_status()
+
+        # 解析响应，按原顺序排列
+        data_list = resp.json()["data"]
+        data_list.sort(key=lambda x: x["index"])  # 确保顺序一致
+        return [item["embedding"] for item in data_list]
+
+
+# ---- 使用自定义 Embedding Function ----
+embedding_fn = ZhipuEmbeddingFunction(api_key="your_api_key")
+
+collection = client.get_or_create_collection(
+    name="amc_zhipu",
+    embedding_function=embedding_fn,  # 传入自定义函数
+)
+
+# 之后的 add/query 会自动用智谱 API 计算 embedding
+collection.add(
+    documents=["不良资产是指借款人未能按期偿还的贷款"],
+    ids=["zh_001"],
+)
+results = collection.query(query_texts=["什么是不良资产"], n_results=1)
+print(results["documents"][0])</code></pre>
+
+  <div class="concept-box">
+    <strong>Chroma EmbeddingFunction 接口规范：</strong><br>
+    只需实现一个 <code>__call__</code> 方法：<code>input: List[str] → List[List[float]]</code><br>
+    Chroma 在 <code>add()</code> 和 <code>query()</code> 时自动调用。你可以接入任意 API（智谱/OpenAI/BGE/本地模型）。
+  </div>
+
+  <pre><code># ---- 纯自定义 EmbeddingFunction（不调用API）----
+import numpy as np
+
+class RandomEmbeddingFunction:
+    """Demo 用：随机向量（仅用于测试，不要用于生产！）"""
+    def __init__(self, dim: int = 512):
+        self.dim = dim
+    def __call__(self, input: List[str]) -> List[List[float]]:
+        return [np.random.rand(self.dim).tolist() for _ in input]
+
+class CachedEmbeddingFunction:
+    """带缓存的 Embedding：避免重复计算"""
+    def __init__(self, real_fn):
+        self.real_fn = real_fn
+        self.cache = {}
+    def __call__(self, input: List[str]) -> List[List[float]]:
+        results = []
+        for text in input:
+            if text not in self.cache:
+                self.cache[text] = self.real_fn([text])[0]
+            results.append(self.cache[text])
+        return results
+
+# 用法：把任意 EmbeddingFunction 包上缓存
+cached_fn = CachedEmbeddingFunction(ZhipuEmbeddingFunction(api_key="xxx"))</code></pre>
+</div>
+
+<!-- ======================== Section 5 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🚀</span> LLM 实战：封装 AMC 知识库管理类
+    <span class="time-tag">⏱ 15 min</span>
+  </div>
+
+  <p>把前面的知识整合起来，封装一个完整的 <strong>AMCKnowledgeBase</strong> 类：</p>
+
+  <pre><code>import chromadb
+import json
+import time
+from pathlib import Path
+from contextlib import contextmanager
+from typing import List, Dict, Optional, Any
+
+
+class AMCKnowledgeBase:
+    """
+    AMC 不良资产知识库
+    整合：Chroma 持久化存储 + 自定义 Embedding + 元数据过滤 + 批量导入
+    """
+
+    def __init__(self, persist_dir: str = "./chroma_amc",
+                 collection_name: str = "amc_docs",
+                 api_key: str = ""):
+        """初始化知识库"""
+        self.persist_dir = Path(persist_dir)
+        self.persist_dir.mkdir(parents=True, exist_ok=True)
+
+        # 使用持久化客户端
+        self.client = chromadb.PersistentClient(path=str(self.persist_dir))
+
+        # 创建/获取 Collection
+        self.collection = self.client.get_or_create_collection(
+            name=collection_name,
+            metadata={"created": time.strftime("%Y-%m-%d %H:%M:%S")},
+        )
+        print(f"[AMCKnowledgeBase] 初始化完成，共 {self.collection.count()} 条文档")
+
+    def __enter__(self):
+        """支持 with 语法"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """with 退出时自动关闭"""
+        pass  # Chroma PersistentClient 不需要显式关闭
+
+    @contextmanager
+    def _timer(self, name: str):
+        """计时上下文（内部工具方法）"""
+        start = time.perf_counter()
+        yield
+        elapsed = time.perf_counter() - start
+        print(f"  [{name}] 耗时 {elapsed:.3f}s")
+
+    def batch_import(self, documents: List[str], ids: List[str],
+                     metadatas: Optional[List[Dict]] = None,
+                     batch_size: int = 100):
+        """
+        批量导入文档（分批 upsert，避免单次请求过大）
+
+        Args:
+            documents: 文本列表
+            ids: ID 列表（必须唯一）
+            metadatas: 元数据列表（可选）
+            batch_size: 每批大小（默认 100）
+        """
+        total = len(documents)
+        print(f"[导入] 开始导入 {total} 条文档，每批 {batch_size} 条")
+
+        for i in range(0, total, batch_size):
+            batch_end = min(i + batch_size, total)
+            batch_docs = documents[i:batch_end]
+            batch_ids = ids[i:batch_end]
+            batch_meta = metadatas[i:batch_end] if metadatas else None
+
+            with self._timer(f"批次 {i//batch_size+1}"):
+                self.collection.upsert(
+                    documents=batch_docs,
+                    ids=batch_ids,
+                    metadatas=batch_meta,
+                )
+            print(f"  进度: {batch_end}/{total} ({batch_end*100//total}%)")
+
+        print(f"[导入] 完成，当前共 {self.collection.count()} 条文档")
+
+    def search(self, query: str, top_k: int = 5,
+               source: Optional[str] = None,
+               year: Optional[int] = None,
+               keyword: Optional[str] = None) -> List[Dict]:
+        """
+        语义检索 + 元数据过滤
+
+        Args:
+            query: 自然语言查询
+            top_k: 返回条数
+            source: 按来源过滤（如 "regulation"/"report"）
+            year: 按年份过滤
+            keyword: 原文关键词过滤
+
+        Returns:
+            检索结果列表，每项包含 doc, metadata, distance
+        """
+        # 构建 where 过滤条件
+        conditions = []
+        if source:
+            conditions.append({"source": source})
+        if year:
+            conditions.append({"year": year})
+
+        where = {"$and": conditions} if len(conditions) > 1 else (
+            conditions[0] if conditions else None
+        )
+
+        # 构建查询参数
+        query_params = {
+            "query_texts": [query],
+            "n_results": top_k,
+        }
+        if where:
+            query_params["where"] = where
+        if keyword:
+            query_params["where_document"] = {"$contains": keyword}
+
+        results = self.collection.query(**query_params)
+
+        # 格式化输出
+        formatted = []
+        for doc, meta, dist in zip(
+            results["documents"][0],
+            results["metadatas"][0],
+            results["distances"][0],
+        ):
+            formatted.append({
+                "text": doc,
+                "metadata": meta,
+                "distance": round(dist, 4),
+            })
+        return formatted
+
+    def delete_by_source(self, source: str):
+        """按来源批量删除"""
+        count_before = self.collection.count()
+        self.collection.delete(where={"source": source})
+        count_after = self.collection.count()
+        print(f"[删除] source={source}，删除 {count_before - count_after} 条")
+
+    def export_metadata(self, output_path: str):
+        """导出所有文档的元数据为 JSON（方便审计）"""
+        all_data = self.collection.get(include=["documents", "metadatas"])
+        export = []
+        for doc_id, doc, meta in zip(
+            all_data["ids"],
+            all_data["documents"],
+            all_data["metadatas"],
+        ):
+            export.append({
+                "id": doc_id,
+                "metadata": meta or {},
+                "text_preview": (doc or "")[:100],
+            })
+
+        output = Path(output_path)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(
+            json.dumps(export, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        print(f"[导出] {len(export)} 条元数据 → {output_path}")
+
+    def stats(self) -> Dict[str, Any]:
+        """统计信息"""
+        return {
+            "collection_name": self.collection.name,
+            "total_docs": self.collection.count(),
+            "persist_dir": str(self.persist_dir),
+            "db_size_mb": sum(
+                f.stat().st_size for f in self.persist_dir.rglob("*") if f.is_file()
+            ) / (1024 * 1024),
+        }
+
+
+# ============ 使用示例 ============
+
+# 创建知识库
+with AMCKnowledgeBase(persist_dir="./chroma_amc", api_key="xxx") as kb:
+    # 批量导入 AMC 知识
+    docs = [
+        "不良资产是指借款人未能按期偿还本息的贷款资产",
+        "五级分类将信贷资产分为正常、关注、次级、可疑、损失五类",
+        "资产管理公司（AMC）主要业务：不良资产收购、管理和处置",
+        "债务重组包括展期、减免利息、债转股等方式",
+        "资产证券化（ABS）可以将不良资产打包发行证券",
+        "核销是指对确实无法收回的贷款进行账务处理",
+        "拨备覆盖率 = 贷款损失准备金 / 不良贷款余额",
+        "不良贷款率 = 不良贷款余额 / 贷款总额 × 100%",
+    ]
+    ids = [f"amc_{i:03d}" for i in range(len(docs))]
+    metas = [
+        {"source": "glossary", "category": "基础概念"},
+        {"source": "regulation", "category": "分类标准"},
+        {"source": "glossary", "category": "机构"},
+        {"source": "regulation", "category": "处置方式"},
+        {"source": "glossary", "category": "金融工具"},
+        {"source": "regulation", "category": "处置方式"},
+        {"source": "glossary", "category": "监管指标"},
+        {"source": "glossary", "category": "监管指标"},
+    ]
+    kb.batch_import(docs, ids, metas)
+
+    # 语义搜索
+    print("\n=== 搜索：如何处置不良资产？ ===")
+    results = kb.search("如何处置不良资产", top_k=3)
+    for r in results:
+        print(f"  [{r['distance']:.4f}] {r['text'][:50]}...")
+
+    # 带过滤的搜索
+    print("\n=== 搜索：分类标准（仅 regulation 来源）===")
+    results = kb.search("贷款分类", source="regulation", top_k=3)
+    for r in results:
+        print(f"  [{r['distance']:.4f}] {r['text'][:50]}...")
+
+    # 统计
+    print(f"\n=== 知识库统计 ===")
+    stats = kb.stats()
+    for k, v in stats.items():
+        print(f"  {k}: {v}")
+
+    # 导出元数据
+    kb.export_metadata("./output/amc_metadata.json")</code></pre>
+
+  <div class="milestone-box">
+    <h4>🎯 里程碑：RAG 离线索引阶段完成！</h4>
+    <p>
+      <strong>Day 29</strong> 文本分块 → <strong>Day 30</strong> Embedding 向量化 → <strong>Day 31</strong> 向量数据库存储<br>
+      至此，你已经掌握了 RAG 系统<strong>离线阶段</strong>的完整管线：<br>
+      原始文档 → 分块 → 向量化 → 存入 ChromaDB<br><br>
+      明天进入<strong>在线阶段</strong>：用户提问 → 检索相关文档 → 组装 Prompt → LLM 生成回答
+    </p>
+  </div>
+</div>
+
+<!-- ======================== Section 6 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚖️</span> 向量库选型对比 + 常见陷阱
+    <span class="time-tag">⏱ 5 min</span>
+  </div>
+
+  <h3>主流向量库对比</h3>
+  <table>
+    <tr><th>向量库</th><th>语言</th><th>部署</th><th>规模</th><th>特点</th><th>适用</th></tr>
+    <tr>
+      <td><span class="hl">Chroma</span></td>
+      <td>Python</td>
+      <td>嵌入式</td>
+      <td>~10万</td>
+      <td>API 简洁，学习成本低</td>
+      <td>学习 / 原型 / 小型应用</td>
+    </tr>
+    <tr>
+      <td>FAISS</td>
+      <td>C++/Python</td>
+      <td>库（无服务）</td>
+      <td>~亿级</td>
+      <td>速度极快，Meta 开源</td>
+      <td>大规模纯检索（需自建服务）</td>
+    </tr>
+    <tr>
+      <td>Milvus</td>
+      <td>Go + Python</td>
+      <td>独立服务</td>
+      <td>~十亿级</td>
+      <td>分布式，功能最全</td>
+      <td>企业级生产环境</td>
+    </tr>
+    <tr>
+      <td>Qdrant</td>
+      <td>Rust + Python</td>
+      <td>独立服务</td>
+      <td>~亿级</td>
+      <td>过滤性能好，API 友好</td>
+      <td>中等规模生产</td>
+    </tr>
+    <tr>
+      <td>pgvector</td>
+      <td>C（PostgreSQL 扩展）</td>
+      <td>PostgreSQL 插件</td>
+      <td>~百万级</td>
+      <td>和业务数据同库，事务一致</td>
+      <td>已有 PG 的项目</td>
+    </tr>
+  </table>
+
+  <h3>常见陷阱 Top 5</h3>
+  <pre><code># ❌ 陷阱 1：ID 重复导致 upsert 覆盖
+# add() 遇到重复 ID 会报错，upsert() 会静默覆盖
+collection.add(ids=["doc_001", "doc_001"], ...)  # 报错！
+# ✅ 正确：确保 ID 唯一，或使用 upsert
+
+# ❌ 陷阱 2：维度不一致
+# 同一个 Collection 的所有向量维度必须相同
+# 不要混用不同模型（embedding-3 是 2048维，MiniLM 是 384维）
+
+# ❌ 陷阱 3：忘记持久化
+# EphemeralClient 的数据进程结束就没了
+# ✅ 生产环境始终用 PersistentClient 或 Server
+
+# ❌ 陷阱 4：不加元数据
+# 存 10000 条文档全无 metadata → 无法过滤 → 检索噪音大
+# ✅ 至少存 source/category/date 三个字段
+
+# ❌ 陷阱 5：中文用英文 embedding 模型
+# all-MiniLM-L6-v2 是英文模型，中文效果差
+# ✅ 中文场景用 embedding-3 / bge-large-zh</code></pre>
+</div>
+
+<!-- ======================== Section 7 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">✏️</span> 今日练习
+    <span class="time-tag">⏱ 10 min</span>
+  </div>
+
+  <h3>练习 1：实现带 overlap 的分块导入（巩固 Day 29 + Day 31）</h3>
+  <pre><code>"""
+将一段长文本按 chunk_size 分块，每块之间重叠 overlap 个字符，
+然后批量导入 ChromaDB。
+
+提示：
+1. 用 Day 29 学的分块逻辑切分文本
+2. 生成唯一 ID（如 "chunk_000", "chunk_001"...）
+3. 用 batch_import 导入 ChromaDB
+"""
+text = """不良资产是指借款人未能按期偿还本息的贷款资产。
+五级分类将信贷资产分为正常、关注、次级、可疑、损失五类。
+资产管理公司主要业务是不良资产的收购、管理和处置。
+债务重组包括展期、减免利息、债转股等方式。
+资产证券化可以将不良资产打包发行证券。"""
+# TODO: 你的实现
+
+
+def chunk_and_import(text, chunk_size, overlap, collection):
+    """分块并导入 ChromaDB"""
+    chunks = []
+    # --- 填写分块逻辑 ---
+    # 提示：从 pos=0 开始，每次前进 chunk_size - overlap
+    # ...
+
+    # 批量导入
+    ids = [f"chunk_{i:04d}" for i in range(len(chunks))]
+    collection.upsert(documents=chunks, ids=ids)
+    print(f"导入了 {len(chunks)} 个分块")
+    return chunks</code></pre>
+
+  <h3>练习 2：实现知识库快照导出（巩固 @contextmanager + JSON）</h3>
+  <pre><code>"""
+实现一个 snapshot 方法，把知识库数据导出为一个 JSON 快照文件，
+支持后续从快照恢复。
+
+提示：
+1. collection.get(include=["documents", "metadatas", "embeddings"]) 获取全部数据
+2. 用 AdvancedEncoder 处理嵌入向量（numpy array → list）
+3. 用 safe_file_write 保证原子性
+"""
+@contextmanager
+def safe_file_write(filepath):
+    import os
+    tmp = filepath + ".tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            yield f
+        os.replace(tmp, filepath)  # 原子替换
+    except:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
+
+
+def export_snapshot(collection, filepath):
+    """导出知识库快照"""
+    # --- 填写实现 ---
+    pass
+
+
+def import_snapshot(client, collection_name, filepath, embedding_fn=None):
+    """从快照恢复知识库"""
+    # --- 填写实现 ---
+    pass</code></pre>
+
+  <h3>练习 3：LeetCode #120 — 三角形最小路径和</h3>
+  <pre><code>"""
+给你一个三角形 triangle，找出自顶向下的最小路径和。
+每一步只能移动到下一行相邻的数字。
+
+示例：
+输入：triangle = [[2],[3,4],[6,5,7],[4,1,8,3]]
+输出：11（路径 2→3→5→1）
+
+提示：动态规划，自底向上
+"""
+def minimumTotal(triangle):
+    # --- 填写实现 ---
+    pass</code></pre>
+</div>
+
+<!-- ======================== 总结 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📋</span> 今日总结
+  </div>
+
+  <table>
+    <tr><th>类别</th><th>知识点</th><th>关键概念</th></tr>
+    <tr>
+      <td><span class="tag tag-new">Python</span></td>
+      <td>@contextmanager 装饰器</td>
+      <td>yield 前后 = enter/exit，try/finally 保证清理</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-new">Python</span></td>
+      <td>contextlib.closing</td>
+      <td>给无 __enter__ 的对象加 with 支持</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-new">Python</span></td>
+      <td>pathlib 进阶</td>
+      <td>glob/rglob 搜索、stat 元信息、name/stem/suffix</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-new">Python</span></td>
+      <td>自定义 JSONEncoder</td>
+      <td>default() 方法处理 set/datetime/Path 等</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-llm">LLM 实操</span></td>
+      <td>ChromaDB 完整操作</td>
+      <td>CRUD + query + where 过滤 + 持久化</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-llm">LLM 实操</span></td>
+      <td>自定义 EmbeddingFunction</td>
+      <td>__call__(input: List[str]) → List[List[float]]</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-llm">LLM 实操</span></td>
+      <td>AMCKnowledgeBase 封装</td>
+      <td>with 上下文管理 + 批量导入 + 组合过滤</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-review">复习</span></td>
+      <td>ANN 近似最近邻</td>
+      <td>HNSW 多层图结构，速度提升 100~1000x</td>
+    </tr>
+  </table>
+
+  <div class="concept-box">
+    <strong>RAG 离线索引阶段完成清单：</strong><br>
+    ✅ Day 29 — 文本分块（Fixed/Recursive/Markdown/Semantic 四种策略）<br>
+    ✅ Day 30 — Embedding（numpy + 余弦相似度 + 智谱 API）<br>
+    ✅ Day 31 — 向量数据库（Chroma CRUD + where 过滤 + 自定义 Embedding + AMCKnowledgeBase）<br><br>
+    <strong>明天 Day 32 进入在线阶段：</strong>检索策略（Query 扩展/多路召回）+ 组装 Prompt + LLM 生成
+  </div>
+</div>
+
+<div class="footer">
+  <p>Day 31 / 70 · LLM 转型学习计划 · Phase 2 RAG + Agent</p>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 38 - Agent 进阶：多Agent协作、工具链与记忆机制</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#eff6ff,#eef2ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #bfdbfe; }
+  .header .badge { display:inline-block;background:#dbeafe;color:var(--accent);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--green); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .compare-table { width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px; }
+  .compare-table th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border);color:var(--text2);font-size:13px; }
+  .compare-table td { padding:10px 14px;border:1px solid var(--border);vertical-align:top; }
+  .compare-table tr:hover td { background:#f8fafc; }
+  pre { background:#1e293b;color:#e2e8f0;padding:16px 20px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.6;margin:14px 0;font-family:'Cascadia Code','Fira Code','Consolas',monospace; }
+  pre .comment { color:#6b7280; }
+  pre .keyword { color:#93c5fd; }
+  pre .string { color:#86efac; }
+  pre .func { color:#fbbf24; }
+  pre .decorator { color:#c084fc; }
+  pre .number { color:#f9a8d4; }
+  pre .type { color:#67e8f9; }
+  pre .highlight { background:#3b82f633;padding:2px 6px;border-radius:4px; }
+  .flow-diagram { display:flex;align-items:center;justify-content:center;gap:8px;margin:18px 0;flex-wrap:wrap; }
+  .flow-step { background:var(--surface2);border:2px solid var(--border);padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;min-width:90px; }
+  .flow-step.active { background:#dbeafe;border-color:var(--accent);color:var(--accent); }
+  .flow-arrow { font-size:20px;color:var(--text3);font-weight:700; }
+  .sub-title { font-size:16px;font-weight:700;margin:18px 0 10px;color:var(--text); }
+  .sub-title .num { color:var(--accent);margin-right:6px; }
+  .code-label { font-size:12px;color:var(--text3);font-weight:600;margin-top:14px;margin-bottom:6px;display:flex;align-items:center;gap:6px; }
+  .code-label .dot { width:8px;height:8px;border-radius:50%;display:inline-block; }
+  .code-label .dot.green { background:var(--green); }
+  .code-label .dot.orange { background:var(--orange); }
+  .quiz-box { background:linear-gradient(135deg,#faf5ff,#fdf4ff);border:1px solid #e9d5ff;border-radius:var(--radius);padding:20px 24px;margin:14px 0; }
+  .quiz-box .q { font-weight:700;font-size:14px;margin-bottom:10px; }
+  .quiz-box .hint { font-size:13px;color:var(--text2);margin-top:8px; }
+  ul,ol { padding-left:22px;margin:10px 0; }
+  li { margin:5px 0;font-size:14px; }
+  .tag-list { display:flex;flex-wrap:wrap;gap:6px;margin:10px 0; }
+  .tag { background:var(--surface2);color:var(--text2);padding:4px 12px;border-radius:16px;font-size:12px;font-weight:500; }
+  .summary-grid { display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0; }
+  .summary-card { background:var(--surface2);border-radius:8px;padding:14px 18px; }
+  .summary-card .card-title { font-size:13px;font-weight:700;color:var(--accent);margin-bottom:6px; }
+  .summary-card .card-body { font-size:13px;color:var(--text2); }
+  .arch-box { background:#f0fdf4;border:2px solid #bbf7d0;border-radius:var(--radius);padding:18px 22px;margin:14px 0; }
+  .arch-box .arch-title { font-weight:700;font-size:14px;color:var(--green);margin-bottom:10px; }
+  .arch-box pre { margin:10px 0;background:#1e293b; }
+  @media(max-width:600px) {
+    body { padding:12px; }
+    .summary-grid { grid-template-columns:1fr; }
+    .header { padding:20px; }
+    .section { padding:18px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="badge">Phase 2 · RAG + Agent · Day 10</div>
+  <h1>Agent 进阶：多Agent协作、工具链与记忆机制</h1>
+  <div class="subtitle">从单兵作战到团队协作，让 Agent 拥有记忆和规划能力</div>
+</div>
+
+<!-- Progress -->
+<div class="progress-bar">
+  <span class="label">总进度</span>
+  <div class="track"><div class="fill" style="width:54%"></div></div>
+  <span class="percent">38/70</span>
+</div>
+
+<!-- ==================== Section 1: 概览 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🗺️</span> 今日路线图
+    <span class="time-tag">⏱ 约60分钟</span>
+  </div>
+
+  <div class="flow-diagram">
+    <div class="flow-step active">Python</div>
+    <div class="flow-step">deque队列</div>
+    <div class="flow-step">ChainMap</div>
+    <div class="flow-step">enum枚举</div>
+    <div class="flow-step">Agent</div>
+    <div class="flow-step active">工具链</div>
+    <div class="flow-step">记忆</div>
+    <div class="flow-step">多Agent</div>
+  </div>
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="card-title">Python 知识</div>
+      <div class="card-body">collections.deque 高效队列 · ChainMap 多层配置合并 · enum 枚举状态管理</div>
+    </div>
+    <div class="summary-card">
+      <div class="card-title">LLM 实战</div>
+      <div class="card-body">ToolChain 工具链管道 · AgentMemory 记忆机制（短期+长期） · MultiAgentRouter 多Agent路由</div>
+    </div>
+  </div>
+
+  <div class="concept-box">
+    <strong>前置依赖：</strong>Day 36 Agent 基础（ReAct 循环）+ Day 37 Function Calling（结构化工具调用）。今天在这两层基础上，把 Agent 变得更聪明、更有组织。
+  </div>
+</div>
+
+<!-- ==================== Section 2: Agent架构全景 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏗️</span> Agent 进阶架构全景
+    <span class="time-tag">⏱ 阅读8分钟</span>
+  </div>
+
+  <p style="font-size:14px;margin:10px 0;">Day 36-37 我们搭建了一个<strong>单 Agent</strong>：自己思考 → 自己调工具 → 自己给答案。真实生产环境里，这还不够。我们需要解决三大问题：</p>
+
+  <div class="compare-table">
+    <tr><th>问题</th><th>Day 36-37 的局限</th><th>今天的解决方案</th></tr>
+    <tr><td><strong>工具太多</strong></td><td>一股脑全塞给 LLM，选错工具</td><td><strong>ToolChain</strong>：工具按流程串成管道，自动编排</td></tr>
+    <tr><td><strong>记不住</strong></td><td>每次对话从零开始，没有历史</td><td><strong>AgentMemory</strong>：短期（对话上下文）+ 长期（向量化检索）</td></tr>
+    <tr><td><strong>分工不明</strong></td><td>一个 Agent 做所有事，容易跑偏</td><td><strong>MultiAgent</strong>：路由器分发，专人专岗</td></tr>
+  </div>
+
+  <div class="concept-box">
+    <strong>数仓类比：</strong>这就像你做 AMC 数仓时的演进——从单条 SQL 查询（Day36 单Agent），到 ETL 管道编排多个步骤（ToolChain），再到建立 ODS→DWD→ADS 分层由不同团队负责（MultiAgent）。架构思想是相通的。
+  </div>
+
+  <div class="sub-title"><span class="num">1.</span> 进阶 Agent 三大支柱</div>
+  <div class="flow-diagram">
+    <div class="flow-step active">ToolChain<br>工具编排</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step active">AgentMemory<br>记忆系统</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step active">MultiAgent<br>多Agent协作</div>
+  </div>
+</div>
+
+<!-- ==================== Section 3: Python知识 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span> Python 知识：Agent 必备数据结构
+    <span class="time-tag">⏱ 15分钟</span>
+  </div>
+
+  <p style="font-size:14px;margin:10px 0;">Agent 进阶需要三个 Python 标准库工具，它们分别对应 Agent 的消息队列、配置合并和状态管理。</p>
+
+  <!-- 3.1 deque -->
+  <div class="sub-title"><span class="num">3.1</span> collections.deque — 高效双端队列</div>
+  <p style="font-size:14px;margin:8px 0;">Agent 的对话历史就是一个<strong>先进先出（FIFO）</strong>的消息队列。deque 比 list 快得多，且自带长度限制——非常适合做"只保留最近 N 轮对话"的滑动窗口。</p>
+
+  <div class="code-label"><span class="dot green"></span> deque 基础：Agent 对话窗口</div>
+  <pre>
+<span class="keyword">from</span> collections <span class="keyword">import</span> deque
+
+<span class="comment"># 创建一个最多保留 10 条消息的对话窗口</span>
+<span class="comment"># maxlen 超出时自动丢弃左边（最早）的元素</span>
+chat_history = deque(maxlen=<span class="number">10</span>)
+
+<span class="comment"># 添加消息（右边 = 最新）</span>
+chat_history.append({<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: <span class="string">"查询不良资产余额"</span>})
+chat_history.append({<span class="string">"role"</span>: <span class="string">"assistant"</span>, <span class="string">"content"</span>: <span class="string">"余额为500万"</span>})
+<span class="keyword">print</span>(<span class="func">len</span>(chat_history))  <span class="comment"># 2</span>
+
+<span class="comment"># 继续添加，超过 maxlen=10 时自动淘汰最旧的</span>
+<span class="keyword">for</span> i <span class="keyword">in</span> <span class="func">range</span>(<span class="number">15</span>):
+    chat_history.append({<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: <span class="string">f"消息{i}"</span>})
+<span class="keyword">print</span>(<span class="func">len</span>(chat_history))  <span class="comment"># 10 ← 自动裁剪到 maxlen</span>
+
+<span class="comment"># deque 转回 list（传给 LLM API 需要 list 格式）</span>
+messages_list = <span class="func">list</span>(chat_history)
+<span class="keyword">print</span>(<span class="func">len</span>(messages_list))  <span class="comment"># 10</span>
+
+<span class="comment"># 左端操作（不常用，但了解一下）</span>
+chat_history.appendleft({<span class="string">"role"</span>: <span class="string">"system"</span>, <span class="string">"content"</span>: <span class="string">"你是AMC助手"</span>})
+<span class="comment"># 注意：appendleft 也会触发 maxlen 淘汰，但淘汰的是右端</span>
+</pre>
+
+  <div class="tip-box">
+    <strong>💡 为什么不直接用 list？</strong><br>
+    list 的 <code>insert(0, x)</code> 需要移动所有元素，O(n) 复杂度。deque 两端操作都是 O(1)。当 Agent 跑了几十轮对话后，deque 的性能优势明显。另外 maxlen 自动裁剪，list 需要手动 <code>if len(msgs) > N: msgs = msgs[-N:]</code>。
+  </div>
+
+  <!-- 3.2 ChainMap -->
+  <div class="sub-title"><span class="num">3.2</span> ChainMap — 多层配置合并</div>
+  <p style="font-size:14px;margin:8px 0;">Agent 的配置往往来自多个来源：<strong>默认配置 → 环境变量 → 用户传入 → 命令行参数</strong>。ChainMap 把多个 dict 链在一起，按优先级查找——类似 CSS 的层叠。</p>
+
+  <div class="code-label"><span class="dot green"></span> ChainMap：Agent 配置优先级链</div>
+  <pre>
+<span class="keyword">from</span> collections <span class="keyword">import</span> ChainMap
+
+<span class="comment"># 模拟四层配置（优先级从低到高）</span>
+default_config = {
+    <span class="string">"model"</span>: <span class="string">"glm-4-flash"</span>,
+    <span class="string">"temperature"</span>: <span class="number">0.7</span>,
+    <span class="string">"max_tokens"</span>: <span class="number">2048</span>,
+    <span class="string">"timeout"</span>: <span class="number">30</span>,
+}
+env_config = {
+    <span class="string">"model"</span>: <span class="string">"glm-4-plus"</span>,   <span class="comment"># 环境变量覆盖了 model</span>
+    <span class="string">"api_key"</span>: <span class="string">"env_xxx"</span>,
+}
+user_config = {
+    <span class="string">"temperature"</span>: <span class="number">0.3</span>,  <span class="comment"># 用户要求更精确</span>
+}
+
+<span class="comment"># ChainMap: user > env > default（第一个参数优先级最高）</span>
+config = ChainMap(user_config, env_config, default_config)
+
+<span class="keyword">print</span>(config[<span class="string">"model"</span>])        <span class="comment"># "glm-4-plus" ← 来自 env_config</span>
+<span class="keyword">print</span>(config[<span class="string">"temperature"</span>]) <span class="comment"># 0.3 ← 来自 user_config</span>
+<span class="keyword">print</span>(config[<span class="string">"max_tokens"</span>])  <span class="comment"># 2048 ← 来自 default_config</span>
+<span class="keyword">print</span>(config[<span class="string">"timeout"</span>])      <span class="comment"># 30 ← 来自 default_config</span>
+
+<span class="comment"># 查找某个 key 存在于哪一层</span>
+<span class="keyword">print</span>(config.maps)  <span class="comment"># [user_config, env_config, default_config]</span>
+
+<span class="comment"># 新增配置（默认写入第一层 = user_config）</span>
+config[<span class="string">"debug"</span>] = <span class="keyword">True</span>
+<span class="keyword">print</span>(user_config)  <span class="comment"># {'temperature': 0.3, 'debug': True}</span>
+
+<span class="comment"># 注意：ChainMap 是视图，修改会影响原始 dict！</span>
+<span class="comment"># 如需隔离，用 ChainMap(user.copy(), env.copy(), default.copy())</span>
+</pre>
+
+  <div class="concept-box">
+    <strong>数仓类比：</strong>ChainMap 就像数仓中 <code>COALESCE(col1, col2, col3)</code> 的配置版——按优先级逐层找，第一个非空值胜出。也可以理解为"环境变量 > 配置文件 > 默认值"的经典优先级模式。
+  </div>
+
+  <!-- 3.3 enum -->
+  <div class="sub-title"><span class="num">3.3</span> enum — 枚举状态管理</div>
+  <p style="font-size:14px;margin:8px 0;">Agent 有明确的运行阶段：<strong>思考→行动→观察→回答</strong>。用字符串 `"thinking"` / `"acting"` 容易拼错，用枚举类型安全又清晰。</p>
+
+  <div class="code-label"><span class="dot green"></span> enum：Agent 状态机</div>
+  <pre>
+<span class="keyword">from</span> enum <span class="keyword">import</span> Enum, auto
+
+<span class="keyword">class</span> <span class="type">AgentStatus</span>(<span class="type">Enum</span>):
+    <span class="string">"""Agent 运行状态枚举"""</span>
+    IDLE = auto()       <span class="comment"># 空闲，等待任务</span>
+    THINKING = auto()   <span class="comment"># 正在思考下一步</span>
+    TOOL_CALL = auto()  <span class="comment"># 正在调用工具</span>
+    OBSERVING = auto()  <span class="comment"># 观察工具结果</span>
+    FINISHED = auto()   <span class="comment"># 任务完成</span>
+
+<span class="comment"># 枚举值是单例，比较用 is 或 ==</span>
+status = AgentStatus.IDLE
+<span class="keyword">if</span> status == AgentStatus.IDLE:
+    <span class="keyword">print</span>(<span class="string">"Agent 空闲中"</span>)
+
+<span class="comment"># 枚举自带 .name 和 .value</span>
+<span class="keyword">print</span>(AgentStatus.THINKING.name)   <span class="comment"># "THINKING"</span>
+<span class="keyword">print</span>(AgentStatus.THINKING.value)  <span class="comment"># 2</span>
+
+<span class="comment"># 遍历所有状态（画状态图时有用）</span>
+<span class="keyword">for</span> s <span class="keyword">in</span> AgentStatus:
+    <span class="keyword">print</span>(<span class="string">f"</span>{s.name}<span class="string"> = </span>{s.value}<span class="string">"</span>)
+
+<span class="comment"># 从字符串解析枚举（解析 LLM 返回的状态）</span>
+status_str = <span class="string">"TOOL_CALL"</span>
+status = AgentStatus[status_str]  <span class="comment"># AgentStatus.TOOL_CALL</span>
+
+<span class="comment"># 安全解析（字符串可能不匹配）</span>
+<span class="keyword">try</span>:
+    status = AgentStatus[<span class="string">"INVALID"</span>]
+<span class="keyword">except</span> <span class="type">KeyError</span>:
+    <span class="keyword">print</span>(<span class="string">"未知状态，使用默认 IDLE"</span>)
+    status = AgentStatus.IDLE
+</pre>
+
+  <div class="tip-box">
+    <strong>💡 enum vs 字符串常量：</strong>如果你写了 <code>if status == "THINKNG"</code>（拼错一个字母），Python 不会报错但逻辑就错了。用枚举 <code>if status == AgentStatus.THINKING</code>，IDE 会自动补全，拼写错误会直接 KeyError。
+  </div>
+
+  <div class="compare-table">
+    <tr><th>Python 工具</th><th>Agent 中的用途</th><th>核心优势</th></tr>
+    <tr><td><code>deque(maxlen=N)</code></td><td>对话历史滑动窗口</td><td>O(1) 两端操作 + 自动裁剪</td></tr>
+    <tr><td><code>ChainMap</code></td><td>多层配置优先级合并</td><td>无拷贝视图，按优先级查找</td></tr>
+    <tr><td><code>Enum</code></td><td>Agent 状态 / 消息类型枚举</td><td>类型安全 + IDE 补全 + 自文档化</td></tr>
+  </div>
+</div>
+
+<!-- ==================== Section 4: ToolChain 工具链 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔗</span> ToolChain：工具链管道编排
+    <span class="time-tag">⏱ 15分钟</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>核心思想：</strong>Day 37 的 Agent 是 LLM 自己选择调哪个工具。但很多场景工具的执行顺序是固定的——就像 ETL 管道：先抽取 → 再转换 → 再加载。ToolChain 把工具串成<strong>固定管道</strong>，上一个的输出自动流入下一个的输入。
+  </div>
+
+  <div class="sub-title"><span class="num">4.1</span> 管道模式 vs 自由选择</div>
+
+  <div class="compare-table">
+    <tr><th></th><th>Day 37 FC 模式（LLM选工具）</th><th>ToolChain 管道模式</th></tr>
+    <tr><td><strong>适用场景</strong></td><td>开放式问答，工具不确定</td><td>固定流程，步骤明确</td></tr>
+    <tr><td><strong>例子</strong></td><td>"查一下不良资产数据"</td><td>"分析报表→生成摘要→发送邮件"</td></tr>
+    <tr><td><strong>谁决定顺序</strong></td><td>LLM 推理</td><td>开发者预设</td></tr>
+    <tr><td><strong>可靠性</strong></td><td>可能选错工具</td><td>100% 按预设执行</td></tr>
+    <tr><td><strong>灵活性</strong></td><td>高</td><td>中（可加条件分支）</td></tr>
+  </div>
+
+  <div class="sub-title"><span class="num">4.2</span> 实现 ToolChain 管道</div>
+  <div class="code-label"><span class="dot green"></span> ToolChain：管道式工具编排器</div>
+  <pre>
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> typing <span class="keyword">import</span> <span class="type">Any</span>, <span class="type">Callable</span>
+<span class="keyword">from</span> enum <span class="keyword">import</span> Enum, auto
+<span class="keyword">import</span> json
+<span class="keyword">import</span> time
+
+<span class="keyword">class</span> <span class="type">PipeStatus</span>(<span class="type">Enum</span>):
+    SUCCESS = auto()
+    SKIP = auto()     <span class="comment"># 跳过此步骤（条件分支）</span>
+    ERROR = auto()
+
+@dataclass
+<span class="keyword">class</span> <span class="type">PipeResult</span>:
+    <span class="string">"""管道中单个步骤的执行结果"""</span>
+    status: <span class="type">PipeStatus</span>
+    data: <span class="type">Any</span> = <span class="keyword">None</span>
+    error: <span class="type">str</span> | <span class="keyword">None</span> = <span class="keyword">None</span>
+    step_name: <span class="type">str</span> = <span class="string">""</span>
+    duration: <span class="type">float</span> = <span class="number">0.0</span>
+
+<span class="keyword">class</span> <span class="type">ToolChain</span>:
+    <span class="string">"""
+    工具链管道编排器
+    - 每个 Tool 是一个函数: (input_data) -> PipeResult
+    - 上一步的 PipeResult.data 自动流入下一步
+    - 支持 SKIP（跳过）和 ERROR（中断管道）
+    """</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, name: <span class="type">str</span> = <span class="string">"default"</span>):
+        self.name = name
+        self._tools: <span class="type">list</span>[<span class="type">tuple</span>[<span class="type">str</span>, <span class="type">Callable</span>]] = []  <span class="comment"># [(name, func), ...]</span>
+        self._log: <span class="type">list</span>[<span class="type">dict</span>] = []  <span class="comment"># 执行日志</span>
+
+    <span class="keyword">def</span> <span class="func">add</span>(self, name: <span class="type">str</span>, tool: <span class="type">Callable</span>) -> <span class="string">"ToolChain"</span>:
+        <span class="string">"""添加工具步骤（支持链式调用）"""</span>
+        self._tools.append((name, tool))
+        <span class="keyword">return</span> self  <span class="comment"># 链式调用: chain.add("a", f1).add("b", f2)</span>
+
+    <span class="keyword">def</span> <span class="func">run</span>(self, input_data: <span class="type">Any</span> = <span class="keyword">None</span>) -> <span class="type">PipeResult</span>:
+        <span class="string">"""按顺序执行管道中的所有工具"""</span>
+        current = input_data
+
+        <span class="keyword">for</span> step_name, tool <span class="keyword">in</span> self._tools:
+            start = time.time()
+            <span class="keyword">try</span>:
+                result = tool(current)
+                <span class="keyword">if not</span> <span class="func">isinstance</span>(result, PipeResult):
+                    <span class="comment"># 如果工具直接返回数据，自动包装</span>
+                    result = PipeResult(
+                        status=PipeStatus.SUCCESS,
+                        data=result,
+                        step_name=step_name,
+                    )
+                result.step_name = step_name
+                result.duration = time.time() - start
+            <span class="keyword">except</span> <span class="type">Exception</span> <span class="keyword">as</span> e:
+                result = PipeResult(
+                    status=PipeStatus.ERROR,
+                    error=<span class="func">str</span>(e),
+                    step_name=step_name,
+                    duration=time.time() - start,
+                )
+
+            self._log.append({
+                <span class="string">"step"</span>: step_name,
+                <span class="string">"status"</span>: result.status.name,
+                <span class="string">"duration"</span>: <span class="func">round</span>(result.duration, <span class="number">3</span>),
+                <span class="string">"error"</span>: result.error,
+            })
+
+            <span class="comment"># 根据状态决定是否继续</span>
+            <span class="keyword">if</span> result.status == PipeStatus.ERROR:
+                <span class="keyword">return</span> result  <span class="comment"># 中断管道</span>
+            <span class="keyword">if</span> result.status == PipeStatus.SUCCESS:
+                current = result.data  <span class="comment"># 流入下一步</span>
+            <span class="comment"># SKIP: current 不变，继续下一步</span>
+
+        <span class="keyword">return</span> PipeResult(status=PipeStatus.SUCCESS, data=current)
+
+    <span class="keyword">def</span> <span class="func">show_log</span>(self):
+        <span class="string">"""打印执行日志"""</span>
+        <span class="keyword">for</span> entry <span class="keyword">in</span> self._log:
+            icon = <span class="string">"✅"</span> <span class="keyword">if</span> entry[<span class="string">"status"</span>] == <span class="string">"SUCCESS"</span> <span class="keyword">else</span> \
+                   <span class="string">"⏭️"</span> <span class="keyword">if</span> entry[<span class="string">"status"</span>] == <span class="string">"SKIP"</span> <span class="keyword">else</span> <span class="string">"❌"</span>
+            <span class="keyword">print</span>(<span class="string">f"  </span>{icon}<span class="string"> </span>{entry[<span class='string'>'step'</span>]<span class="string"> [</span>{entry[<span class='string'>'duration'</span>]<span class="string">]s"</span>)
+            <span class="keyword">if</span> entry[<span class="string">"error"</span>]:
+                <span class="keyword">print</span>(<span class="string">f"     ⚠ </span>{entry[<span class='string'>'error'</span>]<span class="string">"</span>)
+</pre>
+
+  <div class="sub-title"><span class="num">4.3</span> AMC 报表处理管道实战</div>
+  <div class="code-label"><span class="dot orange"></span> 用 ToolChain 编排 AMC 数据处理流程</div>
+  <pre>
+<span class="comment"># ===== 模拟 AMC 报表数据 =====</span>
+mock_report = {
+    <span class="string">"report_id"</span>: <span class="string">"AMC-2026-Q2-001"</span>,
+    <span class="string">"raw_text"</span>: <span class="string">"""
+    二季度不良资产处置报告
+    处置总额：3.5亿元
+    核销：1.2亿，转让：1.5亿，重组：0.8亿
+    同比增长：15.3%
+    不良率：1.85%，较上季度下降0.12个百分点
+    """</span>,
+}
+
+<span class="comment"># ===== 定义管道中的工具函数 =====</span>
+
+<span class="keyword">def</span> <span class="func">extract_data</span>(raw_data) -> PipeResult:
+    <span class="string">"""步骤1：从原始报表中提取结构化数据"""</span>
+    text = raw_data.get(<span class="string">"raw_text"</span>, <span class="string">""</span>)
+    <span class="comment"># 模拟提取（实际场景会用 LLM 或正则）</span>
+    structured = {
+        <span class="string">"report_id"</span>: raw_data[<span class="string">"report_id"</span>],
+        <span class="string">"total_amount"</span>: <span class="number">3.5</span>,
+        <span class="string">"breakdown"</span>: {<span class="string">"核销"</span>: <span class="number">1.2</span>, <span class="string">"转让"</span>: <span class="number">1.5</span>, <span class="string">"重组"</span>: <span class="number">0.8</span>},
+        <span class="string">"yoy_growth"</span>: <span class="number">15.3</span>,
+        <span class="string">"npl_ratio"</span>: <span class="number">1.85</span>,
+        <span class="string">"npl_change"</span>: <span class="number">-0.12</span>,
+    }
+    <span class="keyword">return</span> PipeResult(status=PipeStatus.SUCCESS, data=structured)
+
+<span class="keyword">def</span> <span class="func">validate_data</span>(data) -> PipeResult:
+    <span class="string">"""步骤2：校验数据质量（条件分支：不合格则跳过后续）"""</span>
+    <span class="comment"># 检查不良率是否异常</span>
+    <span class="keyword">if</span> data[<span class="string">"npl_ratio"</span>] > <span class="number">5.0</span>:
+        <span class="keyword">return</span> PipeResult(
+            status=PipeStatus.ERROR,
+            error=<span class="string">f"不良率异常: </span>{data[<span class='string'>'npl_ratio'</span>]}<span class="string">% 超过阈值5%"</span>,
+            data=data,
+        )
+    <span class="comment"># 检查金额是否完整</span>
+    breakdown_sum = <span class="func">sum</span>(data[<span class="string">"breakdown"</span>].values())
+    <span class="keyword">if</span> <span class="func">abs</span>(breakdown_sum - data[<span class="string">"total_amount"</span>]) > <span class="number">0.1</span>:
+        <span class="keyword">return</span> PipeResult(
+            status=PipeStatus.ERROR,
+            error=<span class="string">"分项金额之和不等于总额"</span>,
+        )
+    <span class="keyword">return</span> PipeResult(status=PipeStatus.SUCCESS, data=data)
+
+<span class="keyword">def</span> <span class="func">generate_summary</span>(data) -> PipeResult:
+    <span class="string">"""步骤3：用 LLM 生成分析摘要（这里模拟）"""</span>
+    summary = (
+        <span class="string">f"AMC 二季度不良资产处置</span>{data[<span class='string'>'total_amount'</span>]}<span class="string">亿元，"</span>
+        <span class="string">f"同比增长</span>{data[<span class='string'>'yoy_growth'</span>]}<span class="string">%。"</span>
+        <span class="string">f"不良率</span>{data[<span class='string'>'npl_ratio'</span>]}<span class="string">%，"</span>
+        <span class="string">f"较上季度</span>{'下降' <span class="keyword">if</span> data[<span class='string'>'npl_change'</span>] < <span class="number">0</span> <span class="keyword">else</span> <span class="string">'上升'</span>}<span class="string">"</span>
+        <span class="string">f"</span>{<span class="func">abs</span>(data[<span class='string'>'npl_change'</span>])}<span class="string">个百分点。处置方式："</span>
+        <span class="string">f"</span>{<span class="string">'、'</span>.join(<span class="string">f'</span>{k}<span class="string"></span>{v}<span class="string">亿'</span> <span class="keyword">for</span> k, v <span class="keyword">in</span> data[<span class='string'>'breakdown'</span>].items())}<span class="string">。"</span>
+    )
+    data[<span class="string">"summary"</span>] = summary
+    <span class="keyword">return</span> PipeResult(status=PipeStatus.SUCCESS, data=data)
+
+<span class="keyword">def</span> <span class="func">format_output</span>(data) -> PipeResult:
+    <span class="string">"""步骤4：格式化输出"""</span>
+    output = {
+        <span class="string">"report_id"</span>: data[<span class="string">"report_id"</span>],
+        <span class="string">"summary"</span>: data[<span class="string">"summary"</span>],
+        <span class="string">"metrics"</span>: {
+            <span class="string">"处置总额(亿)"</span>: data[<span class="string">"total_amount"</span>],
+            <span class="string">"不良率(%)"</span>: data[<span class="string">"npl_ratio"</span>],
+            <span class="string">"同比增长(%)"</span>: data[<span class="string">"yoy_growth"</span>],
+        }
+    }
+    <span class="keyword">return</span> PipeResult(status=PipeStatus.SUCCESS, data=output)
+
+<span class="comment"># ===== 组装并执行管道 =====</span>
+chain = (
+    ToolChain(<span class="string">"AMC报表处理"</span>)
+    .add(<span class="string">"提取数据"</span>, extract_data)
+    .add(<span class="string">"数据校验"</span>, validate_data)
+    .add(<span class="string">"生成摘要"</span>, generate_summary)
+    .add(<span class="string">"格式化输出"</span>, format_output)
+)
+
+result = chain.run(mock_report)
+
+<span class="keyword">if</span> result.status == PipeStatus.SUCCESS:
+    <span class="keyword">print</span>(json.dumps(result.data, ensure_ascii=<span class="keyword">False</span>, indent=<span class="number">2</span>))
+    chain.show_log()
+<span class="keyword">else</span>:
+    <span class="keyword">print</span>(<span class="string">f"管道中断: </span>{result.error}<span class="string">"</span>)
+    chain.show_log()
+</pre>
+
+  <div class="warn-box">
+    <strong>⚡ ToolChain vs Function Calling 互补而非替代：</strong>当流程确定时用 ToolChain（更可控），当需要 LLM 灵活判断时用 FC。很多高级框架（LangGraph）本质就是两者的结合。
+  </div>
+</div>
+
+<!-- ==================== Section 5: AgentMemory ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🧠</span> AgentMemory：对话记忆机制
+    <span class="time-tag">⏱ 15分钟</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>为什么需要记忆？</strong>没有记忆的 Agent 每次都从零开始。对话到第三轮时它忘了第一轮说了什么。记忆分两层：<strong>短期记忆</strong>（当前对话上下文）和<strong>长期记忆</strong>（跨对话的持久知识）。
+  </div>
+
+  <div class="compare-table">
+    <tr><th></th><th>短期记忆（Working Memory）</th><th>长期记忆（Long-term Memory）</th></tr>
+    <tr><td><strong>类比</strong></td><td>大脑的工作记忆（7±2 项）</td><td>笔记/知识库</td></tr>
+    <tr><td><strong>存储</strong></td><td>deque 滑动窗口</td><td>向量数据库 / JSON文件</td></tr>
+    <tr><td><strong>范围</strong></td><td>当前会话内</td><td>跨会话持久化</td></tr>
+    <tr><td><strong>读取</strong></td><td>全量（最近N轮）</td><td>语义检索相关片段</td></tr>
+    <tr><td><strong>实现</strong></td><td>deque(maxlen=N)</td><td>Embedding + 向量相似度</td></tr>
+  </div>
+
+  <div class="sub-title"><span class="num">5.1</span> 实现 AgentMemory 完整类</div>
+  <div class="code-label"><span class="dot green"></span> AgentMemory：双层记忆系统</div>
+  <pre>
+<span class="keyword">from</span> collections <span class="keyword">import</span> deque
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> typing <span class="keyword">import</span> <span class="type">Any</span>
+<span class="keyword">import</span> json
+
+@dataclass
+<span class="keyword">class</span> <span class="type">MemoryEntry</span>:
+    <span class="string">"""一条记忆条目"""</span>
+    content: <span class="type">str</span>
+    role: <span class="type">str</span>  <span class="comment"># "user" / "assistant" / "system" / "observation"</span>
+    metadata: <span class="type">dict</span> = field(default_factory=<span class="keyword">dict</span>)
+
+<span class="keyword">class</span> <span class="type">AgentMemory</span>:
+    <span class="string">"""
+    Agent 双层记忆系统
+
+    短期记忆: deque 滑动窗口，保留最近 N 轮对话
+    长期记忆: list 存储，支持关键词检索（生产中替换为向量检索）
+    """</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, short_term_limit=<span class="number">10</span>, long_term_limit=<span class="number">100</span>):
+        <span class="comment"># 短期记忆：deque 自动滑动窗口</span>
+        self.short_term = deque(maxlen=short_term_limit)
+        <span class="comment"># 长期记忆：全量存储（带容量限制）</span>
+        self.long_term: <span class="type">list</span>[MemoryEntry] = []
+        self._long_term_limit = long_term_limit
+
+    <span class="keyword">def</span> <span class="func">add</span>(self, content: <span class="type">str</span>, role: <span class="type">str</span> = <span class="string">"user"</span>, save_long=<span class="keyword">False</span>, **meta):
+        <span class="string">"""添加一条记忆"""</span>
+        entry = MemoryEntry(content=content, role=role, metadata=meta)
+
+        <span class="comment"># 始终写入短期记忆</span>
+        self.short_term.append(entry)
+
+        <span class="comment"># 按需写入长期记忆</span>
+        <span class="keyword">if</span> save_long:
+            self.long_term.append(entry)
+            <span class="comment"># 超出容量时淘汰最旧的</span>
+            <span class="keyword">if</span> <span class="func">len</span>(self.long_term) > self._long_term_limit:
+                self.long_term = self.long_term[-self._long_term_limit:]
+
+    <span class="keyword">def</span> <span class="func">get_context</span>(self, include_long=<span class="keyword">True</span>, max_long=<span class="number">3</span>) -> <span class="type">list</span>[<span class="type">dict</span>]:
+        <span class="string">"""
+        获取传给 LLM 的完整上下文
+
+        Returns:
+            [{"role": "user", "content": "..."}, ...]
+        """</span>
+        messages = []
+
+        <span class="comment"># 1. 从长期记忆中检索相关片段（简单版：取最近几条）</span>
+        <span class="keyword">if</span> include_long <span class="keyword">and</span> self.long_term:
+            recent_long = self.long_term[-max_long:]
+            messages.append({
+                <span class="string">"role"</span>: <span class="string">"system"</span>,
+                <span class="string">"content"</span>: <span class="string">"[历史记忆摘要] "</span> + <span class="string">"; "</span>.join(
+                    <span class="string">f"</span>{e.role}<span class="string">:</span>{e.content}<span class="string">"</span> <span class="keyword">for</span> e <span class="keyword">in</span> recent_long
+                ),
+            })
+
+        <span class="comment"># 2. 短期记忆全量（已经是裁剪后的）</span>
+        messages.extend([
+            {<span class="string">"role"</span>: e.role, <span class="string">"content"</span>: e.content}
+            <span class="keyword">for</span> e <span class="keyword">in</span> self.short_term
+        ])
+
+        <span class="keyword">return</span> messages
+
+    <span class="keyword">def</span> <span class="func">search_long</span>(self, keyword: <span class="type">str</span>, top_k=<span class="number">3</span>) -> <span class="type">list</span>[MemoryEntry]:
+        <span class="string">"""在长期记忆中按关键词检索（生产中替换为向量检索）"""</span>
+        keyword = keyword.lower()
+        scored = []
+        <span class="keyword">for</span> entry <span class="keyword">in</span> self.long_term:
+            score = entry.content.lower().count(keyword)
+            <span class="keyword">if</span> score > <span class="number">0</span>:
+                scored.append((score, entry))
+        scored.sort(key=<span class="keyword">lambda</span> x: x[<span class="number">0</span>], reverse=<span class="keyword">True</span>)
+        <span class="keyword">return</span> [entry <span class="keyword">for</span> _, entry <span class="keyword">in</span> scored[:top_k]]
+
+    <span class="keyword">def</span> <span class="func">clear_short</span>(self):
+        <span class="string">"""清空短期记忆（新会话开始时）"""</span>
+        self.short_term.clear()
+
+    <span class="keyword">def</span> <span class="func">stats</span>(self) -> <span class="type">dict</span>:
+        <span class="string">"""记忆统计"""</span>
+        <span class="keyword">return</span> {
+            <span class="string">"short_term"</span>: <span class="func">len</span>(self.short_term),
+            <span class="string">"short_term_max"</span>: self.short_term.maxlen,
+            <span class="string">"long_term"</span>: <span class="func">len</span>(self.long_term),
+        }
+</pre>
+
+  <div class="code-label"><span class="dot orange"></span> 使用 AgentMemory</div>
+  <pre>
+<span class="comment"># 创建记忆系统</span>
+memory = AgentMemory(short_term_limit=<span class="number">6</span>, long_term_limit=<span class="number">50</span>)
+
+<span class="comment"># ===== 第一轮对话 =====</span>
+memory.add(<span class="string">"查询AMC不良资产余额"</span>, <span class="string">"user"</span>)
+memory.add(<span class="string">"当前不良资产余额为500万元"</span>, <span class="string">"assistant"</span>, save_long=<span class="keyword">True</span>)
+
+<span class="comment"># ===== 第二轮对话 =====</span>
+memory.add(<span class="string">"去年同期是多少？"</span>, <span class="string">"user"</span>)
+memory.add(<span class="string">"去年同期为380万元，同比增长31.6%"</span>, <span class="string">"assistant"</span>, save_long=<span class="keyword">True</span>)
+
+<span class="comment"># 获取传给 LLM 的上下文</span>
+context = memory.get_context()
+<span class="keyword">for</span> msg <span class="keyword">in</span> context:
+    role_icon = {<span class="string">"system"</span>: <span class="string">"🔧"</span>, <span class="string">"user"</span>: <span class="string">"👤"</span>, <span class="string">"assistant"</span>: <span class="string">"🤖"</span>}
+    <span class="keyword">print</span>(<span class="string">f"</span>{role_icon.get(msg[<span class='string'>'role'</span>], <span class="string">'?'</span>)} <span class="string"> </span>{msg[<span class='string'>'role'</span>]<span class="string">: </span>{msg[<span class='string'>'content'</span>][:<span class="number">50</span>]}...<span class="string">"</span>)
+
+<span class="comment"># ===== 新会话：短期清空，长期保留 =====</span>
+memory.clear_short()
+memory.add(<span class="string">"帮我查一下上次的余额数据"</span>, <span class="string">"user"</span>)
+
+<span class="comment"># 长期记忆会自动注入，Agent 知道"上次"指的是什么</span>
+context = memory.get_context(include_long=<span class="keyword">True</span>)
+
+<span class="comment"># 搜索长期记忆</span>
+results = memory.search_long(<span class="string">"余额"</span>)
+<span class="keyword">for</span> r <span class="keyword">in</span> results:
+    <span class="keyword">print</span>(<span class="string">f"  找到: </span>{r.content}<span class="string"> (</span>{r.role}<span class="string">)"</span>)
+
+<span class="keyword">print</span>(<span class="string">"记忆统计:"</span>, memory.stats())
+</pre>
+
+  <div class="tip-box">
+    <strong>💡 生产中的长期记忆：</strong>关键词检索太粗糙。Day 30 学过的 Embedding 向量化 + Day 31 学过的 ChromaDB 向量库，就是长期记忆的最佳实现——把每条记忆 embed 存入 Chroma，新对话时用语义相似度检索 Top-K 相关记忆注入上下文。
+  </div>
+</div>
+
+<!-- ==================== Section 6: MultiAgent ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">👥</span> MultiAgent：多 Agent 协作路由
+    <span class="time-tag">⏱ 12分钟</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>核心思想：</strong>与其让一个 Agent 又查数据、又写 SQL、又回答问题（容易跑偏），不如拆成<strong>专家 Agent</strong>，加一个<strong>路由器</strong>按意图分发。就像你数仓团队有 ETL 工程师、SQL 开发、报表分析师各司其职。
+  </div>
+
+  <div class="sub-title"><span class="num">6.1</span> 架构设计</div>
+
+  <div class="flow-diagram">
+    <div class="flow-step">用户提问</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step active">Router<br>意图识别</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">Agent A<br>数据分析</div>
+    <div class="flow-step">Agent B<br>知识问答</div>
+    <div class="flow-step">Agent C<br>报表生成</div>
+  </div>
+
+  <div class="code-label"><span class="dot green"></span> MultiAgentRouter：多Agent路由调度</div>
+  <pre>
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> typing <span class="keyword">import</span> <span class="type">Any</span>, <span class="type">Callable</span>
+<span class="keyword">import</span> re
+
+@dataclass
+<span class="keyword">class</span> <span class="type">AgentRoute</span>:
+    <span class="string">"""一个 Agent 的路由注册信息"""</span>
+    name: <span class="type">str</span>
+    description: <span class="type">str</span>        <span class="comment"># 这个 Agent 擅长什么</span>
+    keywords: <span class="type">list</span>[<span class="type">str</span>]     <span class="comment"># 触发关键词</span>
+    handler: <span class="type">Callable</span>       <span class="comment"># 处理函数: (query) -> str</span>
+
+<span class="keyword">class</span> <span class="type">MultiAgentRouter</span>:
+    <span class="string">"""
+    多 Agent 路由器
+
+    简单版：基于关键词匹配
+    进阶版：用 LLM 做意图分类（本节实现简单版，注释标明进阶方式）
+    """</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, default_agent: <span class="type">str</span> = <span class="string">"general"</span>):
+        self._routes: <span class="type">dict</span>[<span class="type">str</span>, AgentRoute] = {}
+        self.default_agent = default_agent
+
+    <span class="keyword">def</span> <span class="func">register</span>(self, name: <span class="type">str</span>, description: <span class="type">str</span>,
+                keywords: <span class="type">list</span>[<span class="type">str</span>], handler: <span class="type">Callable</span>):
+        <span class="string">"""注册一个 Agent"""</span>
+        self._routes[name] = AgentRoute(
+            name=name,
+            description=description,
+            keywords=[k.lower() <span class="keyword">for</span> k <span class="keyword">in</span> keywords],
+            handler=handler,
+        )
+
+    <span class="keyword">def</span> <span class="func">_route</span>(self, query: <span class="type">str</span>) -> <span class="type">str</span>:
+        <span class="string">"""根据用户输入选择路由（简单版：关键词匹配）"""</span>
+        query_lower = query.lower()
+
+        <span class="comment"># 统计每个 Agent 的关键词命中数</span>
+        scores = {}
+        <span class="keyword">for</span> name, route <span class="keyword">in</span> self._routes.items():
+            score = <span class="func">sum</span>(<span class="number">1</span> <span class="keyword">for</span> kw <span class="keyword">in</span> route.keywords <span class="keyword">if</span> kw <span class="keyword">in</span> query_lower)
+            scores[name] = score
+
+        <span class="comment"># 选得分最高的</span>
+        best = <span class="func">max</span>(scores, key=scores.get)
+        <span class="keyword">if</span> scores[best] == <span class="number">0</span>:
+            <span class="keyword">return</span> self.default_agent
+        <span class="keyword">return</span> best
+
+    <span class="keyword">def</span> <span class="func">dispatch</span>(self, query: <span class="type">str</span>) -> <span class="type">dict</span>:
+        <span class="string">"""分发并执行"""</span>
+        agent_name = self._route(query)
+        route = self._routes[agent_name]
+
+        <span class="comment"># 执行 Agent 的处理函数</span>
+        result = route.handler(query)
+
+        <span class="keyword">return</span> {
+            <span class="string">"query"</span>: query,
+            <span class="string">"agent"</span>: agent_name,
+            <span class="string">"description"</span>: route.description,
+            <span class="string">"result"</span>: result,
+        }
+
+    <span class="keyword">def</span> <span class="func">list_agents</span>(self):
+        <span class="string">"""列出所有注册的 Agent"""</span>
+        <span class="keyword">for</span> name, route <span class="keyword">in</span> self._routes.items():
+            <span class="keyword">print</span>(<span class="string">f"  🤖 </span>{name}<span class="string">: </span>{route.description}<span class="string">"</span>)
+            <span class="keyword">print</span>(<span class="string">"     关键词: "</span> + <span class="string">", "</span>.join(route.keywords))
+</pre>
+
+  <div class="code-label"><span class="dot orange"></span> 注册 AMC 专家 Agent 并测试</div>
+  <pre>
+<span class="comment"># ===== 定义各 Agent 的处理函数 =====</span>
+
+<span class="keyword">def</span> <span class="func">data_analyst</span>(query):
+    <span class="string">"""数据分析 Agent：查数据、写 SQL、统计"""</span>
+    <span class="comment"># 实际场景：接收 query → 解析 → 生成SQL → 执行 → 返回结果</span>
+    <span class="keyword">return</span> (
+        <span class="string">f"📊 [数据分析师] 正在分析...</span>\n<span class="string">"</span>
+        <span class="string">f"  生成SQL: SELECT * FROM npl_balance WHERE quarter='2026Q2'</span>\n<span class="string">"</span>
+        <span class="string">f"  结果: 不良资产余额 500万，环比下降3.2%"</span>
+    )
+
+<span class="keyword">def</span> <span class="func">knowledge_qa</span>(query):
+    <span class="string">"""知识问答 Agent：查文档、回答政策问题"""</span>
+    <span class="comment"># 实际场景：检索知识库（RAG）→ 生成回答</span>
+    <span class="keyword">return</span> (
+        <span class="string">f"📚 [知识专家] 正在检索知识库...</span>\n<span class="string">"</span>
+        <span class="string">f"  AMC 不良资产核销需经董事会审批，"</span>
+        <span class="string">f"单笔超过500万需报监管备案。"</span>
+    )
+
+<span class="keyword">def</span> <span class="func">report_generator</span>(query):
+    <span class="string">"""报表生成 Agent：生成格式化报表"""</span>
+    <span class="comment"># 实际场景：收集数据 → LLM 生成结构化报表</span>
+    <span class="keyword">return</span> (
+        <span class="string">f"📝 [报表生成器] 正在生成报表...</span>\n<span class="string">"</span>
+        <span class="string">f"  AMC 2026Q2 不良资产处置报表</span>\n<span class="string">"</span>
+        <span class="string">f"  处置总额: 3.5亿元 | 核销: 1.2亿 | 转让: 1.5亿 | 重组: 0.8亿"</span>
+    )
+
+<span class="keyword">def</span> <span class="func">general_agent</span>(query):
+    <span class="string">"""通用 Agent：兜底处理"""</span>
+    <span class="keyword">return</span> <span class="string">f"🤔 [通用助手] 我不太确定这个问题属于哪个领域，请提供更多上下文。"</span>
+
+<span class="comment"># ===== 注册并路由 =====</span>
+router = MultiAgentRouter(default_agent=<span class="string">"general"</span>)
+
+router.register(
+    name=<span class="string">"data_analyst"</span>,
+    description=<span class="string">"查数据、跑SQL、统计分析"</span>,
+    keywords=[<span class="string">"查询"</span>, <span class="string">"余额"</span>, <span class="string">"统计"</span>, <span class="string">"sql"</span>, <span class="string">"数据"</span>, <span class="string">"多少"</span>, <span class="string">"环比"</span>, <span class="string">"同比"</span>],
+    handler=data_analyst,
+)
+router.register(
+    name=<span class="string">"knowledge_qa"</span>,
+    description=<span class="string">"查政策、回答业务知识问题"</span>,
+    keywords=[<span class="string">"政策"</span>, <span class="string">"规定"</span>, <span class="string">"合规"</span>, <span class="string">"审批"</span>, <span class="string">"制度"</span>, <span class="string">"流程"</span>],
+    handler=knowledge_qa,
+)
+router.register(
+    name=<span class="string">"report_generator"</span>,
+    description=<span class="string">"生成报表、汇总数据"</span>,
+    keywords=[<span class="string">"报表"</span>, <span class="string">"报告"</span>, <span class="string">"生成"</span>, <span class="string">"汇总"</span>, <span class="string">"导出"</span>],
+    handler=report_generator,
+)
+router.register(
+    name=<span class="string">"general"</span>,
+    description=<span class="string">"兜底通用处理"</span>,
+    keywords=[],
+    handler=general_agent,
+)
+
+<span class="comment"># ===== 测试路由 =====</span>
+test_queries = [
+    <span class="string">"查询当前不良资产余额是多少？"</span>,
+    <span class="string">"不良资产核销的审批流程是什么？"</span>,
+    <span class="string">"帮我生成二季度处置报表"</span>,
+    <span class="string">"今天天气怎么样？"</span>,
+]
+
+<span class="keyword">for</span> q <span class="keyword">in</span> test_queries:
+    <span class="keyword">print</span>(<span class="string">f"\n👤 用户: </span>{q}<span class="string">"</span>)
+    result = router.dispatch(q)
+    <span class="keyword">print</span>(<span class="string">f"   🎯 路由到: </span>{result[<span class='string'>'agent'</span>]}<span class="string"> (</span>{result[<span class='string'>'description'</span>]}<span class="string">)"</span>)
+    <span class="keyword">print</span>(<span class="string">f"   </span>{result[<span class='string'>'result'</span>]}"  )
+</pre>
+
+  <div class="sub-title"><span class="num">6.2</span> 进阶：LLM 意图分类路由</div>
+  <div class="code-label"><span class="dot orange"></span> 用 LLM 替代关键词匹配</div>
+  <pre>
+<span class="keyword">import</span> json
+
+<span class="keyword">def</span> <span class="func">llm_route</span>(self, query: <span class="type">str</span>, llm_client) -> <span class="type">str</span>:
+    <span class="string">"""
+    用 LLM 做意图分类（进阶版路由）
+
+    发送给 LLM 一个结构化 prompt，让它返回 agent 名称。
+    这比关键词匹配更准确，能理解语义。
+    """</span>
+    agent_list = <span class="string">", "</span>.join(
+        <span class="string">f"</span>{name}<span class="string">(</span>{r.description}<span class="string">)"</span>
+        <span class="keyword">for</span> name, r <span class="keyword">in</span> self._routes.items()
+        <span class="keyword">if</span> name != self.default_agent
+    )
+
+    prompt = <span class="string">f"""你是一个意图分类器。根据用户问题，选择最合适的Agent。
+
+可用的Agent：
+{agent_list}
+{self.default_agent}(兜底处理)
+
+只返回Agent名称，不要其他内容。
+
+用户问题：{query}"""</span>
+
+    <span class="comment"># 调用 LLM（简化版）</span>
+    response = llm_client.chat(prompt)
+    agent_name = response.strip().strip(<span class="string">'"'</span>)
+
+    <span class="comment"># 安全检查：确保返回的是已注册的 Agent</span>
+    <span class="keyword">if</span> agent_name <span class="keyword">not in</span> self._routes:
+        agent_name = self.default_agent
+
+    <span class="keyword">return</span> agent_name
+</pre>
+
+  <div class="tip-box">
+    <strong>💡 生产中的 MultiAgent：</strong>LangChain 的 <code>create_openai_functions_agent</code> + <code>AgentExecutor</code>，或者更灵活的 LangGraph（图状态机），都是这个思路的工业化实现。路由方式从关键词 → LLM 分类 → embedding 相似度匹配，越来越智能。
+  </div>
+</div>
+
+<!-- ==================== Section 7: 综合串联 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🚀</span> 综合串联：完整进阶 Agent
+    <span class="time-tag">⏱ 5分钟阅读</span>
+  </div>
+
+  <div class="arch-box">
+    <div class="arch-title">三大组件协作架构</div>
+    <pre>
+用户提问
+  │
+  ▼
+┌─────────────────────────────────────────────────┐
+│  MultiAgentRouter (意图分发)                       │
+│  "查余额" → data_analyst                          │
+│  "合规吗" → knowledge_qa                          │
+│  "生成报表" → report_generator                    │
+└──────┬──────────────┬──────────────┬────────────┘
+       ▼              ▼              ▼
+  ┌─────────┐   ┌─────────┐   ┌─────────┐
+  │ Agent A │   │ Agent B │   │ Agent C │   ← 各自有自己的
+  │         │   │         │   │         │     ToolChain + Memory
+  │Memory   │   │Memory   │   │Memory   │
+  │ ├ short │   │ ├ short │   │ ├ short │
+  │ └ long  │   │ └ long  │   │ └ long  │
+  │         │   │         │   │         │
+  │ToolChain│   │ToolChain│   │ToolChain│
+  │ ├extract│   │ ├search │   │ ├collect│
+  │ ├validate│  │ ├rerank │   │ ├format │
+  │ └output │   │ └answer │   │ └export │
+  └─────────┘   └─────────┘   └─────────┘
+       │              │              │
+       └──────────────┼──────────────┘
+                      ▼
+                  最终回答
+</pre>
+  </div>
+
+  <div class="code-label"><span class="dot green"></span> 最小可运行的完整示例</div>
+  <pre>
+<span class="keyword">from</span> collections <span class="keyword">import</span> deque
+
+<span class="comment"># ===== 1. 记忆系统 =====</span>
+memory = AgentMemory(short_term_limit=<span class="number">6</span>)
+
+<span class="comment"># ===== 2. 工具链（简化版）=====</span>
+chain = (
+    ToolChain(<span class="string">"AMC查询"</span>)
+    .add(<span class="string">"理解意图"</span>, <span class="keyword">lambda</span> q: PipeResult(
+        status=PipeStatus.SUCCESS,
+        data={<span class="string">"query"</span>: q, <span class="string">"intent"</span>: <span class="string">"query_balance"</span>}
+    ))
+    .add(<span class="string">"查数据"</span>, <span class="keyword">lambda</span> d: PipeResult(
+        status=PipeStatus.SUCCESS,
+        data={<span class="strong highlight">**d</span>, <span class="string">"balance"</span>: <span class="number">500</span>}
+    ))
+    .add(<span class="string">"生成回答"</span>, <span class="keyword">lambda</span> d: PipeResult(
+        status=PipeStatus.SUCCESS,
+        data=<span class="string">f"当前不良资产余额为</span>{d[<span class='string'>'balance'</span>]}<span class="string">万元"</span>
+    ))
+)
+
+<span class="comment"># ===== 3. 路由器 =====</span>
+router = MultiAgentRouter()
+router.register(<span class="string">"amc_query"</span>, <span class="string">"AMC数据查询"</span>,
+                [<span class="string">"余额"</span>, <span class="string">"查询"</span>, <span class="string">"不良"</span>],
+                <span class="keyword">lambda</span> q: chain.run(q).data)
+
+<span class="comment"># ===== 4. 运行 =====</span>
+query = <span class="string">"查询不良资产余额"</span>
+memory.add(query, <span class="string">"user"</span>)
+
+result = router.dispatch(query)
+memory.add(result[<span class="string">"result"</span>], <span class="string">"assistant"</span>, save_long=<span class="keyword">True</span>)
+
+<span class="keyword">print</span>(<span class="string">f"路由: </span>{result[<span class='string'>'agent'</span>]}<span class="string">"</span>)
+<span class="keyword">print</span>(<span class="string">f"回答: </span>{result[<span class='string'>'result'</span>]}<span class="string">"</span>)
+<span class="keyword">print</span>(<span class="string">"记忆:"</span>, memory.stats())
+</pre>
+</div>
+
+<!-- ==================== Section 8: 常见陷阱 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚠️</span> 常见陷阱 Top 5
+    <span class="time-tag">⏱ 3分钟</span>
+  </div>
+
+  <div class="compare-table">
+    <tr><th>#</th><th>陷阱</th><th>症状</th><th>解决方案</th></tr>
+    <tr>
+      <td>1</td>
+      <td><strong>记忆无限增长</strong></td>
+      <td>对话几十轮后 Token 爆炸，API 报错</td>
+      <td>deque(maxlen=N) 限制短期；长期记忆分页检索 Top-K</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td><strong>ToolChain 静默失败</strong></td>
+      <td>某步返回 None，下一步收到 None 崩溃</td>
+      <td>强制每步返回 PipeResult；ERROR 立即中断管道</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td><strong>路由器关键词冲突</strong></td>
+      <td>"查询报表"同时匹配 data_analyst 和 report_generator</td>
+      <td>用 LLM 意图分类替代关键词；或优先级+权重打分</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td><strong>ChainMap 修改了原 dict</strong></td>
+      <td>运行后默认配置被意外覆盖</td>
+      <td>传副本 <code>ChainMap(a.copy(), b.copy())</code></td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td><strong>多 Agent 上下文隔离</strong></td>
+      <td>Agent A 的对话混入 Agent B 的记忆</td>
+      <td>每个 Agent 独立的 Memory 实例；共享部分用 long_term</td>
+    </tr>
+  </div>
+</div>
+
+<!-- ==================== Section 9: 总结 + 练习 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📝</span> 总结与练习
+    <span class="time-tag">⏱ 10分钟</span>
+  </div>
+
+  <div class="sub-title"><span class="num">9.1</span> 今日知识点回顾</div>
+  <div class="tag-list">
+    <span class="tag">deque 双端队列</span>
+    <span class="tag">ChainMap 配置链</span>
+    <span class="tag">Enum 枚举状态</span>
+    <span class="tag">ToolChain 管道编排</span>
+    <span class="tag">PipeResult 状态控制</span>
+    <span class="tag">AgentMemory 双层记忆</span>
+    <span class="tag">MultiAgentRouter 路由分发</span>
+    <span class="tag">意图分类</span>
+  </div>
+
+  <div class="compare-table">
+    <tr><th>概念</th><th>Day 36 基础版</th><th>Day 38 进阶版</th></tr>
+    <tr><td>工具调用</td><td>LLM 自己选</td><td>ToolChain 固定管道 + FC 灵活选择互补</td></tr>
+    <tr><td>记忆</td><td>无</td><td>deque 短期 + 向量长期</td></tr>
+    <tr><td>架构</td><td>单 Agent</td><td>Router + 多专家 Agent</td></tr>
+    <tr><td>状态</td><td>字符串判断</td><td>Enum 枚举类型安全</td></tr>
+    <tr><td>配置</td><td>硬编码</td><td>ChainMap 多层优先级</td></tr>
+  </div>
+
+  <div class="sub-title"><span class="num">9.2</span> 练习题</div>
+
+  <div class="quiz-box">
+    <div class="q">练习 1：给 ToolChain 添加条件分支</div>
+    <p style="font-size:13px;color:var(--text2)">给 AMC 报表管道添加一个步骤：如果不良率 > 2%，额外生成"风险预警"段落；否则跳过（返回 SKIP）。</p>
+    <div class="hint">提示：在 validate_data 和 generate_summary 之间插入 <code>add("风险检查", risk_check)</code>，risk_check 函数根据 npl_ratio 返回 PipeResult(status=SKIP) 或 PipeResult(status=SUCCESS, data={...包含预警})</div>
+  </div>
+
+  <div class="quiz-box">
+    <div class="q">练习 2：实现带向量检索的长期记忆</div>
+    <p style="font-size:13px;color:var(--text2)">用 Day 30 的余弦相似度 + Day 31 的 ChromaDB，改造 AgentMemory.search_long()，从关键词匹配升级为语义检索。</p>
+    <div class="hint">提示：每条 save_long=True 的记忆同时 embed 存入 Chroma；search_long() 时 query→embed→query()→Top-K。可以复用 Day 30 的 cosine_similarity 函数。</div>
+  </div>
+
+  <div class="quiz-box">
+    <div class="q">练习 3：LeetCode #232 用栈实现队列</div>
+    <p style="font-size:13px;color:var(--text2)">实现一个队列，只用两个栈。push(x)、pop()、peek()、empty()。这是理解 deque 底层原理的好练习。</p>
+    <div class="hint">提示：两个栈，一个负责 push（input_stack），一个负责 pop（output_stack）。pop 时如果 output_stack 为空，就把 input_stack 全部倒入 output_stack。</div>
+  </div>
+
+  <div class="concept-box">
+    <strong>下一节预告（Day 39）：</strong>Agent 高级模式——ReAct 精细控制、工具结果缓存、错误自动恢复、人类审批环节（Human-in-the-Loop）。Agent 越来越接近真实的生产助手。
+  </div>
+</div>
+
+<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px;">
+  Day 38/70 · Agent 进阶：多Agent协作、工具链与记忆机制 · LLM 120天转型计划
+</div>
+
+</body>
+</html>

@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 40 - Agent + RAG 联合系统 &amp; Prompt Engineering 进阶</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#eff6ff,#eef2ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #bfdbfe; }
+  .header .badge { display:inline-block;background:#dbeafe;color:var(--accent);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--green); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  pre { background:#1e293b;color:#e2e8f0;padding:18px 20px;border-radius:8px;overflow-x:auto;margin:14px 0;font-size:13.5px;line-height:1.6;font-family:'Cascadia Code','Fira Code','Consolas',monospace; }
+  code { font-family:'Cascadia Code','Fira Code','Consolas',monospace; }
+  .inline-code { background:#f1f5f9;color:#6366f1;padding:2px 7px;border-radius:4px;font-size:13px; }
+  h3 { font-size:16px;font-weight:700;margin:18px 0 10px;color:var(--text); }
+  p { font-size:14px;color:var(--text2);margin:8px 0; }
+  ul,ol { padding-left:20px;margin:8px 0; }
+  li { font-size:14px;color:var(--text2);margin:4px 0; }
+  .table-wrap { overflow-x:auto;margin:14px 0; }
+  table { width:100%;border-collapse:collapse;font-size:13px; }
+  th { background:var(--surface2);color:var(--text);padding:10px 14px;text-align:left;font-weight:600;border-bottom:2px solid var(--border); }
+  td { padding:9px 14px;border-bottom:1px solid var(--surface3);color:var(--text2); }
+  tr:hover td { background:#f8fafc; }
+  .challenge { background:linear-gradient(135deg,#faf5ff,#f5f3ff);border:1px solid #e9d5ff;border-radius:8px;padding:16px 20px;margin:14px 0; }
+  .challenge-title { font-weight:700;color:#7c3aed;font-size:15px;margin-bottom:8px; }
+  .summary { background:var(--surface2);border-radius:var(--radius);padding:20px 24px;margin-top:24px;border:1px solid var(--border); }
+  .summary h3 { color:var(--accent);margin-bottom:10px; }
+  .next-preview { background:linear-gradient(135deg,#fef3c7,#fffbeb);border:1px solid #fde68a;border-radius:8px;padding:16px 20px;margin-top:20px; }
+  .next-preview h3 { color:var(--orange);margin-bottom:6px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Phase 2 · Day 12 · RAG + Agent</div>
+  <h1>Day 40 — Agent + RAG 联合系统 &amp; Prompt Engineering 进阶</h1>
+  <p class="subtitle">让 Agent 拥有知识库超能力，掌握 Prompt 工程的高级技巧</p>
+</div>
+
+<div class="progress-bar">
+  <span class="label">Phase 2 进度 (D29-D42)</span>
+  <div class="track"><div class="fill" style="width:68%"></div></div>
+  <span class="percent">68%</span>
+</div>
+
+<!-- ========== Section 1: 概念引入 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔗</span>
+    Agent + RAG = 1 + 1 &gt; 2
+    <span class="time-tag">⏱ 5 min</span>
+  </div>
+
+  <p>前面我们已经分别学完了 <strong>RAG 管线</strong>（D29-D35：分块→Embedding→向量库→检索→Reranker→生成）和 <strong>Agent 系统</strong>（D36-D39：ReAct循环→Function Calling→记忆/协作→缓存/恢复/审批）。今天把它们<strong>合体</strong>，并补充 Prompt 工程的高阶技巧。</p>
+
+  <div class="concept-box">
+    <strong>核心理念：</strong>Agent 提供了<strong>决策与行动能力</strong>（思考→调用工具→观察结果），RAG 提供了<strong>知识检索能力</strong>（从海量文档中找到精准答案）。当 Agent 把 RAG 作为一个工具来调用时，它就能在<strong>需要时才查知识</strong>，而不是每次都把所有文档塞进上下文。
+  </div>
+
+  <h3>两者的分工对比</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>维度</th><th>纯 RAG</th><th>纯 Agent</th><th>RAG + Agent</th></tr>
+      <tr><td>知识来源</td><td>向量库检索</td><td>模型训练知识 + 工具</td><td>向量库 + 工具 + 模型知识</td></tr>
+      <tr><td>行动能力</td><td>无（只能回答）</td><td>有（调用工具执行）</td><td>有（检索 + 执行 + 回答）</td></tr>
+      <tr><td>适用场景</td><td>文档问答</td><td>任务执行</td><td>知识增强的任务执行</td></tr>
+      <tr><td>数仓类比</td><td>跑一条 SQL</td><td>写调度脚本</td><td>脚本中按需查询数据</td></tr>
+    </table>
+  </div>
+
+  <div class="tip-box">
+    <strong>数仓视角理解：</strong>就像你在 ETL 脚本里不是把所有表数据都加载到内存，而是在需要的时候才 <code class="inline-code">SELECT</code> 查询。RAG 就是 Agent 的"按需查询能力"。
+  </div>
+</div>
+
+<!-- ========== Section 2: Python 知识 —— 装饰器实战 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span>
+    Python 进阶：装饰器实战（retry / rate_limit / log）
+    <span class="time-tag">⏱ 15 min</span>
+  </div>
+
+  <p>Day 22 我们学过装饰器原理，今天用<strong>实战场景</strong>深入：给 RAG + Agent 系统的工具函数加上重试、限流、日志三大装饰器。</p>
+
+  <h3>1. retry_with_backoff — 指数退避重试</h3>
+  <pre>
+import time
+import functools
+import random
+
+def retry_with_backoff(max_retries=3, base_delay=1.0, exceptions=(Exception,)):
+    """带指数退避的通用重试装饰器"""
+    def decorator(func):
+        @functools.wraps(func)  # 保留原函数的 __name__ 和 __doc__
+        def wrapper(*args, **kwargs):
+            for attempt in range(1, max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    delay = base_delay * (2 ** (attempt - 1))  # 指数退避
+                    if attempt == max_retries:
+                        raise  # 最后一次失败，抛出异常
+                    print(f"  [retry] 第{attempt}次失败: {e}, {delay}s后重试...")
+                    time.sleep(delay)
+        return wrapper
+    return decorator
+
+# ---- 使用示例 ----
+@retry_with_backoff(max_retries=3, base_delay=0.5, exceptions=(ConnectionError, TimeoutError))
+def call_rag_service(query: str) -> str:
+    """模拟可能失败的 RAG 服务调用"""
+    if random.random() &lt; 0.6:  # 60% 概率失败，测试重试逻辑
+        raise ConnectionError("RAG 服务连接超时")
+    return f"检索结果: 关于 '{query}' 的相关知识..."
+
+# 测试
+result = call_rag_service("不良资产处置流程")
+print(result)  # 要么成功返回，要么重试3次后抛出 ConnectionError
+</pre>
+
+  <h3>2. rate_limit — 令牌桶限流</h3>
+  <pre>
+import threading
+
+class TokenBucket:
+    """令牌桶限流器 —— 控制单位时间内的调用频率"""
+    def __init__(self, rate: float, capacity: int):
+        self.rate = rate          # 每秒补充的令牌数
+        self.capacity = capacity  # 桶的最大容量
+        self.tokens = capacity    # 当前令牌数
+        self.last_refill = time.monotonic()
+        self._lock = threading.Lock()
+
+    def acquire(self) -> bool:
+        """尝试获取一个令牌，成功返回 True"""
+        with self._lock:
+            now = time.monotonic()
+            # 补充令牌（根据经过的时间）
+            elapsed = now - self.last_refill
+            self.tokens = min(self.capacity, self.tokens + elapsed * self.rate)
+            self.last_refill = now
+            if self.tokens >= 1:
+                self.tokens -= 1
+                return True
+            return False
+
+def rate_limit(bucket: TokenBucket, timeout: float = 5.0):
+    """限流装饰器：超过速率则等待"""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            start = time.monotonic()
+            while not bucket.acquire():
+                if time.monotonic() - start > timeout:
+                    raise TimeoutError(f"等待令牌超时 ({timeout}s)")
+                time.sleep(0.1)  # 短暂等待
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+# ---- 使用示例 ----
+rag_bucket = TokenBucket(rate=2.0, capacity=5)  # 每秒2次，最多积攒5个
+
+@rate_limit(rag_bucket)
+def rag_search(query: str) -> str:
+    print(f"  正在检索: {query}")
+    return f"[检索结果] {query}"
+
+# 连续调用 —— 超过速率会被限流等待
+for q in ["AMC政策", "风险分类", "处置方式", "估值方法", "报告模板", "监管要求"]:
+    rag_search(q)
+</pre>
+
+  <h3>3. log_tool_call — 工具调用日志</h3>
+  <pre>
+import json
+from datetime import datetime
+
+def log_tool_call(log_file="tool_calls.jsonl"):
+    """记录工具调用到 JSONL 文件（每行一个 JSON）"""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            start = time.monotonic()
+            try:
+                result = func(*args, **kwargs)
+                status = "success"
+            except Exception as e:
+                result = str(e)
+                status = "error"
+
+            # 构造日志记录
+            log_entry = {
+                "timestamp": datetime.now().isoformat(),
+                "tool": func.__name__,
+                "args": str(args[1:]) if args else {},  # 跳过 self
+                "kwargs": kwargs,
+                "status": status,
+                "duration_ms": round((time.monotonic() - start) * 1000, 2),
+                "result_preview": str(result)[:200],
+            }
+            # 追加写入 JSONL
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+
+            if status == "error":
+                raise
+            return result
+        return wrapper
+    return decorator
+</pre>
+
+  <div class="tip-box">
+    <strong>装饰器叠加顺序：</strong><code class="inline-code">@retry @rate_limit @log</code> — 从下往上执行。先记日志，再限流，最后重试。就像包裹三层包装纸：最外面是 retry，中间是 rate_limit，最里面是 log。
+  </div>
+
+  <h3>4. 三大装饰器组合使用</h3>
+  <pre>
+# 组合装饰器 —— 一个工具函数同时具备重试+限流+日志
+@retry_with_backoff(max_retries=3, exceptions=(ConnectionError,))
+@rate_limit(rag_bucket)
+@log_tool_call("amc_tool_calls.jsonl")
+def rag_knowledge_search(query: str, top_k: int = 5) -> list:
+    """AMC 知识库检索工具"""
+    # 模拟检索逻辑
+    return [{"text": f"关于'{query}'的第{i}条结果", "score": 0.95 - i*0.05}
+            for i in range(top_k)]
+</pre>
+</div>
+
+<!-- ========== Section 3: RAG 工具封装 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🛠️</span>
+    将 RAG 封装为 Agent 工具
+    <span class="time-tag">⏱ 20 min</span>
+  </div>
+
+  <p>Agent + RAG 的核心思路：<strong>把 RAG 的检索能力封装成一个工具函数</strong>，注册到 Agent 的工具库中。Agent 在需要知识时自主决定调用。</p>
+
+  <h3>1. RAGTool 抽象基类</h3>
+  <pre>
+from dataclasses import dataclass, field
+from typing import Protocol, runtime_checkable
+from abc import ABC, abstractmethod
+
+@dataclass
+class RAGResult:
+    """单条 RAG 检索结果"""
+    text: str          # 文本内容
+    score: float       # 相关性分数 (0-1)
+    source: str        # 来源标识
+    metadata: dict = field(default_factory=dict)
+
+@runtime_checkable
+class RAGTool(Protocol):
+    """RAG 工具协议 —— 任何符合此接口的类都可以被 Agent 调用"""
+    def search(self, query: str, top_k: int = 5) -> list[RAGResult]:
+        ...
+    def get_sources(self) -> list[str]:
+        ...
+</pre>
+
+  <h3>2. SimpleRAGTool —— 基于 ChromaDB 的 RAG 工具</h3>
+  <pre>
+class SimpleRAGTool:
+    """基于 ChromaDB 的 RAG 工具（生产环境替换为实际检索逻辑）"""
+
+    def __init__(self, collection_name="amc_knowledge", persist_dir="./chroma_db"):
+        self.collection_name = collection_name
+        self.persist_dir = persist_dir
+        self._collection = None  # 懒加载
+        print(f"[RAGTool] 初始化完成, 集合: {collection_name}")
+
+    def _ensure_collection(self):
+        """懒加载：第一次调用时才连接 ChromaDB"""
+        if self._collection is None:
+            import chromadb
+            client = chromadb.PersistentClient(path=self.persist_dir)
+            self._collection = client.get_or_create_collection(
+                name=self.collection_name,
+                metadata={"description": "AMC 不良资产管理知识库"}
+            )
+
+    @retry_with_backoff(max_retries=2, base_delay=0.5)
+    @rate_limit(TokenBucket(rate=5.0, capacity=10))
+    @log_tool_call("rag_tool.jsonl")
+    def search(self, query: str, top_k: int = 5) -> list[RAGResult]:
+        """
+        检索知识库，返回 Top-K 相关文档片段
+
+        Args:
+            query: 用户问题或搜索关键词
+            top_k: 返回结果数量
+
+        Returns:
+            按相关性排序的 RAGResult 列表
+        """
+        self._ensure_collection()
+
+        # 调用 ChromaDB 检索
+        results = self._collection.query(
+            query_texts=[query],
+            n_results=top_k,
+            include=["documents", "metadatas", "distances"]
+        )
+
+        # 解析结果
+        rag_results = []
+        if results["documents"] and results["documents"][0]:
+            for i, (doc, meta, dist) in enumerate(
+                zip(results["documents"][0],
+                    results["metadatas"][0],
+                    results["distances"][0])
+            ):
+                rag_results.append(RAGResult(
+                    text=doc,
+                    score=round(1 - dist, 4),  # 距离转相似度
+                    source=meta.get("source", "unknown"),
+                    metadata=meta
+                ))
+        return rag_results
+
+    def get_sources(self) -> list[str]:
+        """获取知识库中的所有文档来源"""
+        self._ensure_collection()
+        all_meta = self._collection.get(include=["metadatas"])["metadatas"]
+        sources = list(set(m.get("source", "unknown") for m in all_meta))
+        return sorted(sources)
+
+    def tool_description(self) -> str:
+        """生成 Agent 工具描述（告诉 Agent 这个工具能做什么）"""
+        sources = ", ".join(self.get_sources()[:5])
+        return (
+            f"知识库检索工具 - 从 AMC 不良资产管理知识库中检索相关信息。\n"
+            f"知识来源: {sources}\n"
+            f"适用于: 政策法规查询、业务流程查询、风险分类标准、处置方式说明等。\n"
+            f"输入: search(query: str, top_k: int = 5) -> list[RAGResult]"
+        )
+</pre>
+
+  <h3>3. 工具注册表 —— Agent 的工具管理器</h3>
+  <pre>
+class ToolRegistry:
+    """
+    Agent 工具注册表 —— 统一管理所有工具（RAG工具 + 其他工具）
+    类比数仓中的: 元数据管理平台，统一注册所有数据表和API
+    """
+    def __init__(self):
+        self._tools: dict[str, dict] = {}  # {name: {"handler": func, "description": str}}
+
+    def register(self, name: str, handler: callable, description: str = ""):
+        """注册一个工具"""
+        self._tools[name] = {
+            "handler": handler,
+            "description": description or handler.__doc__ or ""
+        }
+        print(f"  [注册] 工具 '{name}' 已注册")
+
+    def get_tool(self, name: str) -> dict | None:
+        return self._tools.get(name)
+
+    def list_tools(self) -> list[str]:
+        return list(self._tools.keys())
+
+    def build_tools_prompt(self) -> str:
+        """生成工具描述 Prompt（供 Agent 理解有哪些工具可用）"""
+        lines = ["## 可用工具\n"]
+        for name, info in self._tools.items():
+            lines.append(f"### {name}\n{info['description']}\n")
+        return "\n".join(lines)
+
+    def call(self, name: str, **kwargs):
+        """调用指定工具"""
+        tool = self._tools.get(name)
+        if not tool:
+            return f"错误: 工具 '{name}' 不存在"
+        return tool["handler"](**kwargs)
+
+
+# ---- 注册所有工具 ----
+registry = ToolRegistry()
+
+# 注册 RAG 工具
+rag_tool = SimpleRAGTool()
+registry.register(
+    name="rag_search",
+    handler=rag_tool.search,
+    description=rag_tool.tool_description()
+)
+
+# 注册计算器工具（模拟）
+def calculator(expression: str) -> str:
+    """安全计算器 —— 仅支持基本算术"""
+    allowed = set("0123456789+-*/(). ")
+    if not all(c in allowed for c in expression):
+        return "错误: 包含不允许的字符"
+    try:
+        result = eval(expression)  # 注意：仅用于演示，生产环境用 ast.literal_eval
+        return str(result)
+    except Exception as e:
+        return f"计算错误: {e}"
+
+registry.register("calculator", calculator, "数学计算器，输入数学表达式，返回计算结果")
+
+# 注册 SQL 查询工具（模拟）
+def db_query(sql: str) -> str:
+    """模拟数据库查询 —— 在生产环境中连接真实数仓"""
+    mock_data = {
+        "SELECT COUNT(*) FROM npl_assets": "总计 1,247 笔不良资产",
+        "SELECT status, COUNT(*) FROM npl_assets GROUP BY status": "处置中: 892, 已核销: 355",
+    }
+    key = sql.strip().upper()
+    return mock_data.get(key, f"模拟结果: 执行了 [{sql}]")
+
+registry.register("db_query", db_query, "数仓查询工具，输入SQL语句查询AMC业务数据")
+</pre>
+</div>
+
+<!-- ========== Section 4: RAG Agent 核心 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🤖</span>
+    RAG Agent：能思考、能查知识、能执行的完整 Agent
+    <span class="time-tag">⏱ 25 min</span>
+  </div>
+
+  <p>现在把 ReAct 循环 + RAG 工具 + Function Calling 组装成一个完整的 <strong>RAG Agent</strong>。</p>
+
+  <h3>完整实现：RAGAgent</h3>
+  <pre>
+import re
+import json
+from dataclasses import dataclass, field
+
+@dataclass
+class AgentStep:
+    """Agent 单步执行记录"""
+    step_num: int
+    thought: str      # 思考过程
+    action: str       # 要执行的动作/工具
+    action_input: dict  # 工具输入参数
+    observation: str  # 工具返回结果
+    token_count: int = 0
+
+class RAGAgent:
+    """
+    RAG 增强型 Agent —— 结合 ReAct 推理 + RAG 知识检索 + 多工具调用
+
+    架构流程:
+      1. 接收用户问题
+      2. 构建系统 Prompt（含工具描述 + RAG 知识库信息）
+      3. ReAct 循环:
+         a. Thought: 分析问题，决定下一步
+         b. Action:   选择工具（rag_search / db_query / calculator）
+         c. Observe:  执行工具，获取结果
+         d. 判断是否需要继续（是否已有足够信息回答）
+      4. 生成最终答案（基于所有工具调用结果）
+    """
+
+    def __init__(
+        self,
+        tool_registry: ToolRegistry,
+        api_key: str = "your-api-key",
+        model: str = "glm-4-flash",
+        max_steps: int = 6,
+    ):
+        self.registry = tool_registry
+        self.api_key = api_key
+        self.model = model
+        self.max_steps = max_steps
+        self.history: list[dict] = []   # 对话历史
+        self.steps: list[AgentStep] = []  # 执行轨迹
+
+    def _build_system_prompt(self) -> str:
+        """构建系统 Prompt —— 包含 RAG 工具说明和决策指南"""
+        tools_desc = self.registry.build_tools_prompt()
+
+        return f"""你是一个 AMC（资产管理公司）智能助手，可以查询知识库、执行SQL、进行计算。
+
+{tools_desc}
+
+## 回答规则
+1. 需要查询 AMC 政策/法规/流程时，使用 rag_search 工具
+2. 需要查询业务数据时，使用 db_query 工具
+3. 需要做数值计算时，使用 calculator 工具
+4. 可以组合使用多个工具
+5. 每次回复严格使用以下 JSON 格式：
+
+思考阶段（需要更多信息时）:
+{{"thought": "你的思考过程", "action": "工具名", "action_input": {{"参数名": "参数值"}}}}
+
+最终回答阶段:
+{{"thought": "总结回答", "answer": "最终回答内容"}}
+
+重要：只输出一个 JSON 对象，不要有任何多余文字。"""
+
+    def _parse_response(self, response: str) -> dict:
+        """解析 LLM 返回的 JSON 响应"""
+        # 尝试提取 JSON
+        json_match = re.search(r'\{.*\}', response, re.DOTALL)
+        if not json_match:
+            return {"thought": "解析失败", "answer": "抱歉，处理过程中出现错误"}
+        try:
+            return json.loads(json_match.group())
+        except json.JSONDecodeError:
+            return {"thought": "JSON解析失败", "answer": "抱歉，处理过程中出现格式错误"}
+
+    def _call_llm(self, messages: list[dict]) -> str:
+        """
+        调用 LLM API（使用智谱 API 作为示例）
+        生产环境替换为实际的 API 调用
+        """
+        # 模拟 LLM 响应（实际使用时替换为 requests.post 调用）
+        # 这里为了演示可离线运行，用规则匹配模拟
+        last_msg = messages[-1]["content"] if messages else ""
+
+        # 简单的关键词路由模拟
+        if "不良资产" in last_msg or "政策" in last_msg or "法规" in last_msg:
+            return json.dumps({
+                "thought": "用户在询问 AMC 相关政策，需要查询知识库",
+                "action": "rag_search",
+                "action_input": {"query": last_msg[:100], "top_k": 3}
+            })
+        elif "SELECT" in last_msg.upper() or "数据" in last_msg:
+            return json.dumps({
+                "thought": "需要查询业务数据",
+                "action": "db_query",
+                "action_input": {"sql": last_msg[:200]}
+            })
+        elif any(c in last_msg for c in "+-*/="):
+            return json.dumps({
+                "thought": "用户需要进行数学计算",
+                "action": "calculator",
+                "action_input": {"expression": "1000 * 0.05"}
+            })
+        else:
+            return json.dumps({
+                "thought": "已经收集到足够信息，可以回答用户",
+                "answer": "根据查询结果，这是您的回答内容。"
+            })
+
+    def run(self, question: str) -> str:
+        """
+        执行 Agent 主循环 —— ReAct（Reasoning + Acting）
+
+        Args:
+            question: 用户问题
+
+        Returns:
+            Agent 的最终回答
+        """
+        print(f"\n{'='*60}")
+        print(f"🤖 Agent 开始处理: {question}")
+        print(f"{'='*60}")
+
+        self.steps = []
+        messages = [
+            {"role": "system", "content": self._build_system_prompt()},
+            {"role": "user", "content": question}
+        ]
+
+        for step_i in range(1, self.max_steps + 1):
+            print(f"\n--- Step {step_i} ---")
+
+            # 调用 LLM
+            llm_response = self._call_llm(messages)
+            parsed = self._parse_response(llm_response)
+
+            thought = parsed.get("thought", "")
+
+            # 判断是否是最终回答
+            if "answer" in parsed:
+                answer = parsed["answer"]
+                print(f"  💭 思考: {thought}")
+                print(f"  ✅ 最终回答: {answer}")
+                self.steps.append(AgentStep(
+                    step_num=step_i, thought=thought,
+                    action="final_answer", action_input={},
+                    observation=answer
+                ))
+                messages.append({"role": "assistant", "content": llm_response})
+                self.history = messages
+                return answer
+
+            # 解析工具调用
+            action = parsed.get("action", "")
+            action_input = parsed.get("action_input", {})
+            print(f"  💭 思考: {thought}")
+            print(f"  🔧 工具: {action}({action_input})")
+
+            # 执行工具
+            try:
+                observation = self.registry.call(action, **action_input)
+                if isinstance(observation, list):
+                    # RAG 结果格式化
+                    obs_text = "\n".join(
+                        f"[{i+1}] (分数:{r.score:.3f}) {r.text[:100]}..."
+                        for i, r in enumerate(observation)
+                    )
+                else:
+                    obs_text = str(observation)
+            except Exception as e:
+                obs_text = f"工具执行错误: {e}"
+
+            print(f"  📋 结果: {obs_text[:150]}...")
+
+            # 记录步骤
+            self.steps.append(AgentStep(
+                step_num=step_i, thought=thought,
+                action=action, action_input=action_input,
+                observation=obs_text[:500]
+            ))
+
+            # 将工具结果追加到消息（让 LLM 看到结果）
+            messages.append({"role": "assistant", "content": llm_response})
+            messages.append({
+                "role": "user",
+                "content": f"工具 {action} 的执行结果:\n{obs_text}\n\n请根据以上结果继续分析，或直接给出最终回答。"
+            })
+
+        return "抱歉，达到最大推理步数仍未得出结论。"
+
+    def show_trace(self):
+        """显示完整执行轨迹"""
+        print(f"\n📋 执行轨迹 ({len(self.steps)} 步):")
+        print("-" * 60)
+        for step in self.steps:
+            print(f"  Step {step.step_num}: [{step.action}]")
+            print(f"    思考: {step.thought}")
+            if step.action != "final_answer":
+                print(f"    结果: {step.observation[:100]}...")
+        print("-" * 60)
+
+
+# ---- 运行 RAG Agent ----
+agent = RAGAgent(tool_registry=registry, max_steps=5)
+
+# 测试：知识检索型问题
+answer1 = agent.run("不良资产的主要处置方式有哪些？")
+agent.show_trace()
+
+# 测试：数据查询型问题
+answer2 = agent.run("查询当前不良资产的总数和处置中数量")
+agent.show_trace()
+</pre>
+
+  <div class="concept-box">
+    <strong>关键设计要点：</strong>
+    <ul>
+      <li><strong>ReAct 循环</strong>：Agent 不是"想好了再动手"，而是"边想边做边观察"—— 每一步都根据上一步的结果调整策略</li>
+      <li><strong>工具结果回传</strong>：工具执行结果会追加到对话历史，让 LLM 在下一步推理时能看到</li>
+      <li><strong>自主决策</strong>：Agent 自己决定何时查知识、何时查数据、何时直接回答——不需要人工干预</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ========== Section 5: Prompt Engineering 进阶 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">✍️</span>
+    Prompt Engineering 进阶：让 LLM 输出更可控
+    <span class="time-tag">⏱ 15 min</span>
+  </div>
+
+  <p>好的 Prompt 是 Agent 系统的地基。Day 34 学了基础的"四段式 Prompt"，今天进入<strong>高阶技巧</strong>。</p>
+
+  <h3>1. 结构化输出约束 —— JSON Mode</h3>
+  <pre>
+# 智谱 API 支持 JSON Mode，强制 LLM 返回合法 JSON
+import requests
+import json
+
+def call_llm_json_mode(prompt: str, api_key: str) -> dict:
+    """使用 JSON Mode 调用 LLM，确保返回合法 JSON"""
+    url = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "glm-4-flash",
+        "messages": [{"role": "user", "content": prompt}],
+        "response_format": {  # 关键：指定输出格式为 JSON
+            "type": "json_object"
+        }
+    }
+    response = requests.post(url, headers=headers, json=payload, timeout=30)
+    result = response.json()
+    content = result["choices"][0]["message"]["content"]
+    return json.loads(content)  # 保证能正常解析为 dict
+
+
+# 使用示例
+prompt = """
+分析以下 AMC 资产信息，提取结构化字段。
+要求返回 JSON，包含以下字段：
+- asset_type: 资产类型（贷款/债券/其他）
+- risk_level: 风险等级（normal/attention/substandard/doubtful/loss）
+- amount: 资产金额（数字）
+- disposal_suggestion: 处置建议
+
+输入文本：
+"该笔不良贷款为对公贷款，五级分类为可疑类，
+本金余额500万元，已逾期180天以上，
+建议通过债务重组方式进行处置。"
+"""
+result = call_llm_json_mode(prompt, "your-api-key")
+# 输出保证是合法 JSON:
+# {
+#   "asset_type": "贷款",
+#   "risk_level": "doubtful",
+#   "amount": 5000000,
+#   "disposal_suggestion": "债务重组"
+# }
+</pre>
+
+  <h3>2. Few-Shot Prompting —— 少样本提示</h3>
+  <pre>
+def build_fewshot_prompt(question: str) -> str:
+    """构建 Few-Shot Prompt —— 用示例教会 LLM 期望的输出格式"""
+
+    # 准备 3 个示例（input → output 对）
+    examples = [
+        {
+            "input": "查询所有不良资产数量",
+            "thought": "需要查询 AMC 业务数据，使用 db_query 工具",
+            "output": '{"thought": "需要查询业务数据", "action": "db_query", "action_input": {"sql": "SELECT COUNT(*) FROM npl_assets"}}'
+        },
+        {
+            "input": "五级分类标准是什么",
+            "thought": "这是 AMC 政策知识问题，使用 rag_search 检索知识库",
+            "output": '{"thought": "查询知识库中的分类标准", "action": "rag_search", "action_input": {"query": "五级分类标准", "top_k": 3}}'
+        },
+        {
+            "input": "计算不良率，总资产1亿，不良2000万",
+            "thought": "简单的百分比计算，使用 calculator",
+            "output": '{"thought": "计算不良率", "action": "calculator", "action_input": {"expression": "20000000 / 100000000 * 100"}}'
+        },
+    ]
+
+    # 组装 Prompt
+    parts = ["你是一个 AMC 智能助手。根据用户问题，选择合适的工具并输出 JSON。\n"]
+    for i, ex in enumerate(examples, 1):
+        parts.append(f"示例 {i}:")
+        parts.append(f"  用户问题: {ex['input']}")
+        parts.append(f"  回答: {ex['output']}\n")
+    parts.append(f"现在请处理:")
+    parts.append(f"  用户问题: {question}")
+    parts.append(f"  回答:")
+
+    return "\n".join(parts)
+
+
+# 使用 Few-Shot Prompt 让 Agent 输出更稳定
+prompt = build_fewshot_prompt("不良资产的处置方式有哪些")
+print(prompt)
+# Few-Shot 让 LLM 通过示例"学会"输出格式，比纯指令描述更稳定
+</pre>
+
+  <h3>3. Chain-of-Thought (CoT) —— 思维链提示</h3>
+  <pre>
+def build_cot_prompt(question: str, context: str = "") -> str:
+    """
+    Chain-of-Thought Prompt —— 让 LLM 逐步推理
+    核心: 在 Prompt 中明确要求"一步步思考"
+    """
+    system = """你是一个 AMC 数据分析专家。回答问题时请遵循以下步骤：
+
+第一步：理解问题 - 明确用户想知道什么
+第二步：分析数据 - 识别关键数据点和计算逻辑
+第三步：执行计算 - 逐步进行数值计算
+第四步：得出结论 - 给出明确的数据结论和建议
+
+请严格按这四个步骤组织你的回答。"""
+
+    messages = [
+        {"role": "system", "content": system},
+    ]
+    if context:
+        messages.append({"role": "system", "content": f"参考资料:\n{context}"})
+    messages.append({"role": "user", "content": question})
+
+    return messages
+
+
+# 对比：普通 Prompt vs CoT Prompt
+# 普通 Prompt: "不良率是多少？" → LLM 可能直接猜一个数字
+# CoT Prompt:   要求逐步推理 → LLM 会先列出已知数据、再计算、再给出结论
+# 结果更准确、过程可追溯、适合 Agent 的 Thought 输出
+</pre>
+
+  <h3>4. Prompt 模板管理 —— Jinja2 风格</h3>
+  <pre>
+class PromptTemplate:
+    """
+    Prompt 模板管理器 —— 类比数仓中的 SQL 模板引擎
+    支持变量替换、条件区块、Few-Shot 注入
+    """
+
+    def __init__(self, template: str, input_variables: list[str]):
+        self.template = template
+        self.input_variables = input_variables
+
+    def format(self, **kwargs) -> str:
+        """简单的 {variable} 占位符替换"""
+        result = self.template
+        for key, value in kwargs.items():
+            result = result.replace(f"{{{key}}}", str(value))
+        # 检查是否有未替换的变量
+        unreplaced = set(self.input_variables) - set(kwargs.keys())
+        if unreplaced:
+            raise ValueError(f"缺少变量: {unreplaced}")
+        return result
+
+
+# ---- Agent 系统的 Prompt 模板 ----
+RAG_AGENT_PROMPT = PromptTemplate(
+    template="""你是 {role}，工作在 {department}。
+
+## 你的知识范围
+{knowledge_scope}
+
+## 可用工具
+{tools_description}
+
+## 回答规则
+{rules}
+
+## 当前问题
+{question}""",
+    input_variables=["role", "department", "knowledge_scope", "tools_description", "rules", "question"]
+)
+
+# 使用
+prompt = RAG_AGENT_PROMPT.format(
+    role="AMC 数据分析助手",
+    department="资产管理部",
+    knowledge_scope="不良资产处置、五级分类、风险计量、监管报送",
+    tools_description=registry.build_tools_prompt(),
+    rules="需要查知识时用 rag_search，需要查数据时用 db_query",
+    question="当前不良资产的处置进度如何？"
+)
+print(prompt[:300] + "...")
+</pre>
+
+  <div class="warn-box">
+    <strong>高级 Prompt 陷阱：</strong>
+    <ul>
+      <li><strong>不要过度 Few-Shot</strong>：示例超过 5 个会挤占上下文窗口，反而降低效果。一般 2-3 个最佳</li>
+      <li><strong>CoT 不是万能的</strong>：简单问题（分类、提取）用 CoT 反而增加延迟。只对推理题和计算题用</li>
+      <li><strong>JSON Mode ≠ 结构化理解</strong>：LLM 可能返回合法 JSON 但内容不对。关键业务要做二次校验</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ========== Section 6: 综合实战 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏗️</span>
+    综合实战：AMC 智能分析助手（RAG + Agent + Prompt 完整串联）
+    <span class="time-tag">⏱ 10 min</span>
+  </div>
+
+  <p>把今天所有内容串起来：装饰器加固 → RAG工具封装 → Agent循环 → Prompt 模板管理。</p>
+
+  <pre>
+"""
+AMC 智能分析助手 —— 完整架构图
+
+用户问题
+  │
+  ▼
+┌─────────────────────────┐
+│  PromptTemplate          │  ← 模板管理：Few-Shot + CoT 指令
+│  (构建系统 Prompt)       │
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│  RAGAgent (ReAct Loop)   │  ← 主循环：思考→行动→观察
+│                         │
+│  Step 1: Thought         │     "用户问的是处置进度，需要查数据和知识"
+│  Step 2: Action          │     → rag_search("不良资产处置进度")
+│  Step 3: Observation     │     ← RAG 返回相关文档片段
+│  Step 4: Action          │     → db_query("SELECT status, COUNT(*)...")
+│  Step 5: Observation     │     ← 数据库返回统计结果
+│  Step 6: Answer          │     "根据知识库和数据分析..."
+└────────┬────────────────┘
+         │
+    ┌────┴────┬──────────┐
+    ▼         ▼          ▼
+┌────────┐┌────────┐┌────────┐
+│RAGTool ││DBQuery ││Calculator│  ← 工具层（装饰器加固）
+│@retry  ││@retry  ││@retry   │     重试 + 限流 + 日志
+│@limit  ││@limit  ││@limit   │
+│@log    ││@log    ││@log     │
+└────────┘└────────┘└────────┘
+    │
+    ▼
+┌─────────────────────────┐
+│  ChromaDB 向量库         │  ← 知识层（D29-D35 建好的索引）
+│  (AMC 政策/法规/流程)    │
+└─────────────────────────┘
+"""
+
+# 完整的启动代码
+def create_amc_agent() -> RAGAgent:
+    """创建 AMC 智能分析 Agent"""
+    # 1. 初始化工具注册表
+    registry = ToolRegistry()
+
+    # 2. 创建限流器
+    rag_bucket = TokenBucket(rate=5.0, capacity=10)  # 每秒5次检索
+
+    # 3. 创建并注册 RAG 工具
+    rag_tool = SimpleRAGTool()
+    registry.register("rag_search", rag_tool.search, rag_tool.tool_description())
+
+    # 4. 注册其他工具
+    registry.register("db_query", db_query, "数仓SQL查询工具")
+    registry.register("calculator", calculator, "数学计算器")
+
+    # 5. 创建 Agent
+    agent = RAGAgent(
+        tool_registry=registry,
+        max_steps=6
+    )
+
+    return agent
+
+
+# 使用
+agent = create_amc_agent()
+agent.run("分析当前不良资产的处置进度，给出改进建议")
+agent.show_trace()
+</pre>
+</div>
+
+<!-- ========== Section 7: 常见陷阱 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚠️</span>
+    常见陷阱 Top 5
+  </div>
+
+  <div class="error-box">
+    <strong>陷阱 1：RAG 每次都调用</strong><br>
+    Agent 拿到问题就先查 RAG，不管需不需要。正确做法：让 Agent <strong>自主判断</strong>是否需要检索。简单常识问题直接回答，只有不确定时才查知识库。
+  </div>
+
+  <div class="error-box">
+    <strong>陷阱 2：检索结果全部塞进 Prompt</strong><br>
+    检索返回 50 条结果全部塞进上下文 → Token 爆炸。正确做法：Top-K=3~5，超过 2000 字符就截断，优先保留高分结果。
+  </div>
+
+  <div class="error-box">
+    <strong>陷阱 3：工具描述写得太简单</strong><br>
+    工具描述写"搜索知识库"，Agent 不知道什么场景该用。正确做法：描述中包含<strong>适用场景、输入格式、输出格式</strong>（参考 rag_tool.tool_description()）。
+  </div>
+
+  <div class="warn-box">
+    <strong>陷阱 4：装饰器顺序搞反</strong><br>
+    <code class="inline-code">@retry @rate_limit @log</code> 和 <code class="inline-code">@log @rate_limit @retry</code> 效果不同。重试在最外层，确保限流/日志失败也会被重试；日志在最内层，确保每次实际调用都被记录。
+  </div>
+
+  <div class="warn-box">
+    <strong>陷阱 5：Few-Shot 示例和实际输出格式不一致</strong><br>
+    示例里 action_input 用了双引号，但实际输出用了单引号 → JSON 解析失败。确保示例和预期输出<strong>格式完全一致</strong>。
+  </div>
+</div>
+
+<!-- ========== Section 8: 最佳实践速查 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📋</span>
+    最佳实践速查
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <tr><th>领域</th><th>最佳实践</th><th>避免</th></tr>
+      <tr><td>RAG 工具</td><td>Top-K=3~5，分数阈值 0.6</td><td>返回全部检索结果</td></tr>
+      <tr><td>Agent 循环</td><td>max_steps=5~6，超时 30s</td><td>无限制循环</td></tr>
+      <tr><td>工具描述</td><td>含场景 + 格式 + 示例</td><td>一句话描述</td></tr>
+      <tr><td>重试策略</td><td>指数退避，max_retries=3</td><td>立即重试或无限重试</td></tr>
+      <tr><td>限流</td><td>令牌桶，略高于 API 限额</td><td>不限流或过度限流</td></tr>
+      <tr><td>Prompt</td><td>结构化模板 + Few-Shot 2~3 个</td><td>纯自然语言长篇大论</td></tr>
+      <tr><td>JSON Mode</td><td>API 原生 JSON Mode + 二次校验</td><td>仅靠 Prompt 约束格式</td></tr>
+      <tr><td>日志</td><td>JSONL 追加写入，含时间/耗时</td><td>print 调试</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ========== Section 9: 练习 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">💪</span>
+    今日练习
+    <span class="time-tag">⏱ 20 min</span>
+  </div>
+
+  <div class="challenge">
+    <div class="challenge-title">练习 1：添加"风险预警"工具到 Agent</div>
+    <p>创建一个 <code class="inline-code">risk_alert</code> 工具：输入资产信息，根据阈值返回风险等级（正常/关注/预警/高危）。注册到 ToolRegistry，测试 Agent 能否自动调用。</p>
+  </div>
+
+  <div class="challenge">
+    <div class="challenge-title">练习 2：实现 "cache_decorator" 缓存装饰器</div>
+    <p>写一个 <code class="inline-code">@cache(ttl=60)</code> 装饰器，对相同参数的工具调用结果缓存 60 秒。用 <code class="inline-code">functools.lru_cache</code> 或自己实现 dict + 过期时间。然后装饰 rag_search 测试缓存命中。</p>
+  </div>
+
+  <div class="challenge">
+    <div class="challenge-title">练习 3：LeetCode #146 — LRU 缓存机制</div>
+    <p>设计一个 LRU 缓存类，支持 <code class="inline-code">get(key)</code> 和 <code class="inline-code">put(key, value)</code>，O(1) 时间复杂度。提示：用 <code class="inline-code">OrderedDict</code> 或双向链表 + 字典。</p>
+    <pre>
+class LRUCache:
+    def __init__(self, capacity: int):
+        self.capacity = capacity
+        # TODO: 实现 LRU 缓存
+
+    def get(self, key: int) -> int:
+        # TODO: O(1) 获取，不存在返回 -1
+        pass
+
+    def put(self, key: int, value: int) -> None:
+        # TODO: O(1) 写入，超过容量淘汰最久未使用的
+        pass
+</pre>
+  </div>
+</div>
+
+<!-- ========== 总结 ========== -->
+<div class="summary">
+  <h3>📌 Day 40 总结</h3>
+  <table>
+    <tr><th>知识点</th><th>核心内容</th></tr>
+    <tr><td>装饰器实战</td><td>retry_with_backoff（指数退避）/ rate_limit（令牌桶）/ log_tool_call（JSONL日志）三件套</td></tr>
+    <tr><td>RAG 工具封装</td><td>RAGResult + RAGTool 协议 + SimpleRAGTool + ToolRegistry 统一管理</td></tr>
+    <tr><td>RAG Agent</td><td>ReAct 循环 + 工具调用 + 结果回传 + 自主决策 + 执行轨迹记录</td></tr>
+    <tr><td>Prompt 进阶</td><td>JSON Mode 强制结构化 / Few-Shot 示例学习 / CoT 思维链 / PromptTemplate 模板管理</td></tr>
+    <tr><td>综合架构</td><td>Prompt模板 → Agent循环 → 工具层(装饰器加固) → 知识层(向量库) 四层架构</td></tr>
+  </table>
+</div>
+
+<div class="next-preview">
+  <h3>📅 Day 41 预告：Prompt Engineering 高级技巧（输出约束/长上下文/多轮优化）</h3>
+  <p>深入 Prompt 工程：Output Parsing（输出解析器）、长上下文管理策略、多轮对话优化、System Prompt 最佳实践、Prompt 版本管理（VCS 追踪实验效果）。</p>
+</div>
+
+</body>
+</html>

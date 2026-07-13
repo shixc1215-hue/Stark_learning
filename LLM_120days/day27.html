@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 27 - Phase 1B Day 9：工程化实践（日志/配置/测试/部署）</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#eff6ff,#eef2ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #bfdbfe; }
+  .header .badge { display:inline-block;background:#dbeafe;color:var(--accent);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  pre { background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;overflow-x:auto;font-size:13.5px;line-height:1.65;margin:12px 0;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--text); }
+  code { font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:13px; }
+  .ic { background:#f1f5f9;padding:2px 7px;border-radius:4px;font-size:13px;color:var(--accent);border:1px solid #e2e8f0; }
+  .inline-code { background:#f1f5f9;padding:2px 7px;border-radius:4px;font-size:13px;color:var(--accent);border:1px solid #e2e8f0;font-family:'Cascadia Code','Fira Code',Consolas,monospace; }
+  h3 { font-size:16px;font-weight:700;margin:18px 0 10px;color:var(--text); }
+  h4 { font-size:14.5px;font-weight:600;margin:14px 0 8px;color:var(--text2); }
+  p { margin:8px 0;font-size:14.5px; }
+  ul,ol { margin:8px 0 8px 20px;font-size:14.5px; }
+  li { margin:4px 0; }
+  table { width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px; }
+  th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border);font-size:13px; }
+  td { padding:10px 14px;border:1px solid var(--border); }
+  .file-tree { background:var(--surface2);border-radius:8px;padding:14px 18px;margin:12px 0;font-family:'Cascadia Code',Consolas,monospace;font-size:13px;line-height:1.8;color:var(--text2); }
+  .file-tree .dir { color:var(--accent);font-weight:600; }
+  .file-tree .file { color:var(--text); }
+  .file-tree .comment { color:var(--text3);font-style:italic; }
+  .compare { display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0; }
+  .compare-card { background:var(--surface2);border-radius:8px;padding:14px 16px;border:1px solid var(--border); }
+  .compare-card h4 { margin-top:0;color:var(--accent); }
+  .footer { text-align:center;padding:20px;color:var(--text3);font-size:13px; }
+  .quiz { background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:16px 20px;margin:14px 0; }
+  .quiz q { display:block;font-weight:600;margin-bottom:8px;color:var(--text); }
+  .quiz .answer { margin-top:8px;padding-top:8px;border-top:1px dashed #fde68a;color:var(--green);font-size:14px; }
+  a { color:var(--accent);text-decoration:none; }
+  a:hover { text-decoration:underline; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Phase 1B · 工程进阶 · Day 9/14</div>
+  <h1>Day 27 · 工程化实践（日志 / 配置 / 测试 / 部署）</h1>
+  <div class="subtitle">把代码从"能跑"变成"可维护、可部署"——数据开发工程师最熟悉的工程化思维</div>
+</div>
+
+<div class="progress-bar">
+  <span class="label">Day 27 / 70</span>
+  <div class="track"><div class="fill" style="width:38.6%"></div></div>
+  <span class="percent">38.6%</span>
+</div>
+
+<!-- ==================== Section 1 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔧</span> 一、为什么需要工程化？
+    <span class="time-tag">⏱ 5 min</span>
+  </div>
+
+  <p>你已经能写面向对象、异步、FastAPI 了。但想想你在做 ETL 时的经验：</p>
+
+  <div class="concept-box">
+    <strong>SQL 写完 → 在 DBeaver 跑一下 → 能出数 → 丢到调度系统</strong>，这不叫"工程化"。<br>
+    真正的工程化是：<strong>日志可查、配置可改、出了 Bug 能定位、新人能接手</strong>。
+  </div>
+
+  <p>Python 项目的工程化四件套：</p>
+
+  <table>
+    <tr><th>能力</th><th>工具</th><th>类比数仓</th></tr>
+    <tr><td><strong>日志</strong></td><td>logging 模块</td><td>ETL 跑批日志表</td></tr>
+    <tr><td><strong>配置</strong></td><td>pydantic-settings / .env</td><td>环境变量 / 参数表</td></tr>
+    <tr><td><strong>测试</strong></td><td>pytest</td><td>数据校验 / 对账脚本</td></tr>
+    <tr><td><strong>部署</strong></td><td>uvicorn + 进程管理</td><td>调度系统发布上线</td></tr>
+  </table>
+
+  <div class="tip-box">
+    <strong>💡 数据开发的优势：</strong>你已经有"日志意识"和"配置分离"的直觉，只是需要学会 Python 生态的工具。今天就是把你 SQL/ETL 的工程经验翻译成 Python 工程化。
+  </div>
+</div>
+
+<!-- ==================== Section 2 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📝</span> 二、logging 日志系统
+    <span class="time-tag">⏱ 15 min</span>
+  </div>
+
+  <h3>2.1 为什么不用 print？</h3>
+
+  <div class="compare">
+    <div class="compare-card">
+      <h4>print 的痛点</h4>
+      <ul>
+        <li>无法控制级别（全部输出）</li>
+        <li>无法输出到文件</li>
+        <li>没有时间戳、来源信息</li>
+        <li>生产环境无法关闭调试输出</li>
+      </ul>
+    </div>
+    <div class="compare-card">
+      <h4>logging 的优势</h4>
+      <ul>
+        <li>5 个级别灵活控制</li>
+        <li>同时输出到控制台 + 文件</li>
+        <li>自动带时间、文件名、行号</li>
+        <li>生产环境一键调级别</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>2.2 日志五级别</h3>
+
+<pre>import logging
+
+# 日志级别从低到高，设置级别后，只输出 >= 该级别的日志
+# DEBUG    → 开发调试（变量值、流程跟踪）
+# INFO     → 正常运行记录（启动、完成、关键节点）
+# WARNING  → 警告但不报错（用了废弃 API、配置缺失用默认值）
+# ERROR    → 出错了但程序还能跑（单条数据处理失败）
+# CRITICAL → 严重错误，程序可能崩溃（数据库连不上）
+
+logging.basicConfig(level=logging.DEBUG)  # 设置最低级别
+
+logging.debug("调试信息：变量 x = %s", x)      # 开发时用
+logging.info("信息：LLM API 调用成功")           # 正常流程
+logging.warning("警告：API 响应耗时 %.2f 秒", t) # 需关注
+logging.error("错误：第 %d 行数据解析失败", i)   # 出了错
+logging.critical("严重：数据库连接丢失！")        # 要挂了</pre>
+
+  <h3>2.3 工程级日志配置</h3>
+
+  <p>实际项目不用 <span class="inline-code">basicConfig</span>，而是用 <span class="inline-code">dictConfig</span> 做精细控制：</p>
+
+<pre># utils/logger.py — 日志配置模块（放在项目里复用）
+import logging
+import logging.config
+
+LOGGING_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+
+    # 格式定义
+    "formatters": {
+        "standard": {
+            "format": "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S"
+        },
+        "detailed": {
+            "format": "%(asctime)s | %(levelname)-8s | %(name)s | %(funcName)s:%(lineno)d | %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S"
+        }
+    },
+
+    # 输出目标（处理器）
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+            "level": "INFO"  # 控制台只看 INFO 及以上
+        },
+        "file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": "app.log",
+            "maxBytes": 10 * 1024 * 1024,  # 10MB 自动轮转
+            "backupCount": 5,               # 保留 5 个备份
+            "formatter": "detailed",
+            "encoding": "utf-8",
+            "level": "DEBUG"                # 文件记录所有 DEBUG
+        }
+    },
+
+    # 记录器（按模块划分）
+    "loggers": {
+        "": {  # 根 logger
+            "handlers": ["console", "file"],
+            "level": "DEBUG",
+            "propagate": True
+        },
+        "httpx": {  # 第三方库日志太吵，调高级别
+            "level": "WARNING"
+        },
+        "uvicorn.access": {  # FastAPI 访问日志也调高
+            "level": "WARNING"
+        }
+    }
+}
+
+def setup_logging():
+    """初始化日志系统，在程序入口调用一次"""
+    logging.config.dictConfig(LOGGING_CONFIG)
+
+# 使用方式：
+# from utils.logger import setup_logging
+# setup_logging()
+# logger = logging.getLogger(__name__)  # __name__ = 当前模块名
+# logger.info("程序启动")</pre>
+
+  <div class="concept-box">
+    <strong>核心原则：</strong><br>
+    1. 每个模块用 <span class="inline-code">logger = logging.getLogger(__name__)</span> 创建自己的 logger<br>
+    2. <span class="inline-code">__name__</span> 自动等于模块路径（如 <span class="inline-code">services.llm_service</span>），方便定位<br>
+    3. 生产环境改配置文件里的 level 就行，不用改代码
+  </div>
+
+  <h3>2.4 在 LLM 服务中使用日志</h3>
+
+<pre># services/llm_service.py
+import logging
+import httpx
+import time
+
+logger = logging.getLogger(__name__)
+
+class LLMService:
+    """带完整日志记录的 LLM 调用服务"""
+
+    def __init__(self, api_url: str, api_key: str):
+        self.api_url = api_url
+        self.api_key = api_key
+        logger.info("LLMService 初始化, api_url=%s", api_url)
+
+    async def chat(self, prompt: str, model: str = "glm-4-flash") -> str:
+        """调用 LLM API，全程日志记录"""
+        logger.debug("收到请求: model=%s, prompt前50字=%s", model, prompt[:50])
+
+        start = time.time()
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(
+                    self.api_url,
+                    headers={"Authorization": f"Bearer {self.api_key}"},
+                    json={"model": model, "messages": [{"role": "user", "content": prompt}]}
+                )
+
+            cost = time.time() - start
+
+            if resp.status_code == 200:
+                result = resp.json()["choices"][0]["message"]["content"]
+                logger.info("LLM调用成功 | 耗时%.2fs | 返回%d字", cost, len(result))
+                return result
+            else:
+                logger.error("LLM返回错误 | status=%d | body=%s", resp.status_code, resp.text[:200])
+                raise Exception(f"API 错误: {resp.status_code}")
+
+        except httpx.TimeoutException:
+            logger.error("LLM调用超时 | 耗时%.2fs", time.time() - start)
+            raise
+        except Exception as e:
+            logger.critical("LLM调用异常: %s", e, exc_info=True)  # exc_info=True 记录完整堆栈
+            raise</pre>
+
+  <div class="tip-box">
+    <strong>💡 与 ETL 日志类比：</strong>你的 ETL 日志表可能记录了 <code>etl_run_id, step_name, status, record_count, error_msg</code>。Python logging 的 <code>%(name)s</code> 就像 <code>step_name</code>，<code>%(levelname)s</code> 就像 <code>status</code>，<code>%(message)s</code> 就像 <code>error_msg</code>。思路完全一样，只是实现方式不同。
+  </div>
+</div>
+
+<!-- ==================== Section 3 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚙️</span> 三、配置管理（pydantic-settings）
+    <span class="time-tag">⏱ 12 min</span>
+  </div>
+
+  <h3>3.1 为什么配置要分离？</h3>
+
+  <p>你在数仓里一定做过这些：</p>
+  <ul>
+    <li>开发环境连测试库，生产环境连生产库</li>
+    <li>API Key 不能写死在代码里（提交 Git 就泄露了）</li>
+    <li>不同环境不同的超时时间、重试次数</li>
+  </ul>
+
+  <p>Python 项目的标准做法：<strong>环境变量 + .env 文件 + Pydantic Settings</strong></p>
+
+  <h3>3.2 .env 文件</h3>
+
+<pre># .env — 放在项目根目录，加入 .gitignore（绝不能提交到 Git！）
+# LLM API 配置
+LLM_API_URL=https://open.bigmodel.cn/api/paas/v4/chat/completions
+LLM_API_KEY=your-api-key-here
+LLM_MODEL=glm-4-flash
+
+# 数据库配置
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=amc_analysis
+DB_USER=admin
+DB_PASSWORD=your-password
+
+# 应用配置
+APP_ENV=development
+LOG_LEVEL=DEBUG
+API_PORT=8000</pre>
+
+  <h3>3.3 Pydantic Settings 配置类</h3>
+
+<pre># config.py — 配置管理（Day26 已学过 Pydantic，这里用 Settings 扩展）
+# pip install pydantic-settings
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
+
+class Settings(BaseSettings):
+    """应用配置——从环境变量或 .env 文件自动读取"""
+
+    # --- LLM 配置 ---
+    llm_api_url: str = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+    llm_api_key: str = ""           # 必填，没有会报验证错误
+    llm_model: str = "glm-4-flash"
+    llm_timeout: int = Field(default=30, ge=5, le=120)  # 超时 5~120 秒
+    llm_max_retries: int = Field(default=3, ge=1, le=10)
+
+    # --- 数据库配置 ---
+    db_host: str = "localhost"
+    db_port: int = 5432
+    db_name: str = ""
+    db_user: str = ""
+    db_password: str = ""
+
+    # --- 应用配置 ---
+    app_env: str = "development"    # development / staging / production
+    log_level: str = "INFO"
+    api_port: int = 8000
+
+    @property
+    def database_url(self) -> str:
+        """计算属性：拼接数据库连接串"""
+        return f"postgresql://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
+
+    @property
+    def is_production(self) -> bool:
+        """判断是否生产环境"""
+        return self.app_env == "production"
+
+    model_config = SettingsConfigDict(
+        env_file=".env",        # 从 .env 文件读取
+        env_file_encoding="utf-8",
+        case_sensitive=False    # 环境变量不区分大小写
+    )
+
+# 全局单例——整个项目共享同一个配置
+settings = Settings()
+
+# 使用方式：
+# from config import settings
+# print(settings.llm_api_url)
+# print(settings.database_url)
+# print(settings.is_production)</pre>
+
+  <div class="concept-box">
+    <strong>加载优先级：</strong>环境变量 > .env 文件 > 代码默认值<br>
+    这就意味着：本地开发用 .env，部署到服务器时通过环境变量覆盖，<strong>代码完全不用改</strong>。
+  </div>
+
+  <h3>3.4 在 FastAPI 中使用配置</h3>
+
+<pre># main.py — FastAPI 应用入口
+from fastapi import FastAPI
+from config import settings
+
+app = FastAPI(title="AMC 智能分析平台", debug=not settings.is_production)
+
+@app.on_event("startup")
+async def startup():
+    """启动时打印配置信息（脱敏）"""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("=" * 50)
+    logger.info("应用启动 | env=%s | port=%d", settings.app_env, settings.api_port)
+    logger.info("LLM: url=%s | model=%s", settings.llm_api_url, settings.llm_model)
+    logger.info("DB: host=%s | db=%s", settings.db_host, settings.db_name)
+    # 注意：绝不打印 api_key 和 password！
+    logger.info("=" * 50)
+
+# 不用硬编码端口了
+# uvicorn main:app --port 8000
+# 改为：
+# uvicorn main:app --port {settings.api_port}</pre>
+
+  <div class="warn-box">
+    <strong>⚠️ 安全红线：</strong>API Key、密码、Token 这类敏感信息 <strong>绝不能写进代码</strong>（不能提交 Git）。必须走 .env 或环境变量，且 .env 必须在 <span class="inline-code">.gitignore</span> 中。
+  </div>
+</div>
+
+<!-- ==================== Section 4 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🧪</span> 四、单元测试（pytest）
+    <span class="time-tag">⏱ 18 min</span>
+  </div>
+
+  <h3>4.1 为什么要写测试？</h3>
+
+  <p>你做数仓时写对账脚本、数据校验——其实那就是"测试"。pytest 把这个过程标准化了：</p>
+
+  <ul>
+    <li><strong>改了代码不怕 regression</strong>：跑一遍测试就知道有没有破坏已有功能</li>
+    <li><strong>文档作用</strong>：测试用例就是"这个函数应该怎么用"的活文档</li>
+    <li><strong>重构信心</strong>：有测试兜底，敢大胆重构</li>
+  </ul>
+
+  <h3>4.2 第一个测试</h3>
+
+<pre># test_calculator.py — 文件名必须以 test_ 开头
+# pip install pytest
+
+def add(a, b):
+    return a + b
+
+def divide(a, b):
+    if b == 0:
+        raise ValueError("除数不能为0")
+    return a / b
+
+# ===== 测试函数：以 test_ 开头，不用 class =====
+def test_add():
+    assert add(1, 2) == 3           # 正常加法
+    assert add(-1, 1) == 0          # 负数
+    assert add(0.1, 0.2) == pytest.approx(0.3)  # 浮点数用 approx
+
+def test_divide_normal():
+    assert divide(10, 2) == 5.0
+    assert divide(1, 3) == pytest.approx(0.333, rel=0.01)
+
+def test_divide_zero():
+    """测试异常：用 pytest.raises"""
+    import pytest
+    with pytest.raises(ValueError, match="除数不能为0"):
+        divide(10, 0)
+
+# 运行：pytest test_calculator.py -v
+# -v 显示每个测试的通过/失败状态</pre>
+
+  <h3>4.3 Fixture（测试夹具）——共享准备逻辑</h3>
+
+  <p>类似数仓里的"测试数据准备"步骤，fixture 在每个测试前自动运行：</p>
+
+<pre># conftest.py — pytest 自动识别，不用 import
+import pytest
+
+@pytest.fixture
+def sample_npl_data():
+    """准备一组 NPL（不良贷款）测试数据"""
+    return [
+        {"debtor_id": "D001", "balance": 500000.0, "overdue_days": 90,  "status": "不良"},
+        {"debtor_id": "D002", "balance": 200000.0, "overdue_days": 30,  "status": "关注"},
+        {"debtor_id": "D003", "balance": 800000.0, "overdue_days": 180, "status": "次级"},
+        {"debtor_id": "D004", "balance": -10000.0, "overdue_days": 60,  "status": "异常"},  # 金额为负
+    ]
+
+@pytest.fixture
+def clean_npl_data():
+    """清洗后的正常数据"""
+    return [
+        {"debtor_id": "D001", "balance": 500000.0, "overdue_days": 90,  "category": "次级"},
+        {"debtor_id": "D002", "balance": 200000.0, "overdue_days": 30,  "category": "正常"},
+        {"debtor_id": "D003", "balance": 800000.0, "overdue_days": 180, "category": "可疑"},
+    ]
+
+# test_npl_service.py
+def test_filter_negative_balance(sample_npl_data):
+    """测试：过滤金额为负的记录"""
+    from services.npl_service import filter_invalid
+    result = filter_invalid(sample_npl_data)
+    # 应该过滤掉 D004
+    assert len(result) == 3
+    assert all(r["balance"] > 0 for r in result)
+
+def test_classify_risk(clean_npl_data):
+    """测试：风险分类逻辑"""
+    from services.npl_service import classify_risk
+    result = classify_risk(clean_npl_data)
+    assert result[0]["category"] == "次级"   # 逾期 90 天
+    assert result[1]["category"] == "正常"   # 逾期 30 天
+    assert result[2]["category"] == "可疑"   # 逾期 180 天</pre>
+
+  <h3>4.4 Mock——测试中隔离外部依赖</h3>
+
+  <p>测试 LLM 服务时，不想真的调 API（费钱、慢、不稳定）。用 <span class="inline-code">unittest.mock</span> 模拟：</p>
+
+<pre># test_llm_service.py
+import pytest
+from unittest.mock import AsyncMock, patch
+
+# 被测模块
+class LLMService:
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+
+    async def chat(self, prompt: str) -> str:
+        """真实实现会调 HTTP API"""
+        # ... httpx 调用 ...
+        pass
+
+    def summarize_report(self, data: dict) -> str:
+        """用 LLM 生成报表摘要"""
+        prompt = f"请总结以下不良资产数据：{data}"
+        # 真实实现会调 self.chat(prompt)
+        return f"[摘要] 不良资产共{len(data)}笔"
+
+# ===== 测试：Mock 掉 HTTP 调用 =====
+@pytest.mark.asyncio
+async def test_chat_success():
+    """测试 LLM 调用成功场景"""
+    service = LLMService(api_key="test-key")
+
+    # 方式1：直接 mock 异步方法
+    service.chat = AsyncMock(return_value="这是模拟的 LLM 回复")
+
+    result = await service.chat("测试提示词")
+    assert result == "这是模拟的 LLM 回复"
+    service.chat.assert_called_once_with("测试提示词")
+
+@pytest.mark.asyncio
+async def test_chat_with_http_mock():
+    """测试：Mock HTTP 层（更贴近真实调用链）"""
+    service = LLMService(api_key="test-key")
+
+    # 方式2：patch httpx 客户端
+    mock_response = AsyncMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "choices": [{"message": {"content": "模拟回复"}}]
+    }
+
+    with patch("httpx.AsyncClient") as MockClient:
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.post = AsyncMock(return_value=mock_response)
+        MockClient.return_value = mock_client
+
+        # 这里可以调用真实逻辑了（因为 HTTP 层被 mock 了）
+        # result = await service.chat("测试")
+        # assert "模拟回复" in result
+
+def test_summarize_report():
+    """纯逻辑测试，不需要 mock"""
+    service = LLMService(api_key="test-key")
+    result = service.summarize_report({"count": 5})
+    assert "5笔" in result</pre>
+
+  <div class="tip-box">
+    <strong>💡 Mock 策略选择：</strong><br>
+    - 测试<strong>业务逻辑</strong>（数据处理、校验）→ 不需要 mock<br>
+    - 测试<strong>API 调用</strong>（LLM、数据库）→ mock 掉外部依赖<br>
+    - 测试<strong>异常处理</strong> → mock 抛异常，验证你的代码能不能兜住
+  </div>
+
+  <h3>4.5 pytest 常用命令</h3>
+
+  <table>
+    <tr><th>命令</th><th>作用</th></tr>
+    <tr><td><span class="inline-code">pytest</span></td><td>运行所有测试</td></tr>
+    <tr><td><span class="inline-code">pytest -v</span></td><td>详细模式（显示每个测试名）</td></tr>
+    <tr><td><span class="inline-code">pytest -s</span></td><td>显示 print 输出</td></tr>
+    <tr><td><span class="inline-code">pytest test_npl.py</span></td><td>只跑某个文件</td></tr>
+    <tr><td><span class="inline-code">pytest -k "test_filter"</span></td><td>按名称匹配</td></tr>
+    <tr><td><span class="inline-code">pytest --cov=src</span></td><td>测试覆盖率报告（需 pip install pytest-cov）</td></tr>
+    <tr><td><span class="inline-code">pytest -x</span></td><td>第一个失败就停止</td></tr>
+  </table>
+</div>
+
+<!-- ==================== Section 5 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🚀</span> 五、项目结构与部署入门
+    <span class="time-tag">⏱ 15 min</span>
+  </div>
+
+  <h3>5.1 标准项目结构</h3>
+
+  <p>当你写的代码从 1 个文件变成 10+ 文件，就需要组织目录了：</p>
+
+<pre class="file-tree">
+amc-llm-platform/               <span class="comment"># 项目根目录</span>
+├── .env                         <span class="comment"># 环境变量（不提交Git）</span>
+├── .gitignore                   <span class="comment"># Git 忽略规则</span>
+├── requirements.txt             <span class="comment"># 依赖清单</span>
+├── pyproject.toml               <span class="comment"># 项目元数据 + 工具配置（现代方式）</span>
+├── README.md                    <span class="comment"># 项目说明</span>
+│
+├── <span class="dir">config.py</span>                   <span class="comment"># 配置管理（Settings）</span>
+├── <span class="dir">main.py</span>                     <span class="comment"># FastAPI 应用入口</span>
+│
+├── <span class="dir">utils/</span>                      <span class="comment"># 工具函数</span>
+│   ├── __init__.py
+│   └── logger.py                <span class="comment"># 日志配置</span>
+│
+├── <span class="dir">models/</span>                     <span class="comment"># 数据模型（Pydantic/SQLAlchemy）</span>
+│   ├── __init__.py
+│   ├── schemas.py               <span class="comment"># 请求/响应模型</span>
+│   └── database.py              <span class="comment"># 数据库表定义</span>
+│
+├── <span class="dir">services/</span>                   <span class="comment"># 业务逻辑层</span>
+│   ├── __init__.py
+│   ├── llm_service.py           <span class="comment"># LLM 调用封装</span>
+│   └── npl_service.py           <span class="comment"># 不良资产业务逻辑</span>
+│
+├── <span class="dir">api/</span>                        <span class="comment"># API 路由</span>
+│   ├── __init__.py
+│   ├── chat.py                  <span class="comment"># 对话相关接口</span>
+│   └── report.py                <span class="comment"># 报表相关接口</span>
+│
+├── <span class="dir">tests/</span>                      <span class="comment"># 测试目录</span>
+│   ├── conftest.py              <span class="comment"># 共享 fixture</span>
+│   ├── test_npl_service.py
+│   └── test_llm_service.py
+│
+└── <span class="dir">scripts/</span>                    <span class="comment"># 运维脚本</span>
+    └── init_db.py               <span class="comment"># 初始化数据库</span>
+</pre>
+
+  <div class="concept-box">
+    <strong>分层思维（你一定很熟悉）：</strong><br>
+    <span class="inline-code">api/</span> = 接口层（像数仓的 ADS 层，对外暴露）<br>
+    <span class="inline-code">services/</span> = 业务层（像 DWD/DWS 层，核心逻辑）<br>
+    <span class="inline-code">models/</span> = 数据层（像 ODS 层，定义数据结构）<br>
+    <span class="inline-code">utils/</span> = 工具层（通用函数）<br>
+    每层只调下一层，<strong>不能跨层调用</strong>。
+  </div>
+
+  <h3>5.2 requirements.txt 依赖管理</h3>
+
+<pre># requirements.txt — 固定版本号，保证可复现
+fastapi==0.115.0
+uvicorn==0.30.0
+pydantic==2.9.0
+pydantic-settings==2.5.0
+httpx==0.27.0
+sqlalchemy==2.0.35
+aiosqlite==0.20.0
+
+# 开发依赖（生产不需要）
+# 通常拆成 requirements-dev.txt
+pytest==8.3.0
+pytest-asyncio==0.24.0
+pytest-cov==5.0.0
+
+# 安装：pip install -r requirements.txt
+# 导出：pip freeze > requirements.txt</pre>
+
+  <h3>5.3 用 uvicorn 部署 FastAPI</h3>
+
+<pre># 开发环境（自动重载，改代码自动重启）
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# 生产环境（多 worker 进程，充分利用多核 CPU）
+# worker 数 = CPU 核心数 * 2 + 1
+uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
+
+# 在代码中启动（适合脚本直接运行）
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)</pre>
+
+  <h3>5.4 .gitignore 必须包含的规则</h3>
+
+<pre># .gitignore
+# 环境配置（绝不能提交！）
+.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# 日志
+*.log
+app.log
+
+# IDE
+.vscode/
+.idea/
+
+# 数据库
+*.db
+*.sqlite3</pre>
+</div>
+
+<!-- ==================== Section 6 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🤖</span> 六、LLM 实战：带完整工程化的 AMC 报表分析服务
+    <span class="time-tag">⏱ 20 min</span>
+  </div>
+
+  <p>把今天学的<strong>日志 + 配置 + 测试</strong>全部整合到一个真实项目中：</p>
+
+  <h3>6.1 完整项目代码</h3>
+
+<pre># ===== config.py =====
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
+
+class Settings(BaseSettings):
+    llm_api_url: str = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+    llm_api_key: str = Field(default="", description="智谱 API Key")
+    llm_model: str = "glm-4-flash"
+    llm_timeout: int = Field(default=30, ge=5, le=120)
+
+    db_path: str = "amc_data.db"
+    log_level: str = "INFO"
+    api_port: int = 8000
+
+    @property
+    def is_dev(self) -> bool:
+        return self.log_level.upper() == "DEBUG"
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+settings = Settings()</pre>
+
+<pre># ===== utils/logger.py =====
+import logging
+import logging.config
+
+def setup_logging(level: str = "INFO"):
+    logging.config.dictConfig({
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "standard": {
+                "format": "%(asctime)s | %(levelname)-8s | %(name)-25s | %(message)s",
+                "datefmt": "%H:%M:%S"
+            }
+        },
+        "handlers": {
+            "console": {"class": "logging.StreamHandler", "formatter": "standard", "level": level},
+            "file": {
+                "class": "logging.handlers.RotatingFileHandler",
+                "filename": "app.log", "maxBytes": 5*1024*1024, "backupCount": 3,
+                "formatter": "standard", "encoding": "utf-8", "level": "DEBUG"
+            }
+        },
+        "loggers": {
+            "": {"handlers": ["console", "file"], "level": "DEBUG"},
+            "httpx": {"level": "WARNING"},
+        }
+    })</pre>
+
+<pre># ===== services/report_service.py =====
+import logging
+from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+class ReportService:
+    """AMC 不良资产报表分析服务（带完整日志和错误处理）"""
+
+    # 五级分类标准（逾期天数 → 分类）
+    CATEGORY_RULES = [
+        (0,   90,  "正常"),    # 逾期 0-90 天
+        (91,  180, "关注"),    # 逾期 91-180 天
+        (181, 360, "次级"),    # 逾期 181-360 天
+        (361, 720, "可疑"),    # 逾期 361-720 天
+        (721, 9999,"损失"),    # 逾期 > 720 天
+    ]
+
+    def __init__(self):
+        logger.info("ReportService 初始化完成")
+
+    def validate_record(self, record: dict) -> Optional[str]:
+        """校验单条记录，返回错误信息或 None"""
+        required_fields = ["debtor_id", "balance", "overdue_days"]
+        for field in required_fields:
+            if field not in record:
+                return f"缺少必填字段: {field}"
+
+        if record["balance"] < 0:
+            return f"余额为负: {record['balance']}"
+        if record["overdue_days"] < 0:
+            return f"逾期天数为负: {record['overdue_days']}"
+        return None
+
+    def classify(self, overdue_days: int) -> str:
+        """根据逾期天数分类"""
+        for low, high, category in self.CATEGORY_RULES:
+            if low <= overdue_days <= high:
+                return category
+        return "未知"
+
+    def analyze_batch(self, records: list[dict]) -> dict:
+        """批量分析——返回统计摘要"""
+        logger.info("开始批量分析，共 %d 条记录", len(records))
+
+        valid_records = []
+        error_records = []
+        stats = {"正常": 0, "关注": 0, "次级": 0, "可疑": 0, "损失": 0}
+        total_balance = 0.0
+
+        for i, record in enumerate(records):
+            # 1. 校验
+            error = self.validate_record(record)
+            if error:
+                logger.warning("第%d条记录校验失败: %s", i, error)
+                error_records.append({"index": i, "reason": error})
+                continue
+
+            # 2. 分类
+            category = self.classify(record["overdue_days"])
+            record["category"] = category
+            stats[category] += 1
+            total_balance += record["balance"]
+            valid_records.append(record)
+
+        logger.info("分析完成: 有效%d条, 异常%d条, 总余额%.2f",
+                     len(valid_records), len(error_records), total_balance)
+
+        # 3. 生成摘要文本（可喂给 LLM）
+        summary_lines = [f"不良资产分析报告（共{len(records)}条记录）"]
+        for cat, count in stats.items():
+            pct = count / len(records) * 100 if records else 0
+            summary_lines.append(f"  {cat}: {count}笔 ({pct:.1f}%)")
+        summary_lines.append(f"  有效余额合计: ¥{total_balance:,.2f}")
+        if error_records:
+            summary_lines.append(f"  异常记录: {len(error_records)}条")
+
+        summary = "\n".join(summary_lines)
+        logger.debug("生成摘要:\n%s", summary)
+
+        return {
+            "total": len(records),
+            "valid_count": len(valid_records),
+            "error_count": len(error_records),
+            "stats": stats,
+            "total_balance": total_balance,
+            "errors": error_records,
+            "summary": summary
+        }
+
+    async def generate_llm_analysis(self, analysis_result: dict, llm_client=None) -> str:
+        """用 LLM 对分析结果做深度解读"""
+        import httpx
+
+        prompt = f"""你是一位AMC（资产管理公司）的不良资产分析专家。
+请根据以下数据摘要，给出专业分析意见，包括：
+1. 整体风险态势评估
+2. 重点关注的分类
+3. 建议的处置策略
+
+数据：
+{analysis_result['summary']}
+
+请用简洁专业的语言回答，200字以内。"""
+
+        logger.info("开始 LLM 深度分析")
+
+        if llm_client is None:
+            # 没有传入 LLM 客户端，返回模拟结果
+            logger.warning("未配置 LLM 客户端，返回模拟分析")
+            return f"[模拟分析] 基于上述{analysis_result['valid_count']}条有效记录的分析..."
+
+        # 真实 LLM 调用
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                llm_client["url"],
+                headers={"Authorization": f"Bearer {llm_client['key']}"},
+                json={"model": "glm-4-flash", "messages": [{"role": "user", "content": prompt}]}
+            )
+            if resp.status_code == 200:
+                result = resp.json()["choices"][0]["message"]["content"]
+                logger.info("LLM 分析完成，返回 %d 字", len(result))
+                return result
+            else:
+                logger.error("LLM 调用失败: %d", resp.status_code)
+                return f"[错误] LLM 分析失败: {resp.status_code}"</pre>
+
+<pre># ===== tests/test_report_service.py =====
+import pytest
+from services.report_service import ReportService
+
+@pytest.fixture
+def service():
+    return ReportService()
+
+@pytest.fixture
+def sample_data():
+    return [
+        {"debtor_id": "D001", "balance": 500000, "overdue_days": 45},    # 正常
+        {"debtor_id": "D002", "balance": 300000, "overdue_days": 120},   # 关注
+        {"debtor_id": "D003", "balance": 800000, "overdue_days": 200},   # 次级
+        {"debtor_id": "D004", "balance": 200000, "overdue_days": 500},   # 可疑
+        {"debtor_id": "D005", "balance": 100000, "overdue_days": 800},   # 损失
+        {"debtor_id": "D006", "balance": -50000, "overdue_days": 60},    # 余额为负（异常）
+        {"debtor_id": "D007", "balance": 400000, "overdue_days": -10},   # 天数为负（异常）
+        {"debtor_id": "D008"},                                            # 缺字段（异常）
+    ]
+
+def test_classify(service):
+    """测试五级分类"""
+    assert service.classify(45) == "正常"
+    assert service.classify(90) == "正常"
+    assert service.classify(91) == "关注"
+    assert service.classify(180) == "关注"
+    assert service.classify(181) == "次级"
+    assert service.classify(360) == "次级"
+    assert service.classify(361) == "可疑"
+    assert service.classify(721) == "损失"
+
+def test_validate_record(service):
+    """测试数据校验"""
+    assert service.validate_record({"debtor_id": "D1", "balance": 100, "overdue_days": 30}) is None
+    assert "余额为负" in service.validate_record({"debtor_id": "D1", "balance": -1, "overdue_days": 30})
+    assert "逾期天数为负" in service.validate_record({"debtor_id": "D1", "balance": 100, "overdue_days": -1})
+    assert "缺少必填字段" in service.validate_record({"debtor_id": "D1"})
+
+def test_analyze_batch(service, sample_data):
+    """测试批量分析"""
+    result = service.analyze_batch(sample_data)
+
+    assert result["total"] == 8
+    assert result["valid_count"] == 5       # 8 - 3 条异常
+    assert result["error_count"] == 3
+    assert result["stats"]["正常"] == 1
+    assert result["stats"]["关注"] == 1
+    assert result["stats"]["次级"] == 1
+    assert result["stats"]["可疑"] == 1
+    assert result["stats"]["损失"] == 1
+    assert result["total_balance"] == 1900000.0  # 50+30+80+20+10 万
+    assert len(result["errors"]) == 3
+    assert "分析报告" in result["summary"]
+
+def test_generate_llm_analysis_mock(service):
+    """测试 LLM 分析（mock 模式）"""
+    import asyncio
+    analysis = {"valid_count": 5, "summary": "测试摘要"}
+    result = asyncio.run(service.generate_llm_analysis(analysis))
+    assert "模拟分析" in result</pre>
+
+<pre># ===== main.py =====
+import logging
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import Optional
+
+from config import settings
+from utils.logger import setup_logging
+from services.report_service import ReportService
+
+# 初始化日志
+setup_logging(settings.log_level)
+logger = logging.getLogger(__name__)
+
+# 全局服务实例
+report_service = ReportService()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期：启动和关闭时的操作"""
+    logger.info("=" * 50)
+    logger.info("AMC 智能分析平台启动")
+    logger.info("环境: %s | 端口: %d", "开发" if settings.is_dev else "生产", settings.api_port)
+    logger.info("=" * 50)
+    yield
+    logger.info("AMC 智能分析平台关闭")
+
+app = FastAPI(title="AMC 智能分析平台", lifespan=lifespan)
+
+# ===== 请求/响应模型 =====
+class RecordInput(BaseModel):
+    debtor_id: str
+    balance: float
+    overdue_days: int
+
+class BatchRequest(BaseModel):
+    records: list[RecordInput]
+
+class AnalysisResponse(BaseModel):
+    total: int
+    valid_count: int
+    error_count: int
+    stats: dict
+    total_balance: float
+    errors: list
+    summary: str
+
+# ===== API 路由 =====
+@app.post("/api/analyze", response_model=AnalysisResponse)
+async def analyze_records(req: BatchRequest):
+    """批量分析不良资产记录"""
+    try:
+        records = [r.model_dump() for r in req.records]
+        result = report_service.analyze_batch(records)
+        return result
+    except Exception as e:
+        logger.error("分析失败: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/health")
+async def health_check():
+    return {"status": "ok", "env": settings.app_env if hasattr(settings, 'app_env') else 'dev'}
+
+# 启动方式: uvicorn main:app --reload --port 8000</pre>
+</div>
+
+<!-- ==================== Section 7 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🧩</span> 七、LeetCode 每日一题
+    <span class="time-tag">⏱ 10 min</span>
+  </div>
+
+  <h4>题 155. 最小栈</h4>
+  <p>设计一个支持 <span class="inline-code">push</span>, <span class="inline-code">pop</span>, <span class="inline-code">top</span>, <span class="inline-code">getMin</span> 的栈，<span class="inline-code">getMin</span> 时间复杂度 O(1)。</p>
+
+<pre>"""
+思路：辅助栈 —— 两个栈同步 push/pop
+- 主栈：正常存数据
+- 辅助栈：每层存"当前最小值"
+  push(x) → 辅助栈 push(min(x, 辅助栈栈顶))
+  pop()   → 两个栈同时 pop
+  getMin  → 返回辅助栈栈顶
+
+类比数仓：就像维护一个"累积最小值"字段 alongside 原始数据
+"""
+class MinStack:
+    def __init__(self):
+        self.stack = []       # 主栈
+        self.min_stack = []   # 辅助栈（最小值栈）
+
+    def push(self, val: int) -> None:
+        self.stack.append(val)
+        # 辅助栈存当前最小值
+        if self.min_stack:
+            self.min_stack.append(min(val, self.min_stack[-1]))
+        else:
+            self.min_stack.append(val)
+
+    def pop(self) -> None:
+        self.stack.pop()
+        self.min_stack.pop()
+
+    def top(self) -> int:
+        return self.stack[-1]
+
+    def getMin(self) -> int:
+        return self.min_stack[-1]
+
+# 测试
+ms = MinStack()
+ms.push(-2); ms.push(0); ms.push(-3)
+print(ms.getMin())  # -3
+ms.pop()
+print(ms.top())     # 0
+print(ms.getMin())  # -2
+
+# 时间复杂度：所有操作 O(1)
+# 空间复杂度：O(n)，辅助栈占用的额外空间</pre>
+
+  <div class="concept-box">
+    <strong>与今天内容的关联：</strong>如果你写一个带日志的 MinStack，每次 push/pop 都记日志，这就是"日志 + 数据结构"的结合。工程化不只是 Web 项目的事——任何代码都可以受益。
+  </div>
+</div>
+
+<!-- ==================== Section 8 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📋</span> 八、今日自测
+    <span class="time-tag">⏱ 5 min</span>
+  </div>
+
+  <div class="quiz">
+    <q>1. logging 的五个级别从低到高是什么？生产环境通常设为什么级别？</q>
+    <div class="answer">DEBUG → INFO → WARNING → ERROR → CRITICAL。生产环境通常设 INFO（只记录重要信息），排查问题时临时改 DEBUG。</div>
+  </div>
+
+  <div class="quiz">
+    <q>2. pydantic-settings 从哪些地方读取配置？优先级是什么？</q>
+    <div class="answer">环境变量 > .env 文件 > 代码默认值。这样本地用 .env 开发，部署时通过环境变量覆盖，代码不用改。</div>
+  </div>
+
+  <div class="quiz">
+    <q>3. pytest 中 fixture 的作用是什么？conftest.py 有什么特殊之处？</q>
+    <div class="answer">fixture 是测试的"准备阶段"，用于共享测试数据或 mock 对象。conftest.py 放在 tests/ 目录下，pytest 自动识别其中的 fixture，所有测试文件都能用，不需要 import。</div>
+  </div>
+
+  <div class="quiz">
+    <q>4. 什么场景下需要用 mock？什么场景不需要？</q>
+    <div class="answer">需要 mock：调外部 API（LLM、第三方服务）、数据库操作、文件系统——因为慢、不稳定、费钱。不需要 mock：纯业务逻辑（数据校验、分类计算、格式转换）——直接测就行。</div>
+  </div>
+
+  <div class="quiz">
+    <q>5. .env 文件为什么必须加入 .gitignore？</q>
+    <div class="answer">.env 里存的是 API Key、数据库密码等敏感信息。一旦提交到 Git（尤其公开仓库），这些密钥就泄露了，别人可以用你的 Key 调 LLM API，产生费用。</div>
+  </div>
+</div>
+
+<!-- ==================== 总结 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📌</span> 九、今日总结与 Day 28 预告
+  </div>
+
+  <h3>今天学到了什么</h3>
+  <table>
+    <tr><th>主题</th><th>核心工具</th><th>关键知识点</th></tr>
+    <tr><td>日志</td><td>logging + dictConfig</td><td>五级别 / RotatingFileHandler / 按模块分 logger</td></tr>
+    <tr><td>配置</td><td>pydantic-settings + .env</td><td>环境变量优先级 / Settings 单例 / 计算属性</td></tr>
+    <tr><td>测试</td><td>pytest + fixture + mock</td><td>assert / conftest / AsyncMock / patch</td></tr>
+    <tr><td>部署</td><td>uvicorn + 项目结构</td><td>分层目录 / requirements.txt / .gitignore</td></tr>
+  </table>
+
+  <h3>Day 28 预告</h3>
+  <p><strong>Phase 1B 综合实战：构建完整的 AMC 智能问答平台</strong></p>
+  <p>把 Day 19-27 的所有知识串起来：面向对象 + 异步 + FastAPI + 数据库 + 日志 + 配置 + 测试，做一个端到端的项目。这将是 Phase 1B（工程进阶）的收官之战！</p>
+
+  <div class="tip-box">
+    <strong>💡 Phase 2 预告：</strong>Day 29 开始进入 RAG+Agent 阶段——文档分块、Embedding、向量数据库、检索增强生成。你将学会让 LLM "读懂"自己的业务文档。工程化基础打好了，后面的 RAG 系统才能稳定运行。
+  </div>
+</div>
+
+<div class="footer">
+  LLM 转型学习计划 · Day 27 / 70 · 数据开发工程师专属 Python + LLM 路线
+</div>
+
+</body>
+</html>

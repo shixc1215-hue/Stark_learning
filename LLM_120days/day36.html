@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 36 - Agent 基础：让 LLM 能调用工具和执行任务</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#eff6ff,#eef2ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #bfdbfe; }
+  .header .badge { display:inline-block;background:#dbeafe;color:var(--accent);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .compare-table { width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px; }
+  .compare-table th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border);color:var(--text2);font-size:13px; }
+  .compare-table td { padding:10px 14px;border:1px solid var(--border);vertical-align:top; }
+  .compare-table tr:nth-child(even) td { background:var(--surface2); }
+  pre { background:#1e293b;color:#e2e8f0;padding:16px 20px;border-radius:8px;overflow-x:auto;font-size:13.5px;line-height:1.7;margin:14px 0; }
+  code { font-family:'Cascadia Code','Fira Code',Consolas,monospace; }
+  .inline-code { background:var(--surface2);padding:2px 7px;border-radius:4px;font-size:13px;color:var(--accent); }
+  .hl-keyword { color:#c084fc; }
+  .hl-func { color:#60a5fa; }
+  .hl-string { color:#34d399; }
+  .hl-comment { color:#64748b;font-style:italic; }
+  .hl-class { color:#fbbf24; }
+  .hl-number { color:#f97316; }
+  .hl-decorator { color:#f472b6; }
+  .sub-section { font-size:16px;font-weight:700;margin:20px 0 10px;color:var(--text);display:flex;align-items:center;gap:8px; }
+  .sub-section .num { background:var(--accent);color:#fff;font-size:12px;padding:2px 8px;border-radius:10px;font-weight:700; }
+  p { font-size:14.5px;margin:8px 0;color:var(--text); }
+  ul,ol { font-size:14.5px;margin:8px 0 8px 20px;color:var(--text); }
+  li { margin:4px 0; }
+  .footer { text-align:center;color:var(--text3);font-size:13px;margin-top:32px;padding:16px;border-top:1px solid var(--border); }
+  .flow-diagram { display:flex;align-items:center;justify-content:center;gap:8px;margin:16px 0;flex-wrap:wrap; }
+  .flow-diagram .node { background:var(--surface2);border:1px solid var(--border);padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;text-align:center; }
+  .flow-diagram .node.highlight { background:#dbeafe;border-color:var(--accent);color:var(--accent); }
+  .flow-diagram .arrow { color:var(--text3);font-size:18px;font-weight:700; }
+  .pitfall-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .summary-grid { display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0; }
+  .summary-card { background:var(--surface2);border-radius:8px;padding:14px 16px;border:1px solid var(--border); }
+  .summary-card .card-title { font-size:13px;font-weight:700;color:var(--accent);margin-bottom:6px; }
+  .summary-card .card-body { font-size:13px;color:var(--text2); }
+  @media(max-width:600px){ .summary-grid{grid-template-columns:1fr;} body{padding:12px;} .header{padding:20px;} .section{padding:18px;} }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="badge">PHASE 2 · RAG + Agent · Day 8</div>
+  <h1>🤖 Agent 基础：让 LLM 能调用工具和执行任务</h1>
+  <div class="subtitle">从"一问一答"到"自主决策" — LLM 的进化之路</div>
+</div>
+
+<!-- Progress -->
+<div class="progress-bar">
+  <span class="label">总进度</span>
+  <div class="track"><div class="fill" style="width:51.4%"></div></div>
+  <span class="percent">36/70</span>
+</div>
+
+<!-- Section 1: Agent 时代来了 -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🌍</span>
+    Agent 时代来了：从 Chat 到 Act
+    <span class="time-tag">⏱ 15 min</span>
+  </div>
+
+  <p>回顾一下我们学过的 LLM 能力：</p>
+  <div class="flow-diagram">
+    <div class="node">D1-D7<br>LLM API 调用</div>
+    <div class="arrow">→</div>
+    <div class="node">D25-D26<br>FastAPI 封装服务</div>
+    <div class="arrow">→</div>
+    <div class="node highlight">D29-D35<br>RAG（检索增强生成）</div>
+    <div class="arrow">→</div>
+    <div class="node highlight" style="background:#fef3c7;border-color:var(--orange);color:var(--orange)">D36<br>Agent ⚡</div>
+  </div>
+
+  <p>但 RAG 有一个局限：LLM 只能基于<strong>已有文档</strong>回答问题。它不能查数据库、不能发邮件、不能写文件。Agent 就是打破这个局限的下一步。</p>
+
+  <div class="concept-box">
+    <strong>Agent（智能体）</strong>= LLM 大脑 + 工具箱 + 自主决策循环<br>
+    核心：LLM 不只生成文本，还生成<strong>动作指令</strong>，程序执行动作后把结果喂回给 LLM，循环往复直到任务完成。
+  </div>
+
+  <p>用一个类比理解 Agent 和 RAG 的区别：</p>
+
+  <table class="compare-table">
+    <tr>
+      <th>维度</th><th>RAG（Day 29-35）</th><th>Agent（Day 36+）</th>
+    </tr>
+    <tr>
+      <td><strong>核心能力</strong></td>
+      <td>基于文档回答问题</td>
+      <td>自主完成多步骤任务</td>
+    </tr>
+    <tr>
+      <td><strong>数据来源</strong></td>
+      <td>向量库中的文档</td>
+      <td>任意工具（数据库/API/文件/计算器...）</td>
+    </tr>
+    <tr>
+      <td><strong>决策权</strong></td>
+      <td>人决定问什么</td>
+      <td>LLM 自己决定调用哪个工具</td>
+    </tr>
+    <tr>
+      <td><strong>类比</strong></td>
+      <td>给你一本参考书，你翻书找答案</td>
+      <td>给你一整个办公室，你自己决定用电脑、打电话还是查资料</td>
+    </tr>
+    <tr>
+      <td><strong>循环</strong></td>
+      <td>单次：问题→检索→生成</td>
+      <td>多次：思考→行动→观察→思考...</td>
+    </tr>
+  </table>
+
+  <div class="tip-box">
+    💡 <strong>Agent 和 RAG 不是替代关系！</strong>实际生产中，RAG 检索工具就是 Agent 工具箱里最常用的工具之一。Agent 是 RAG 的超集。
+  </div>
+</div>
+
+<!-- Section 2: ReAct 循环 -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔄</span>
+    ReAct 循环：Agent 的核心引擎
+    <span class="time-tag">⏱ 10 min</span>
+  </div>
+
+  <p>几乎所有 Agent 框架（LangChain/OpenAI Agent/大模型原生）都基于同一个设计模式：<strong>ReAct</strong>（Reasoning + Acting）。</p>
+
+  <div class="sub-section"><span class="num">1</span> ReAct 三步循环</div>
+
+  <div class="flow-diagram">
+    <div class="node" style="background:#dbeafe;border-color:var(--accent);color:var(--accent);min-width:120px">
+      🧠 Thought<br><small>思考下一步做什么</small>
+    </div>
+    <div class="arrow">→</div>
+    <div class="node" style="background:#fef3c7;border-color:var(--orange);color:var(--orange);min-width:120px">
+      🔧 Action<br><small>调用工具执行</small>
+    </div>
+    <div class="arrow">→</div>
+    <div class="node" style="background:#f0fdf4;border-color:var(--green);color:var(--green);min-width:120px">
+      👁 Observation<br><small>获取工具返回结果</small>
+    </div>
+    <div class="arrow">→</div>
+    <div class="node" style="background:var(--surface2);min-width:100px">
+      🔄 Loop<br><small>回到 Thought</small>
+    </div>
+  </div>
+
+  <p>用 AMC 业务场景举个例子——用户问"本季度不良资产余额超过 5000 万的客户有哪些？"：</p>
+
+  <pre><code><span class="hl-comment"># Agent 的思考过程（模拟）</span>
+
+<span class="hl-keyword">Thought 1:</span> 用户要查不良资产余额>5000万的客户。
+  需要从数据库查数据，但具体查哪张表？
+  先用 knowledge_search 工具搜索相关文档。
+
+<span class="hl-keyword">Action 1:</span> knowledge_search("不良资产余额 客户 查询")
+<span class="hl-keyword">Observation 1:</span> 找到文档：不良资产明细表 npl_detail，包含 debtor_id, balance, report_date 字段
+
+<span class="hl-keyword">Thought 2:</span> 知道表名和字段了。现在需要执行 SQL 查询。
+  用 db_query 工具查询。
+
+<span class="hl-keyword">Action 2:</span> db_query("SELECT debtor_id, SUM(balance) as total_balance
+  FROM npl_detail WHERE report_date = '2026-06-30'
+  GROUP BY debtor_id HAVING SUM(balance) > 50000000")
+<span class="hl-keyword">Observation 2:</span> [(1001, 85000000), (1023, 62000000), (1089, 71000000)]
+
+<span class="hl-keyword">Thought 3:</span> 查到了3个客户ID，但用户看到ID不好理解。
+  用 db_query 补充客户名称。
+
+<span class="hl-keyword">Action 3:</span> db_query("SELECT debtor_id, debtor_name FROM debtor_info
+  WHERE debtor_id IN (1001, 1023, 1089)")
+<span class="hl-keyword">Observation 3:</span> [(1001, "XX贸易有限公司"), (1023, "YY实业集团"), (1089, "ZZ投资公司")]
+
+<span class="hl-keyword">Thought 4:</span> 信息齐了，可以回答用户了。
+
+<span class="hl-keyword">Answer:</span> 本季度（2026年Q2）不良资产余额超过5000万的客户共3家：
+  1. XX贸易有限公司 — 8,500万
+  2. ZZ投资公司 — 7,100万
+  3. YY实业集团 — 6,200万</code></pre>
+
+  <div class="concept-box">
+    <strong>关键洞察</strong>：Agent 的核心不是"聪明"，而是<strong>"有工具 + 能循环"</strong>。每次循环，LLM 都能看到上一步的结果，做出更精准的决策——这就像你查资料时，翻完第一本书就知道该去翻第二本了。
+  </div>
+
+  <div class="sub-section"><span class="num">2</span> 终止条件：什么时候停下来？</div>
+
+  <pre><code><span class="hl-comment"># Agent 的终止条件（必须设置，否则会无限循环！）</span>
+
+<span class="hl-keyword">终止条件 1：</span> LLM 主动输出 <span class="hl-string">"Final Answer: ..."</span>  → 任务完成
+<span class="hl-keyword">终止条件 2：</span> 循环次数达到上限（如 max_steps=10）→ 防止失控
+<span class="hl-keyword">终止条件 3：</span> 工具返回错误且重试次数耗尽 → 任务失败</code></pre>
+
+  <div class="warn-box">
+    ⚠️ <strong>没有终止条件 = 灾难！</strong>Agent 可能无限调用工具，烧掉 API 额度和钱。生产环境必须设置 <code class="inline-code">max_steps</code>。
+  </div>
+</div>
+
+<!-- Section 3: Python 知识 — 类型注解 -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span>
+    Python 知识：类型注解（Type Hints）
+    <span class="time-tag">⏱ 20 min</span>
+  </div>
+
+  <p>Agent 框架大量使用类型注解。它是 Python 3.5+ 的语法糖，让你给函数和变量标注数据类型。</p>
+
+  <div class="sub-section"><span class="num">1</span> 基本类型注解</div>
+
+  <pre><code><span class="hl-comment"># ========== 基本类型注解 ==========</span>
+
+<span class="hl-comment"># 变量注解（Python 3.6+）</span>
+<span class="hl-func">name</span>: str = <span class="hl-string">"张三"</span>       <span class="hl-comment"># name 是字符串类型</span>
+<span class="hl-func">age</span>: int = <span class="hl-number">35</span>            <span class="hl-comment"># age 是整数</span>
+<span class="hl-func">balance</span>: float = <span class="hl-number">5000000.0</span>  <span class="hl-comment"># balance 是浮点数</span>
+<span class="hl-func">is_active</span>: bool = <span class="hl-keyword">True</span>     <span class="hl-comment"># is_active 是布尔值</span>
+<span class="hl-func">data</span>: list = [<span class="hl-number">1</span>, <span class="hl-number">2</span>, <span class="hl-number">3</span>]      <span class="hl-comment"># data 是列表</span>
+<span class="hl-func">info</span>: dict = {<span class="hl-string">"k"</span>: <span class="hl-string">"v"</span>}      <span class="hl-comment"># info 是字典</span>
+
+<span class="hl-comment"># 函数注解（Python 3.5+）</span>
+<span class="hl-keyword">def</span> <span class="hl-func">calculate_npl_ratio</span>(bad_balance: float, total_balance: float) -> float:
+    <span class="hl-string">"""计算不良资产率"""
+    <span class="hl-comment"># 参数: bad_balance(浮点), total_balance(浮点)</span>
+    <span class="hl-comment"># 返回值: -> float 表示返回浮点数</span>
+    </span>
+    <span class="hl-keyword">if</span> total_balance == <span class="hl-number">0</span>:
+        <span class="hl-keyword">return</span> <span class="hl-number">0.0</span>
+    <span class="hl-keyword">return</span> bad_balance / total_balance
+
+<span class="hl-comment"># 调用时类型注解不会强制检查（Python 是动态语言）</span>
+<span class="hl-func">result</span> = calculate_npl_ratio(<span class="hl-number">500</span>, <span class="hl-number">10000</span>)  <span class="hl-comment"># 返回 0.05</span>
+<span class="hl-func">result</span> = calculate_npl_ratio(<span class="hl-string">"500"</span>, <span class="hl-string">"10000"</span>)  <span class="hl-comment"># 不报错，但运行时会出错</span></code></pre>
+
+  <div class="sub-section"><span class="num">2</span> 高级类型注解（typing 模块）</div>
+
+  <pre><code><span class="hl-keyword">from</span> typing <span class="hl-keyword">import</span> List, Dict, Optional, Union, Any, Callable, Literal
+
+<span class="hl-comment"># List[X] — 列表中的元素都是 X 类型</span>
+<span class="hl-func">debtor_ids</span>: List[int] = [<span class="hl-number">1001</span>, <span class="hl-number">1002</span>, <span class="hl-number">1003</span>]
+<span class="hl-func">names</span>: List[str] = [<span class="hl-string">"张三"</span>, <span class="hl-string">"李四"</span>]
+
+<span class="hl-comment"># Dict[K, V] — 键类型K，值类型V</span>
+<span class="hl-func">debtor_map</span>: Dict[str, float] = {
+    <span class="hl-string">"张三"</span>: <span class="hl-number">8500000.0</span>,
+    <span class="hl-string">"李四"</span>: <span class="hl-number">6200000.0</span>,
+}
+
+<span class="hl-comment"># Optional[X] — 要么是 X 类型，要么是 None</span>
+<span class="hl-keyword">def</span> <span class="hl-func">find_debtor</span>(debtor_id: int) -> Optional[dict]:
+    <span class="hl-string">"""根据ID查找债务人，可能找不到（返回None）"""
+    </span>
+    db = {<span class="hl-number">1001</span>: {<span class="hl-string">"name"</span>: <span class="hl-string">"张三"</span>}, <span class="hl-number">1002</span>: {<span class="hl-string">"name"</span>: <span class="hl-string">"李四"</span>}}
+    <span class="hl-keyword">return</span> db.get(debtor_id)  <span class="hl-comment"># get 找不到返回 None</span>
+
+<span class="hl-comment"># Union[X, Y] — 要么是X类型，要么是Y类型</span>
+<span class="hl-keyword">def</span> <span class="hl-func">parse_amount</span>(value: Union[str, int, float]) -> float:
+    <span class="hl-string">"""接受多种输入类型，统一转浮点"""
+    </span>
+    <span class="hl-keyword">return</span> float(value)
+
+<span class="hl-comment"># Any — 任意类型（少用，表示"不确定"）</span>
+<span class="hl-keyword">def</span> <span class="hl-func">log_result</span>(data: Any) -> <span class="hl-keyword">None</span>:
+    <span class="hl-string">"""记录结果"""
+    </span>
+    print(data)
+
+<span class="hl-comment"># Callable — 函数类型，Callable[[参数类型], 返回类型]</span>
+<span class="hl-keyword">def</span> <span class="hl-func">apply_transform</span>(
+    data: List[float],
+    transform: Callable[[float], float]  <span class="hl-comment"># 接受一个参数float，返回float的函数</span>
+) -> List[float]:
+    <span class="hl-string">"""对列表中每个元素应用变换函数"""
+    </span>
+    <span class="hl-keyword">return</span> [transform(x) <span class="hl-keyword">for</span> x <span class="hl-keyword">in</span> data]
+
+<span class="hl-comment"># 使用：传一个 lambda 或普通函数</span>
+<span class="hl-func">result</span> = apply_transform([<span class="hl-number">1.0</span>, <span class="hl-number">2.0</span>, <span class="hl-number">3.0</span>], <span class="hl-keyword">lambda</span> x: x * <span class="hl-number">10000</span>)
+<span class="hl-comment"># [10000.0, 20000.0, 30000.0]</span>
+
+<span class="hl-comment"># Literal — 限定为几个固定值之一（常用于配置）</span>
+<span class="hl-keyword">def</span> <span class="hl-func">set_log_level</span>(level: Literal[<span class="hl-string">"DEBUG"</span>, <span class="hl-string">"INFO"</span>, <span class="hl-string">"WARNING"</span>, <span class="hl-string">"ERROR"</span>]) -> <span class="hl-keyword">None</span>:
+    <span class="hl-string">"""只接受这几个字符串值"""
+    </span>
+    print(f<span class="hl-string">"日志级别设为: {level}"</span>)</code></pre>
+
+  <div class="sub-section"><span class="num">3</span> Python 3.10+ 新语法（从 | 到 @dataclass）</div>
+
+  <pre><code><span class="hl-comment"># ========== Python 3.10+ 简写语法 ==========</span>
+
+<span class="hl-comment"># 用 | 代替 Union（Python 3.10+）</span>
+<span class="hl-func">age</span>: int | <span class="hl-keyword">None</span> = <span class="hl-keyword">None</span>              <span class="hl-comment"># 等同于 Optional[int]</span>
+<span class="hl-func">value</span>: str | int | float = <span class="hl-string">"hello"</span>    <span class="hl-comment"># 等同于 Union[str, int, float]</span>
+
+<span class="hl-comment"># 用 list/dict 代替 List/Dict（Python 3.9+）</span>
+<span class="hl-func">ids</span>: list[int] = [<span class="hl-number">1</span>, <span class="hl-number">2</span>, <span class="hl-number">3</span>]             <span class="hl-comment"># 不用 typing.List 了</span>
+<span class="hl-func">mapping</span>: dict[str, float] = {<span class="hl-string">"a"</span>: <span class="hl-number">1.0</span>}  <span class="hl-comment"># 不用 typing.Dict 了</span>
+
+<span class="hl-comment"># ========== dataclass + 类型注解 = 完美组合 ==========</span>
+<span class="hl-keyword">from</span> dataclasses <span class="hl-keyword">import</span> dataclass
+
+<span class="hl-decorator">@dataclass</span>
+<span class="hl-keyword">class</span> <span class="hl-class">ToolCall</span>:
+    <span class="hl-string">"""Agent 调用工具的记录"""</span>
+    tool_name: str           <span class="hl-comment"># 工具名</span>
+    arguments: dict          <span class="hl-comment"># 参数</span>
+    result: str | <span class="hl-keyword">None</span> = <span class="hl-keyword">None</span>   <span class="hl-comment"># 返回结果（可能还没执行）</span>
+    duration_ms: float = <span class="hl-number">0.0</span>     <span class="hl-comment"># 耗时</span>
+
+<span class="hl-comment"># dataclass 自动生成 __init__，类型注解让代码可读性极高</span>
+<span class="hl-func">call</span> = ToolCall(tool_name=<span class="hl-string">"db_query"</span>, arguments={<span class="hl-string">"sql"</span>: <span class="hl-string">"SELECT 1"</span>})
+<span class="hl-func">call</span>.result = <span class="hl-string">"[(1,)]"</span>
+<span class="hl-func">call</span>.duration_ms = <span class="hl-number">23.5</span>
+print(call)
+<span class="hl-comment"># ToolCall(tool_name='db_query', arguments={'sql': 'SELECT 1'}, result='[(1,)]', duration_ms=23.5)</span></code></pre>
+
+  <div class="tip-box">
+    💡 <strong>类型注解的实用价值</strong>：IDE 自动补全（最爽）、static type checker（mypy/pyright 提前发现 bug）、代码可读性（"这个函数接受什么？返回什么？"一目了然）。Agent 框架源码里到处都是，不理解就看不懂源码。
+  </div>
+</div>
+
+<!-- Section 4: 工具定义 -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔧</span>
+    工具定义：给 Agent 配备"手和脚"
+    <span class="time-tag">⏱ 20 min</span>
+  </div>
+
+  <p>Agent 能力的上限 = 工具箱的质量。定义工具需要三要素：</p>
+
+  <table class="compare-table">
+    <tr><th>要素</th><th>说明</th><th>AMC 示例</th></tr>
+    <tr>
+      <td><strong>名称</strong></td>
+      <td>简短明确，LLM 能理解</td>
+      <td><code class="inline-code">db_query</code>, <code class="inline-code">knowledge_search</code></td>
+    </tr>
+    <tr>
+      <td><strong>描述</strong></td>
+      <td>详细说明功能、适用场景、注意事项</td>
+      <td>"执行 SQL 查询 AMC 数据库..."</td>
+    </tr>
+    <tr>
+      <td><strong>参数 Schema</strong></td>
+      <td>参数名、类型、必填/可选、描述</td>
+      <td><code class="inline-code">sql: str</code> (必填)</td>
+    </tr>
+  </table>
+
+  <div class="sub-section"><span class="num">1</span> 用 dataclass 定义工具</div>
+
+  <pre><code><span class="hl-keyword">from</span> dataclasses <span class="hl-keyword">import</span> dataclass, field
+<span class="hl-keyword">from</span> typing <span class="hl-keyword">import</span> Any, Callable
+
+<span class="hl-decorator">@dataclass</span>
+<span class="hl-keyword">class</span> <span class="hl-class">ToolParameter</span>:
+    <span class="hl-string">"""工具参数定义"""
+    </span>
+    name: str          <span class="hl-comment"># 参数名</span>
+    type: str          <span class="hl-comment"># 类型: "str", "int", "float", "bool", "list", "dict"</span>
+    description: str   <span class="hl-comment"># 参数说明（LLM 会读这个）</span>
+    required: bool = <span class="hl-keyword">True</span>   <span class="hl-comment"># 是否必填</span>
+    default: Any = <span class="hl-keyword">None</span>      <span class="hl-comment"># 默认值</span>
+
+<span class="hl-decorator">@dataclass</span>
+<span class="hl-keyword">class</span> <span class="hl-class">Tool</span>:
+    <span class="hl-string">"""Agent 工具定义"""
+    </span>
+    name: str                                <span class="hl-comment"># 工具名（LLM 通过这个名字调用）</span>
+    description: str                         <span class="hl-comment"># 功能描述（LLM 决策的主要依据！）</span>
+    parameters: list[ToolParameter]          <span class="hl-comment"># 参数列表</span>
+    function: Callable[[dict], str] = <span class="hl-keyword">None</span>  <span class="hl-comment"># 实际执行函数</span>
+
+    <span class="hl-keyword">def</span> <span class="hl-func">execute</span>(self, args: dict) -> str:
+        <span class="hl-string">"""执行工具"""
+        </span>
+        <span class="hl-keyword">return</span> self.function(args)
+
+    <span class="hl-keyword">def</span> <span class="hl-func">to_prompt_description</span>(self) -> str:
+        <span class="hl-string">"""生成给 LLM 的工具描述"""
+        </span>
+        params_desc = <span class="hl-string">"\n    "</span>.join(
+            f<span class="hl-string">"- {p.name} ({p.type}){'【必填】' if p.required else '【可选, 默认:'+str(p.default)+'】'}: {p.description}"</span>
+            <span class="hl-keyword">for</span> p <span class="hl-keyword">in</span> self.parameters
+        )
+        <span class="hl-keyword">return</span> f<span class="hl-string">"""
+工具: {self.name}
+描述: {self.description}
+参数:
+    {params_desc}
+"""</span>
+
+<span class="hl-comment"># ========== 定义一个完整的数据库查询工具 ==========</span>
+
+<span class="hl-keyword">def</span> <span class="hl-func">mock_db_query</span>(args: dict) -> str:
+    <span class="hl-string">"""模拟数据库查询（真实环境替换为真实连接）"""
+    </span>
+    sql = args.get(<span class="hl-string">"sql"</span>, <span class="hl-string">""</span>)
+    <span class="hl-comment"># 模拟 AMC 数据库</span>
+    mock_data = {
+        <span class="hl-string">"张三"</span>: {<span class="hl-string">"id"</span>: <span class="hl-number">1001</span>, <span class="hl-string">"balance"</span>: <span class="hl-number">85000000</span>},
+        <span class="hl-string">"李四"</span>: {<span class="hl-string">"id"</span>: <span class="hl-number">1002</span>, <span class="hl-string">"balance"</span>: <span class="hl-number">62000000</span>},
+        <span class="hl-string">"王五"</span>: {<span class="hl-string">"id"</span>: <span class="hl-number">1003</span>, <span class="hl-string">"balance"</span>: <span class="hl-number">71000000</span>},
+    }
+    <span class="hl-keyword">for</span> name, info <span class="hl-keyword">in</span> mock_data.items():
+        <span class="hl-keyword">if</span> name <span class="hl-keyword">in</span> sql <span class="hl-keyword">and</span> <span class="hl-string">"SELECT"</span> <span class="hl-keyword">in</span> sql.upper():
+            <span class="hl-keyword">return</span> f<span class="hl-string">"[(info['id'], '{name}', {info['balance']})]"</span>
+    <span class="hl-keyword">return</span> <span class="hl-string">"[(-1, '未找到数据', 0)]"</span>
+
+<span class="hl-comment"># 创建工具实例</span>
+db_tool = Tool(
+    name=<span class="hl-string">"db_query"</span>,
+    description=<span class="hl-string">"查询 AMC 不良资产管理数据库。支持标准 SQL 语法。"
+                  "常用表：npl_detail(不良资产明细), debtor_info(债务人信息), "
+                  "report_summary(报表汇总)。注意：只读查询，不要使用 UPDATE/DELETE。"</span>,
+    parameters=[
+        ToolParameter(
+            name=<span class="hl-string">"sql"</span>,
+            type=<span class="hl-string">"str"</span>,
+            description=<span class="hl-string">"要执行的 SQL 查询语句"</span>,
+            required=<span class="hl-keyword">True</span>,
+        ),
+        ToolParameter(
+            name=<span class="hl-string">"limit"</span>,
+            type=<span class="hl-string">"int"</span>,
+            description=<span class="hl-string">"返回结果的最大行数，默认 20"</span>,
+            required=<span class="hl-keyword">False</span>,
+            default=<span class="hl-number">20</span>,
+        ),
+    ],
+    function=mock_db_query,
+)
+
+print(db_tool.to_prompt_description())</code></pre>
+
+  <div class="sub-section"><span class="num">2</span> 工具描述的"心法"</div>
+
+  <div class="concept-box">
+    <strong>LLM 依靠工具描述来做决策！</strong>描述写得越好，Agent 越聪明。<br><br>
+    <strong>好的描述</strong>："查询 AMC 数据库。表 npl_detail 含不良资产明细（debtor_id, balance, report_date），表 debtor_info 含债务人基本信息。只支持 SELECT。" <br>
+    <strong>差的描述</strong>："查询数据库"
+  </div>
+
+  <ul>
+    <li>写清楚<strong>能做什么</strong>和<strong>不能做什么</strong></li>
+    <li>列举可用的<strong>表名/字段名</strong>（否则 LLM 瞎猜表名）</li>
+    <li>注明<strong>注意事项</strong>（"只读"、"最大返回100行"）</li>
+    <li>给 LLM 看一个<strong>示例调用</strong>（Agent 框架通常支持 examples 字段）</li>
+  </ul>
+</div>
+
+<!-- Section 5: 手写 Agent 核心 -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚙️</span>
+    手写 Agent 核心：不依赖框架，理解本质
+    <span class="time-tag">⏱ 25 min</span>
+  </div>
+
+  <p>现在我们不用 LangChain/任何框架，纯 Python 手写一个完整的 Agent。这能帮你真正理解底层原理。</p>
+
+  <pre><code><span class="hl-keyword">import</span> json
+<span class="hl-keyword">import</span> re
+<span class="hl-keyword">from</span> dataclasses <span class="hl-keyword">import</span> dataclass, field
+
+<span class="hl-comment"># ========== Agent 对话记录 ==========</span>
+
+<span class="hl-decorator">@dataclass</span>
+<span class="hl-keyword">class</span> <span class="hl-class">AgentStep</span>:
+    <span class="hl-string">"""单步记录"""
+    </span>
+    step_num: int
+    thought: str | <span class="hl-keyword">None</span> = <span class="hl-keyword">None</span>     <span class="hl-comment"># 思考</span>
+    action: str | <span class="hl-keyword">None</span> = <span class="hl-keyword">None</span>      <span class="hl-comment"># 动作（工具名）</span>
+    action_input: dict | <span class="hl-keyword">None</span> = <span class="hl-keyword">None</span>  <span class="hl-comment"># 动作参数</span>
+    observation: str | <span class="hl-keyword">None</span> = <span class="hl-keyword">None</span>  <span class="hl-comment"># 观察结果</span>
+    final_answer: str | <span class="hl-keyword">None</span> = <span class="hl-keyword">None</span> <span class="hl-comment"># 最终答案</span>
+
+    <span class="hl-keyword">def</span> <span class="hl-func">__str__</span>(self) -> str:
+        <span class="hl-string">"""格式化输出（便于调试）"""</span>
+        parts = [f<span class="hl-string">"Step {self.step_num}:"</span>]
+        <span class="hl-keyword">if</span> self.thought:
+            parts.append(f<span class="hl-string">"  Thought: {self.thought}"</span>)
+        <span class="hl-keyword">if</span> self.action:
+            parts.append(f<span class="hl-string">"  Action: {self.action}({json.dumps(self.action_input, ensure_ascii=False)})"</span>)
+        <span class="hl-keyword">if</span> self.observation:
+            parts.append(f<span class="hl-string">"  Observation: {self.observation[:200]}"</span>)
+        <span class="hl-keyword">if</span> self.final_answer:
+            parts.append(f<span class="hl-string">"  ✅ Final Answer: {self.final_answer}"</span>)
+        <span class="hl-keyword">return</span> <span class="hl-string">"\n"</span>.join(parts)
+
+
+<span class="hl-comment"># ========== 简单的 Agent 实现 ==========</span>
+
+<span class="hl-keyword">class</span> <span class="hl-class">SimpleAgent</span>:
+    <span class="hl-string">"""
+    最简 Agent 实现（不依赖框架）
+
+    工作原理:
+    1. 接收用户问题 + 工具列表
+    2. 构造 Prompt 告诉 LLM 有哪些工具可用
+    3. LLM 回复 → 解析出 Action（调工具）/ Final Answer（结束）
+    4. 循环直到得到 Final Answer 或超过 max_steps
+    """</span>
+
+    <span class="hl-keyword">def</span> <span class="hl-func">__init__</span>(self, llm_client: Any, tools: list[Tool], max_steps: int = <span class="hl-number">10</span>):
+        self.llm = llm_client      <span class="hl-comment"># LLM 客户端（任何能对话的都行）</span>
+        self.tools = tools          <span class="hl-comment"># 可用工具列表</span>
+        self.max_steps = max_steps  <span class="hl-comment"># 最大循环次数</span>
+        self.steps: list[AgentStep] = []  <span class="hl-comment"># 执行记录</span>
+        self._tool_map = {t.name: t <span class="hl-keyword">for</span> t <span class="hl-keyword">in</span> tools}  <span class="hl-comment"># 名称→工具映射</span>
+
+    <span class="hl-keyword">def</span> <span class="hl-func">_build_system_prompt</span>(self) -> str:
+        <span class="hl-string">"""构造系统提示词"""
+        </span>
+        tool_descriptions = <span class="hl-string">"\n"</span>.join(
+            t.to_prompt_description() <span class="hl-keyword">for</span> t <span class="hl-keyword">in</span> self.tools
+        )
+        <span class="hl-keyword">return</span> f<span class="hl-string">"""你是一个智能助手，可以使用工具来回答用户问题。
+
+可用工具:
+{tool_descriptions}
+
+工作流程:
+1. 思考（Thought）：分析问题，决定下一步做什么
+2. 行动（Action）：选择合适的工具并传入参数
+3. 观察（Observation）：获取工具返回的结果
+4. 重复上述步骤，直到你能给出最终答案
+
+当你能回答用户问题时，请输出:
+Final Answer: 你的回答
+
+重要规则:
+- 每次只调用一个工具
+- 调用工具时必须使用 JSON 格式的参数
+- 如果工具返回错误，尝试修正参数后重试
+- 最多执行 {self.max_steps} 步，之后必须给出答案
+
+输出格式（严格遵守）:
+Thought: 你的思考...
+Action: 工具名
+Action Input: {"参数名": "参数值"}
+"""</span>
+
+    <span class="hl-keyword">def</span> <span class="hl-func">_parse_response</span>(self, response: str) -> dict:
+        <span class="hl-string">"""
+        解析 LLM 的回复，提取 Thought/Action/Action Input/Final Answer
+        这是 Agent 中最关键的部分！
+        """</span>
+        result = {
+            <span class="hl-string">"thought"</span>: <span class="hl-keyword">None</span>,
+            <span class="hl-string">"action"</span>: <span class="hl-keyword">None</span>,
+            <span class="hl-string">"action_input"</span>: {},
+            <span class="hl-string">"final_answer"</span>: <span class="hl-keyword">None</span>,
+        }
+
+        <span class="hl-comment"># 优先检查 Final Answer</span>
+        final_match = re.search(r<span class="hl-string">"Final Answer:\s*(.+?)(?:\n|$)"</span>, response, re.IGNORECASE)
+        <span class="hl-keyword">if</span> final_match:
+            result[<span class="hl-string">"final_answer"</span>] = final_match.group(<span class="hl-number">1</span>).strip()
+            <span class="hl-keyword">return</span> result
+
+        <span class="hl-comment"># 提取 Thought</span>
+        thought_match = re.search(r<span class="hl-string">"Thought:\s*(.+?)(?=\nAction:|\n$)"</span>, response, re.DOTALL)
+        <span class="hl-keyword">if</span> thought_match:
+            result[<span class="hl-string">"thought"</span>] = thought_match.group(<span class="hl-number">1</span>).strip()
+
+        <span class="hl-comment"># 提取 Action（工具名）</span>
+        action_match = re.search(r<span class="hl-string">"Action:\s*(\w+)"</span>, response)
+        <span class="hl-keyword">if</span> action_match:
+            result[<span class="hl-string">"action"</span>] = action_match.group(<span class="hl-number">1</span>).strip()
+
+        <span class="hl-comment"># 提取 Action Input（JSON 参数）</span>
+        input_match = re.search(r<span class="hl-string">"Action Input:\s*(\{.*?\})"</span>, response, re.DOTALL)
+        <span class="hl-keyword">if</span> input_match:
+            <span class="hl-keyword">try</span>:
+                result[<span class="hl-string">"action_input"</span>] = json.loads(input_match.group(<span class="hl-number">1</span>))
+            <span class="hl-keyword">except</span> json.JSONDecodeError:
+                result[<span class="hl-string">"action_input"</span>] = {<span class="hl-string">"raw"</span>: input_match.group(<span class="hl-number">1</span>)}
+
+        <span class="hl-keyword">return</span> result
+
+    <span class="hl-keyword">def</span> <span class="hl-func">run</span>(self, question: str) -> str:
+        <span class="hl-string">"""
+        执行 Agent 主循环
+        """</span>
+        messages = [
+            {<span class="hl-string">"role"</span>: <span class="hl-string">"system"</span>, <span class="hl-string">"content"</span>: self._build_system_prompt()},
+            {<span class="hl-string">"role"</span>: <span class="hl-string">"user"</span>, <span class="hl-string">"content"</span>: question},
+        ]
+
+        <span class="hl-keyword">for</span> step_num <span class="hl-keyword">in</span> range(<span class="hl-number">1</span>, self.max_steps + <span class="hl-number">1</span>):
+            <span class="hl-comment"># 1. 调用 LLM</span>
+            response = self.llm.chat(messages)
+            parsed = self._parse_response(response)
+
+            <span class="hl-comment"># 2. 记录步骤</span>
+            step = AgentStep(step_num=step_num)
+            step.thought = parsed[<span class="hl-string">"thought"</span>]
+
+            <span class="hl-comment"># 3. 检查是否得到最终答案</span>
+            <span class="hl-keyword">if</span> parsed[<span class="hl-string">"final_answer"</span>]:
+                step.final_answer = parsed[<span class="hl-string">"final_answer"</span>]
+                self.steps.append(step)
+                print(step)
+                <span class="hl-keyword">return</span> parsed[<span class="hl-string">"final_answer"</span>]
+
+            <span class="hl-comment"># 4. 执行工具</span>
+            tool_name = parsed[<span class="hl-string">"action"</span>]
+            <span class="hl-keyword">if</span> tool_name <span class="hl-keyword">in</span> self._tool_map:
+                step.action = tool_name
+                step.action_input = parsed[<span class="hl-string">"action_input"</span>]
+                <span class="hl-comment"># 调用工具获取结果</span>
+                observation = self._tool_map[tool_name].execute(
+                    parsed[<span class="hl-string">"action_input"</span>]
+                )
+                step.observation = observation
+                self.steps.append(step)
+                print(step)
+
+                <span class="hl-comment"># 5. 把 Observation 加入对话历史，让 LLM 看到结果</span>
+                messages.append({<span class="hl-string">"role"</span>: <span class="hl-string">"assistant"</span>, <span class="hl-string">"content"</span>: response})
+                messages.append({
+                    <span class="hl-string">"role"</span>: <span class="hl-string">"user"</span>,
+                    <span class="hl-string">"content"</span>: f<span class="hl-string">"Observation: {observation}\n\n继续思考下一步，或给出 Final Answer。"</span>,
+                })
+            <span class="hl-keyword">else</span>:
+                <span class="hl-comment"># 工具不存在，告诉 LLM 并重试</span>
+                messages.append({<span class="hl-string">"role"</span>: <span class="hl-string">"assistant"</span>, <span class="hl-string">"content"</span>: response})
+                messages.append({
+                    <span class="hl-string">"role"</span>: <span class="hl-string">"user"</span>,
+                    <span class="hl-string">"content"</span>: f<span class="hl-string">"Error: 工具 '{tool_name}' 不存在。可用工具: {list(self._tool_map.keys())}。请重新选择。"</span>,
+                })
+                print(f<span class="hl-string">"Step {step_num}: ❌ 未知工具 '{tool_name}'"</span>)
+
+        <span class="hl-keyword">return</span> <span class="hl-string">"⚠️ Agent 达到最大步数限制，未能完成任务。"</span>
+
+    <span class="hl-keyword">def</span> <span class="hl-func">show_trace</span>(self) -> str:
+        <span class="hl-string">"""输出完整的执行轨迹（用于调试和审计）"""</span>
+        <span class="hl-keyword">return</span> <span class="hl-string">"\n---\n"</span>.join(str(s) <span class="hl-keyword">for</span> s <span class="hl-keyword">in</span> self.steps)</code></pre>
+
+  <div class="tip-box">
+    💡 <strong>这就是 Agent 的全部核心！</strong>不管 LangChain 的 AgentExecutor 还是 OpenAI 的 Assistants API，底层都是这个循环：<code class="inline-code">Prompt → LLM → 解析 → 工具 → 结果 → 再 Prompt</code>。框架只是帮你做了格式解析和错误处理。
+  </div>
+</div>
+
+<!-- Section 6: LLM 实战 -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🚀</span>
+    LLM 实战：多工具 Agent 解决 AMC 查询
+    <span class="time-tag">⏱ 20 min</span>
+  </div>
+
+  <p>现在把所有东西组合起来，构建一个能查数据库 + 搜索知识的完整 Agent。</p>
+
+  <pre><code><span class="hl-comment"># ========== 模拟 LLM 客户端（真实环境替换为智谱/OpenAI） ==========</span>
+
+<span class="hl-keyword">class</span> <span class="hl-class">MockLLMClient</span>:
+    <span class="hl-string">"""
+    模拟 LLM 响应（用于演示 Agent 循环）
+    真实环境替换为:
+    from zhipuai import ZhipuAI
+    client = ZhipuAI(api_key="xxx")
+    """</span>
+
+    <span class="hl-keyword">def</span> <span class="hl-func">chat</span>(self, messages: list[dict]) -> str:
+        <span class="hl-string">"""模拟 LLM 响应"""
+        </span>
+        last_msg = messages[-1][<span class="hl-string">"content"</span>]
+
+        <span class="hl-comment"># 简单规则模拟 LLM 的决策（实际由 LLM 完成）</span>
+        <span class="hl-keyword">if</span> <span class="hl-string">"继续思考"</span> <span class="hl-keyword">in</span> last_msg <span class="hl-keyword">and</span> <span class="hl-string">"张三"</span> <span class="hl-keyword">in</span> last_msg:
+            <span class="hl-keyword">return</span> f<span class="hl-string">"""Thought: 数据已查到，张三的不良资产余额为 85000000（8500万），超过5000万阈值。可以回答用户了。
+Final Answer: 查询结果：张三（ID: 1001）的不良资产余额为 8,500 万元，超过 5,000 万阈值。"""</span>
+        <span class="hl-keyword">elif</span> <span class="hl-string">"工具"</span> <span class="hl-keyword">in</span> last_msg:
+            <span class="hl-keyword">return</span> f<span class="hl-string">"Thought: 我会使用正确的工具。"</span>
+        <span class="hl-keyword">else</span>:
+            <span class="hl-keyword">return</span> f<span class="hl-string">"""Thought: 用户想查询张三的不良资产余额。需要使用 db_query 工具查询 npl_detail 表。
+Action: db_query
+Action Input: {{"sql": "SELECT debtor_id, debtor_name, balance FROM npl_detail WHERE debtor_name = '张三'"}}"""</span>
+
+
+<span class="hl-comment"># ========== 定义知识搜索工具 ==========</span>
+
+<span class="hl-keyword">def</span> <span class="hl-func">mock_knowledge_search</span>(args: dict) -> str:
+    <span class="hl-string">"""模拟知识库搜索"""
+    </span>
+    query = args.get(<span class="hl-string">"query"</span>, <span class="hl-string">""</span>)
+    knowledge = {
+        <span class="hl-string">"不良资产"</span>: <span class="hl-string">"不良资产指银行/AMC持有的、借款人未能按期偿还的贷款资产。主要分类：次级、可疑、损失。"</span>,
+        <span class="hl-string">"五级分类"</span>: <span class="hl-string">"贷款五级分类：正常、关注、次级、可疑、损失。后三类合称不良贷款。"</span>,
+        <span class="hl-string">"处置方式"</span>: <span class="hl-string">"不良资产处置方式包括：批量转让、单笔转让、债务重组、债转股、资产证券化。"</span>,
+    }
+    <span class="hl-keyword">for</span> key, value <span class="hl-keyword">in</span> knowledge.items():
+        <span class="hl-keyword">if</span> key <span class="hl-keyword">in</span> query:
+            <span class="hl-keyword">return</span> value
+    <span class="hl-keyword">return</span> <span class="hl-string">"未找到相关知识。"</span>
+
+knowledge_tool = Tool(
+    name=<span class="hl-string">"knowledge_search"</span>,
+    description=<span class="hl-string">"搜索 AMC 不良资产知识库。包含不良资产分类标准、处置方式、监管政策等知识。"
+                  "适合回答概念性问题，如'什么是五级分类'、'不良资产如何处置'。"</span>,
+    parameters=[
+        ToolParameter(name=<span class="hl-string">"query"</span>, type=<span class="hl-string">"str"</span>,
+                     description=<span class="hl-string">"搜索关键词"</span>, required=<span class="hl-keyword">True</span>),
+    ],
+    function=mock_knowledge_search,
+)
+
+<span class="hl-comment"># ========== 定义计算器工具 ==========</span>
+
+<span class="hl-keyword">def</span> <span class="hl-func">mock_calculator</span>(args: dict) -> str:
+    <span class="hl-string">"""简单的计算器"""
+    </span>
+    expression = args.get(<span class="hl-string">"expression"</span>, <span class="hl-string">""</span>)
+    <span class="hl-keyword">try</span>:
+        <span class="hl-comment"># ⚠️ 生产环境不要用 eval！这里仅演示</span>
+        <span class="hl-keyword">import</span> re
+        <span class="hl-comment"># 只允许数字和基本运算符</span>
+        <span class="hl-keyword">if</span> re.match(r<span class="hl-string">'^[\d\s+\-*/().]+$'</span>, expression):
+            result = eval(expression)
+            <span class="hl-keyword">return</span> str(result)
+        <span class="hl-keyword">return</span> <span class="hl-string">"Error: 不安全的表达式"</span>
+    <span class="hl-keyword">except</span> Exception <span class="hl-keyword">as</span> e:
+        <span class="hl-keyword">return</span> f<span class="hl-string">"Error: {e}"</span>
+
+calculator_tool = Tool(
+    name=<span class="hl-string">"calculator"</span>,
+    description=<span class="hl-string">"数学计算器。支持加减乘除运算。适合需要数值计算的场景。"</span>,
+    parameters=[
+        ToolParameter(name=<span class="hl-string">"expression"</span>, type=<span class="hl-string">"str"</span>,
+                     description=<span class="hl-string">"数学表达式，如 '85000000 + 62000000'"</span>,
+                     required=<span class="hl-keyword">True</span>),
+    ],
+    function=mock_calculator,
+)
+
+<span class="hl-comment"># ========== 运行 Agent ==========</span>
+
+<span class="hl-func">llm</span> = MockLLMClient()
+<span class="hl-func">agent</span> = SimpleAgent(
+    llm_client=llm,
+    tools=[db_tool, knowledge_tool, calculator_tool],  <span class="hl-comment"># 传入所有工具</span>
+    max_steps=<span class="hl-number">5</span>,
+)
+
+<span class="hl-comment"># 场景 1：查数据</span>
+<span class="hl-func">answer</span> = agent.run(<span class="hl-string">"张三的不良资产余额是多少？"</span>)
+print(f<span class="hl-string">"\n✅ 最终答案: {answer}"</span>)
+
+<span class="hl-comment"># 场景 2：概念问答</span>
+<span class="hl-func">agent</span>.steps = []  <span class="hl-comment"># 重置记录</span>
+<span class="hl-func">answer</span> = agent.run(<span class="hl-string">"什么是不良资产？有哪些处置方式？"</span>)
+
+<span class="hl-comment"># 查看完整轨迹</span>
+print(agent.show_trace())</code></pre>
+
+  <div class="concept-box">
+    <strong>Agent 能力的扩展性</strong>：添加新能力 = 添加新工具。<br>
+    要让 Agent 能发邮件？写一个 <code class="inline-code">send_email</code> 工具。<br>
+    要让 Agent 能查实时股价？写一个 <code class="inline-code">get_stock_price</code> 工具。<br>
+    要让 Agent 能执行 RAG？写一个 <code class="inline-code">rag_search</code> 工具。<br>
+    <strong>Agent 大脑不变，工具箱无限扩展。</strong>
+  </div>
+</div>
+
+<!-- Section 7: 常见陷阱与最佳实践 -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🛡️</span>
+    常见陷阱 & 最佳实践
+    <span class="time-tag">⏱ 5 min</span>
+  </div>
+
+  <div class="pitfall-box">
+    ❌ <strong>陷阱 1：不设 max_steps</strong> — Agent 可能无限循环，烧光 API 额度。务必设置最大步数（建议 5-15 步）。
+  </div>
+
+  <div class="pitfall-box">
+    ❌ <strong>陷阱 2：工具描述太简短</strong> — LLM 不知道工具能做什么，会瞎调或不用。描述要像写给新同事看的文档一样详细。
+  </div>
+
+  <div class="pitfall-box">
+    ❌ <strong>陷阱 3：解析格式依赖 LLM 严格输出</strong> — LLM 偶尔会不按格式输出。解析器要健壮，做好容错和重试。
+  </div>
+
+  <div class="pitfall-box">
+    ❌ <strong>陷阱 4：工具权限过大</strong> — 给了 <code class="inline-code">db_query</code> 却没限制只能 SELECT，Agent 可能执行 DELETE。每个工具都要做安全边界。
+  </div>
+
+  <div class="pitfall-box">
+    ❌ <strong>陷阱 5：上下文爆炸</strong> — 每轮循环都把历史塞进 messages，超过 token 上限会截断。要及时裁剪中间步骤，保留首尾。
+  </div>
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="card-title">🧠 Prompt 工程心法</div>
+      <div class="card-body">System Prompt 必须明确：可用工具列表、输出格式要求、终止条件、错误处理指引</div>
+    </div>
+    <div class="summary-card">
+      <div class="card-title">🔧 工具设计心法</div>
+      <div class="card-body">每个工具做好三件事：清晰描述（给 LLM 看）、参数校验（防注入）、安全边界（最小权限）</div>
+    </div>
+    <div class="summary-card">
+      <div class="card-title">📊 可观测性</div>
+      <div class="card-body">记录每步的 Thought/Action/Observation + 时间戳。这是调试 Agent 的唯一线索</div>
+    </div>
+    <div class="summary-card">
+      <div class="card-title">🔄 上下文管理</div>
+      <div class="card-body">超过 token 上限时，保留 System Prompt + 最近 2-3 轮 + 摘要中间步骤</div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 8: 速查表 + 练习 -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📋</span>
+    Agent 核心速查 & 今日练习
+    <span class="time-tag">⏱ 15 min</span>
+  </div>
+
+  <div class="sub-section"><span class="num">1</span> Agent 核心要素速查</div>
+
+  <table class="compare-table">
+    <tr><th>要素</th><th>关键点</th><th>Day 36 对应内容</th></tr>
+    <tr>
+      <td><strong>ReAct 循环</strong></td>
+      <td>Thought → Action → Observation → Loop</td>
+      <td>手写 SimpleAgent 核心循环</td>
+    </tr>
+    <tr>
+      <td><strong>工具定义</strong></td>
+      <td>name + description + parameters + function</td>
+      <td>Tool / ToolParameter dataclass</td>
+    </tr>
+    <tr>
+      <td><strong>响应解析</strong></td>
+      <td>正则提取 Action/Action Input/Final Answer</td>
+      <td>_parse_response() 方法</td>
+    </tr>
+    <tr>
+      <td><strong>终止条件</strong></td>
+      <td>Final Answer / max_steps / 错误</td>
+      <td>run() 中的三重保护</td>
+    </tr>
+    <tr>
+      <td><strong>类型注解</strong></td>
+      <td>Optional / Union / Callable / dataclass</td>
+      <td>Python 知识板块</td>
+    </tr>
+  </table>
+
+  <div class="sub-section"><span class="num">2</span> 今日练习</div>
+
+  <p><strong>练习 1：添加一个新工具</strong>（⭐⭐）</p>
+  <pre><code><span class="hl-comment"># 给 Agent 添加一个 "report_summary" 工具
+# 功能：生成不良资产汇总报表（模拟）
+# 参数：report_date (str, 必填), group_by (str, 可选, 默认"debtor_name")
+# 返回：汇总数据字符串</code></pre>
+
+  <p><strong>练习 2：增强解析器</strong>（⭐⭐⭐）</p>
+  <pre><code><span class="hl-comment"># 当前的 _parse_response 只用正则，很脆弱。
+# 请增强它：
+# 1. 支持中文 Action（"行动:"、"工具:"）
+# 2. Action Input 支持非 JSON 格式（如 key=value）
+# 3. 添加日志，记录解析失败的原因</code></pre>
+
+  <p><strong>练习 3：LeetCode #20 有效的括号</strong>（⭐⭐）</p>
+  <pre><code><span class="hl-comment"># 经典栈问题，和 Agent 的"工具调用栈"概念相通
+# 给定字符串 s，包含 (){}[]，判断括号是否匹配
+# 思路：遇到左括号入栈，遇到右括号检查栈顶是否匹配
+
+<span class="hl-keyword">def</span> <span class="hl-func">is_valid</span>(s: str) -> bool:
+    <span class="hl-string">"""你的实现"""</span>
+    <span class="hl-keyword">pass</span>
+
+<span class="hl-comment"># 测试
+assert is_valid("()") == True
+assert is_valid("()[]{}") == True
+assert is_valid("(]") == False
+assert is_valid("{[]}") == True
+assert is_valid("") == True</code></pre>
+
+  <p><strong>练习 4（思考题）</strong>：如果 Agent 的工具列表有 50 个，LLM 会怎样？你能想到什么优化方法？（提示：工具分类/两阶段选择/RAG 检索工具）</p>
+
+  <div class="concept-box">
+    <strong>下一节预告 → Day 37：Function Calling</strong><br>
+    今天我们手写了 Agent 的"旧式"解析方式（正则提取）。但现代 LLM（GPT-4、GLM-4 等）原生支持 <strong>Function Calling</strong>——LLM 直接输出结构化的 JSON 工具调用，不用你写正则。Day 37 我们学这个"官方标准"。
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  <p>Day 36 · Agent 基础 · LLM 120天转型计划</p>
+  <p>上一篇：<a href="day35.html" style="color:var(--accent)">Day 35 RAG 评估</a> | 下一篇：<a href="day37.html" style="color:var(--accent)">Day 37 Function Calling</a></p>
+</div>
+
+</body>
+</html>

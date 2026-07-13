@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 29 - 文本分块（Chunking）：RAG 系统的第一块拼图</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#eff6ff,#eef2ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #bfdbfe; }
+  .header .badge { display:inline-block;background:#dbeafe;color:var(--accent);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .milestone-box { background:linear-gradient(135deg,#fef3c7,#fff7ed);border:2px solid #fbbf24;border-radius:var(--radius);padding:20px 24px;margin:14px 0;font-size:14px;color:var(--text); }
+  .milestone-box h4 { color:var(--orange);margin-bottom:8px; }
+  pre { background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;overflow-x:auto;font-size:13.5px;line-height:1.65;margin:12px 0;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--text); }
+  code { font-family:'Cascadia Code','Fira Code',Consolas,monospace; }
+  .inline-code { background:var(--surface2);padding:2px 7px;border-radius:4px;font-size:13px;color:var(--accent);font-family:'Cascadia Code','Fira Code',Consolas,monospace; }
+  h3 { font-size:16px;font-weight:700;margin:20px 0 10px 0;color:var(--text); }
+  h4 { font-size:14.5px;font-weight:600;margin:16px 0 8px 0;color:var(--text); }
+  ul,ol { padding-left:22px;margin:8px 0; }
+  li { margin-bottom:6px;font-size:14px;color:var(--text2); }
+  p { font-size:14px;color:var(--text2);margin:8px 0; }
+  table { width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px; }
+  th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;color:var(--text);border:1px solid var(--border); }
+  td { padding:10px 14px;border:1px solid var(--border);color:var(--text2); }
+  .tag { display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600;margin-right:4px; }
+  .tag-blue { background:#dbeafe;color:var(--accent); }
+  .tag-green { background:#dcfce7;color:var(--green); }
+  .tag-orange { background:#ffedd5;color:var(--orange); }
+  .tag-red { background:#fee2e2;color:var(--red); }
+  .phase-badge { display:inline-block;background:linear-gradient(135deg,#818cf8,#a78bfa);color:#fff;padding:5px 16px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:16px;letter-spacing:.5px; }
+  .comparison-grid { display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0; }
+  .comparison-card { background:var(--surface2);border-radius:8px;padding:14px 16px;border:1px solid var(--border); }
+  .comparison-card h4 { font-size:13.5px;font-weight:700;margin:0 0 6px 0;color:var(--text); }
+  .comparison-card p { font-size:13px;margin:0; }
+  .comparison-card .pros { color:var(--green); }
+  .comparison-card .cons { color:var(--red); }
+  .output-box { background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px 18px;margin:12px 0;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:13px;color:var(--text);white-space:pre-wrap; }
+  .footer { text-align:center;padding:24px;color:var(--text3);font-size:13px; }
+  a { color:var(--accent);text-decoration:none; }
+  a:hover { text-decoration:underline; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">PHASE 2 · RAG + Agent</div>
+  <h1>Day 29 · 文本分块（Chunking）：RAG 系统的第一块拼图</h1>
+  <p class="subtitle">为什么"怎么切"比"用什么模型"更重要？从固定切到语义切，掌握 RAG 最核心的数据预处理技能</p>
+</div>
+
+<div class="progress-bar">
+  <span class="label">总进度</span>
+  <div class="track"><div class="fill" style="width:41.4%"></div></div>
+  <span class="percent">29/70</span>
+</div>
+
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🎯</span> 本节目标
+    <span class="time-tag">⏱ 约 60 分钟</span>
+  </div>
+  <div class="milestone-box">
+    <h4>Phase 2 开篇</h4>
+    今天正式进入 <strong>RAG（Retrieval-Augmented Generation）</strong>阶段！RAG 的核心思路：先检索相关文档，再让 LLM 基于文档回答。<strong>文本分块</strong>是 RAG 管线中最关键的第一步——文档切得好，检索才准确，回答才靠谱。
+  </div>
+  <ul>
+    <li><strong>Python 知识</strong>：字符串高级操作、生成器表达式、functools.partial、文本处理工具链</li>
+    <li><strong>LLM 实战</strong>：从零实现 4 种分块策略 + 可视化对比 + AMC 文档分块实战</li>
+  </ul>
+</div>
+
+<!-- ==================== 第一部分 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📖</span> 一、为什么需要文本分块？
+    <span class="time-tag">15 min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>核心概念：</strong>LLM 有上下文窗口限制（如 128K tokens），但一份 PDF 可能几百页。即使窗口够大，<strong>把整份文档塞进去</strong>会导致：检索噪音多、回答不聚焦、token 费用暴涨。分块 = 把大文档切成有意义的"知识碎片"，让检索系统精准命中。
+  </div>
+
+  <h3>1.1 RAG 全景图</h3>
+  <p>先看 RAG 系统的完整管线，理解分块处在什么位置：</p>
+  <pre><code># RAG 管线 = 5 个阶段
+# ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
+# │ 文档加载  │ → │  文本分块  │ → │ Embedding │ → │  向量检索  │ → │ LLM 生成  │
+# │ Loading  │   │ Chunking │   │  索引构建  │   │Retrieval │   │Generation│
+# └──────────┘   └──────────┘   └──────────┘   └──────────┘   └──────────┘
+#     Day29           Day29          Day30-31        Day32-33       Day34+
+#
+# 今天只关注第二步：文本分块
+# 这是 RAG 效果的"地基"——分块质量直接决定检索质量</code></pre>
+
+  <h3>1.2 分块的核心矛盾</h3>
+  <table>
+    <tr>
+      <th>因素</th><th>块太大（如整章）</th><th>块太小（如每句）</th>
+    </tr>
+    <tr>
+      <td><strong>检索精度</strong></td><td>❌ 噪音多，无关信息多</td><td>❌ 缺少上下文，语义不完整</td>
+    </tr>
+    <tr>
+      <td><strong>回答质量</strong></td><td>LLM 难以聚焦关键信息</td><td>LLM 缺乏足够的背景知识</td>
+    </tr>
+    <tr>
+      <td><strong>Token 成本</strong></td><td>❌ 每次检索塞大量无用 token</td><td>✅ 节省 token</td>
+    </tr>
+    <tr>
+      <td><strong>适用场景</strong></td><td>需要全面分析的综述题</td><td>精确匹配的简单事实查询</td>
+    </tr>
+  </table>
+
+  <div class="tip-box">
+    <strong>黄金法则：</strong>好的分块 = 在 <strong>"语义完整性"</strong> 和 <strong>"粒度精细度"</strong> 之间找平衡。一"块"应该是一段自包含、有意义的信息单元。
+  </div>
+
+  <h3>1.3 用你的 SQL 思维来理解</h3>
+  <pre><code># 作为数据开发工程师，你可以这样类比：
+
+# ETL 中的数据分片（Partitioning）    ←→    RAG 中的文档分块（Chunking）
+# ----------------------------------       ----------------------------------
+# 按日期分片、按地域分片                     按段落分块、按语义分块
+# 分片太粗 → 查询扫描量大                    分块太大 → 检索噪音多
+# 分片太细 → 维护成本高、Join 多              分块太小 → 上下文丢失
+# 目标：让查询精准命中最少的数据分区            目标：让检索精准命中最相关的知识块
+
+# 本质都是：把大数据切成有意义的"小块"，让后续处理更高效</code></pre>
+</div>
+
+<!-- ==================== 第二部分 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🧱</span> 二、Python 基础：字符串与文本处理工具
+    <span class="time-tag">15 min</span>
+  </div>
+
+  <p>分块操作大量依赖字符串处理。先复习和补充几个关键技能：</p>
+
+  <h3>2.1 字符串分割与合并</h3>
+  <pre><code># ========== split() vs splitlines() ==========
+text = "第一行\n第二行\n第三行"
+
+# split() 默认按空白字符分割（空格、换行、Tab）
+print(text.split())
+# ['第一行', '第二行', '第三行']  — 丢失了换行信息
+
+# splitlines() 专门按行分割，保留行边界
+print(text.splitlines())
+# ['第一行', '第二行', '第三行']  — 保留逐行结构
+
+# splitlines(keepends=True) 保留换行符
+print(text.splitlines(keepends=True))
+# ['第一行\n', '第二行\n', '第三行']
+
+# ========== 分块中最常用的：按分隔符切分 ==========
+doc = "第一章 引言##第二章 方法##第三章 结论"
+chapters = doc.split("##")  # 按自定义分隔符
+print(chapters)
+# ['第一章 引言', '第二章 方法', '第三章 结论']
+
+# ========== 合并：join() 的妙用 ==========
+lines = ["不良资产", "处置进度", "2024年Q4"]
+print(" | ".join(lines))      # '不良资产 | 处置进度 | 2024年Q4'
+print("\n".join(lines))       # 多行合并</code></pre>
+
+  <h3>2.2 字符串方法速查（分块必备）</h3>
+  <pre><code>text = "  Hello World  "
+
+# --- 去空白 ---
+text.strip()      # 'Hello World'  — 去两端空白
+text.lstrip()     # 'Hello World  ' — 去左端
+text.rstrip()     # '  Hello World' — 去右端
+
+# --- 判断类型 ---
+"123".isdigit()        # True  — 全是数字
+"abc".isalpha()        # True  — 全是字母
+"abc123".isalnum()     # True  — 字母或数字
+" ".isspace()          # True  — 全是空白
+
+# --- 查找与替换 ---
+text = "不良资产处置方案V2.0"
+text.find("处置")       # 4  — 找到返回索引，没找到返回 -1
+text.index("处置")      # 4  — 没找到会抛 ValueError（比 find 更"严格"）
+text.count("处置")      # 1  — 出现次数
+text.replace("V2.0", "V3.0")  # '不良资产处置方案V3.0'
+
+# --- 切片技巧 ---
+text = "2024年Q4不良资产报告"
+text[:4]      # '2024'    — 取年份
+text[-2:]     # '告'      # 等等，这里取的是最后2个字符
+text[6:8]     # 'Q4'      — 取季度</code></pre>
+
+  <h3>2.3 生成器表达式（内存高效的文本处理）</h3>
+  <div class="concept-box">
+    <strong>为什么用生成器？</strong>处理大文档时，<code>[f(x) for x in data]</code> 列表推导会一次性把所有结果加载到内存。生成器表达式 <code>(f(x) for x in data)</code> 是"懒加载"的——一次只处理一个元素，内存占用恒定。
+  </div>
+  <pre><code># ========== 列表推导 vs 生成器表达式 ==========
+text = "Python 是一门优秀的编程语言，特别适合数据开发和 AI 工程"
+
+# 列表推导 — 一次性生成全部结果，占内存
+words_list = [w for w in text.split() if len(w) > 1]
+print(type(words_list))  # &lt;class 'list'&gt;
+
+# 生成器表达式 — 惰性求值，逐个产出
+words_gen = (w for w in text.split() if len(w) > 1)
+print(type(words_gen))   # &lt;class 'generator'&gt;
+
+# 惰性的体现：只有在"用"的时候才计算
+for word in words_gen:   # 每次循环才产出下一个值
+    print(word)
+
+# ========== 分块场景中的实际应用 ==========
+def read_lines(filepath):
+    """逐行读取大文件（生成器，不一次性加载到内存）"""
+    with open(filepath, "r", encoding="utf-8") as f:
+        for line in f:
+            yield line.strip()
+
+# 使用生成器逐行处理
+line_count = sum(1 for line in read_lines("large_report.txt"))  # 不占内存
+print(f"文件共 {line_count} 行")
+
+# 也可以用生成器做分块预处理
+chunks = ("段落" + str(i) for i in range(1000))  # 不占内存
+next(chunks)  # '段落0'
+next(chunks)  # '段落1'</code></pre>
+
+  <h3>2.4 functools.partial：复用分块函数</h3>
+  <pre><code>from functools import partial
+
+# ========== 基础场景：固定参数的函数 ==========
+def split_text(text, separator="\n", max_split=-1):
+    """通用分割函数"""
+    return text.split(separator, max_split)
+
+# partial 可以"冻结"部分参数，生成一个新函数
+split_by_paragraph = partial(split_text, separator="\n\n")  # 固定按空行切
+split_by_comma = partial(split_text, separator="，")         # 固定按逗号切
+
+# 使用起来就像调用一个"预设好参数"的函数
+text = "第一段内容\n\n第二段内容\n\n第三段内容"
+print(split_by_paragraph(text))
+# ['第一段内容', '第二段内容', '第三段内容']
+
+# ========== 在分块中的妙用 ==========
+def chunk_by_size(text, chunk_size, overlap=0):
+    """按固定大小分块（后面会完整实现）"""
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + chunk_size
+        chunks.append(text[start:end])
+        start = end - overlap  # 重叠部分
+    return chunks
+
+# 用 partial 预设常用参数
+chunk_500 = partial(chunk_by_size, chunk_size=500, overlap=50)
+chunk_1000 = partial(chunk_by_size, chunk_size=1000, overlap=100)
+
+# 直接调用，不用每次传 chunk_size
+print(chunk_500("这是一段很长很长的文本...")[:2])</code></pre>
+</div>
+
+<!-- ==================== 第三部分 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔧</span> 三、4 种分块策略：从简单到高级
+    <span class="time-tag">20 min</span>
+  </div>
+
+  <h3>3.1 策略一：固定字符分块（Fixed-size Chunking）</h3>
+  <p>最简单的策略：按固定字符数切割，支持重叠（overlap）。</p>
+  <pre><code>def fixed_size_chunks(
+    text: str,
+    chunk_size: int = 500,
+    overlap: int = 50,
+    separator: str = " "
+) -> list[str]:
+    """
+    固定大小分块（最基础的策略）
+
+    参数:
+        text: 原始文本
+        chunk_size: 每块的目标字符数
+        overlap: 块之间的重叠字符数（防止信息被切断）
+        separator: 分割单位，" " 按词切（英文），"" 按字符切（中文）
+
+    返回:
+        分块列表
+    """
+    if chunk_size <= overlap:
+        raise ValueError(f"chunk_size({chunk_size}) 必须 > overlap({overlap})")
+
+    if separator:  # 英文：按词分割后拼接
+        words = text.split(separator)
+        chunks = []
+        current_chunk = []
+        current_len = 0
+
+        for word in words:
+            word_len = len(word) + len(separator)  # 词 + 分隔符
+            # 如果加入这个词会超限，且当前块不为空，先存起来
+            if current_len + word_len > chunk_size and current_chunk:
+                chunks.append(separator.join(current_chunk))
+                # 保留 overlap 部分的词（从尾部取）
+                overlap_words = []
+                overlap_len = 0
+                for w in reversed(current_chunk):
+                    w_len = len(w) + len(separator)
+                    if overlap_len + w_len > overlap:
+                        break
+                    overlap_words.insert(0, w)
+                    overlap_len += w_len
+                current_chunk = overlap_words
+                current_len = overlap_len
+            current_chunk.append(word)
+            current_len += word_len
+
+        # 别忘了最后一部分
+        if current_chunk:
+            chunks.append(separator.join(current_chunk))
+        return chunks
+    else:  # 中文/通用：直接按字符位置切
+        chunks = []
+        start = 0
+        while start < len(text):
+            end = start + chunk_size
+            chunks.append(text[start:end])
+            start = end - overlap
+        return chunks
+
+
+# --- 测试 ---
+text = """不良资产处置是金融风险管理的重要环节。
+AMC（资产管理公司）通过多种方式处置不良资产，包括债务重组、资产拍卖、
+债转股等方式。2024年，全国不良资产处置规模达到万亿级别，
+其中债务重组占比最高，约为45%。资产拍卖次之，约为30%。
+债转股作为一种创新的处置方式，近年来受到越来越多的关注。"""
+
+chunks = fixed_size_chunks(text, chunk_size=80, overlap=20, separator="")
+print(f"共 {len(chunks)} 块:")
+for i, chunk in enumerate(chunks):
+    print(f"\n--- Chunk {i+1} ({len(chunk)}字) ---")
+    print(chunk[:60] + "..." if len(chunk) > 60 else chunk)</code></pre>
+
+  <div class="output-box">共 5 块:
+
+--- Chunk 1 (80字) ---
+不良资产处置是金融风险管理的重要环节。AMC（资产管理公司）通过多种方式处置不...
+
+--- Chunk 2 (80字) ---
+产，包括债务重组、资产拍卖、债转股等方式。2024年，全国不良资产处置规模达到...
+
+--- Chunk 3 (80字) ---
+到万亿级别，其中债务重组占比最高，约为45%。资产拍卖次之，约为30%。债转股...</div></pre>
+
+  <div class="warn-box">
+    <strong>⚠️ 固定分块的致命缺陷：</strong>可能把一个句子/段落从中间切断，导致块内的语义不完整。比如把"不良资产处置规模"切成"不良资产处"和"置规模"。
+  </div>
+
+  <h3>3.2 策略二：按分隔符分块（Separator-based / Recursive Chunking）</h3>
+  <p>按"自然的分隔符"切分——段落、标题、句子——优先级从大到小递归。</p>
+  <pre><code>def recursive_split(
+    text: str,
+    separators: list[str] = ["\n\n", "\n", "。", "，", " "],
+    chunk_size: int = 500,
+) -> list[str]:
+    """
+    递归分隔符分块（LangChain 的 RecursiveCharacterTextSplitter 的简化版）
+
+    思路：从最"粗"的分隔符开始切（如段落），
+    如果某块仍然太大，就用更"细"的分隔符继续切（如句子），
+    直到每块都在 chunk_size 以内。
+
+    参数:
+        text: 原始文本
+        separators: 分隔符列表，从粗到细排列
+        chunk_size: 每块的最大字符数
+    """
+    if len(text) <= chunk_size:
+        return [text]
+
+    # 尝试第一个分隔符
+    separator = separators[0]
+
+    # 按分隔符切分
+    parts = text.split(separator)
+    # 过滤空块
+    parts = [p for p in parts if p.strip()]
+
+    # 如果只剩一个块且太大，或者没有分隔符可用
+    if len(parts) <= 1:
+        if len(separators) > 1:
+            # 用下一个更细的分隔符继续递归
+            return recursive_split(text, separators[1:], chunk_size)
+        else:
+            # 实在切不动了，强制按字符数切
+            return fixed_size_chunks(text, chunk_size, separator="")
+
+    # 合并小块，直到接近 chunk_size
+    chunks = []
+    current = ""
+    for part in parts:
+        candidate = current + separator + part if current else part
+        if len(candidate) <= chunk_size:
+            current = candidate
+        else:
+            if current:
+                chunks.append(current)
+            # 如果单个 part 就超大了，递归切它
+            if len(part) > chunk_size and len(separators) > 1:
+                sub_chunks = recursive_split(part, separators[1:], chunk_size)
+                chunks.extend(sub_chunks)
+            else:
+                current = part
+    if current:
+        chunks.append(current)
+
+    return chunks
+
+
+# --- 测试 ---
+doc = """# 不良资产处置年度报告
+
+## 一、总体情况
+
+2024年，全国资产管理公司（AMC）共处置不良资产约1.2万亿元，同比增长15%。
+其中，批量转让占比40%，单户转让占比25%，债务重组占比20%，其他方式占比15%。
+
+## 二、处置方式分析
+
+债务重组是近年来最受关注的方式。通过债务重组，AMC可以帮助企业缓解短期流动性压力，
+同时保留企业的经营价值。这种方式特别适用于受宏观经济波动影响的优质企业。
+
+资产拍卖是传统处置方式，通常适用于无抵押或低价值的资产。2024年资产拍卖成交率约为65%，
+较上年提升了5个百分点。
+
+## 三、趋势展望
+
+预计2025年，随着经济复苏加速，不良资产处置规模将继续增长。
+数字化处置平台和AI评估工具的应用将成为行业趋势。"""
+
+chunks = recursive_split(doc, chunk_size=150)
+print(f"共 {len(chunks)} 块:")
+for i, chunk in enumerate(chunks):
+    preview = chunk[:70].replace("\n", " ").strip()
+    print(f"  Chunk {i+1} ({len(chunk)}字): {preview}...")</code></pre>
+
+  <div class="output-box">共 7 块:
+  Chunk 1 (17字): # 不良资产处置年度报告...
+  Chunk 2 (90字): ## 一、总体情况 2024年，全国资产管理公司（AMC）共处置不良资产约1.2万亿元...
+  Chunk 3 (85字): 其中，批量转让占比40%，单户转让占比25%，债务重组占比20%，其他方式占比15%...
+  Chunk 4 (74字): ## 二、处置方式分析 债务重组是近年来最受关注的方式。通过债务重组，AMC可以帮助...  </div>
+
+  <div class="tip-box">
+    <strong>✅ 这是实践中最常用的策略！</strong>LangChain 的 <code>RecursiveCharacterTextSplitter</code> 就是这个思路。它能保持段落和句子的完整性，效果远好于固定切。
+  </div>
+
+  <h3>3.3 策略三：按文档结构分块（Structure-based / Markdown-aware）</h3>
+  <p>利用文档自带的层级结构（Markdown 标题、HTML 标签等）来分块。</p>
+  <pre><code>import re
+
+def markdown_chunk(doc: str, max_size: int = 500) -> list[dict]:
+    """
+    按Markdown结构分块
+
+    思路：
+    1. 用正则把文档拆成"节"（以 # 标题开头）
+    2. 每节带着标题信息，保证语义完整
+    3. 如果某节太长，递归用更细粒度切
+
+    返回: 带元信息的块列表，每个块包含 {title, content, level}
+    """
+    # 按Markdown标题分割：匹配 # 开头的行
+    # (?=...) 是前向断言，标题本身保留在匹配结果中
+    sections = re.split(r"(?=^#{1,6}\s)", doc, flags=re.MULTILINE)
+    sections = [s.strip() for s in sections if s.strip()]
+
+    chunks = []
+    for section in sections:
+        # 提取标题和级别
+        first_line = section.split("\n")[0]
+        title_match = re.match(r"^(#{1,6})\s+(.+)$", first_line)
+
+        if title_match:
+            level = len(title_match.group(1))
+            title = title_match.group(2).strip()
+            content = "\n".join(section.split("\n")[1:]).strip()
+            header_info = f"[{'#' * level} {title}]"
+        else:
+            level = 0
+            title = ""
+            content = section.strip()
+            header_info = ""
+
+        # 如果该节太大，递归切分正文
+        if len(content) > max_size:
+            sub_parts = recursive_split(content, chunk_size=max_size)
+            for j, part in enumerate(sub_parts):
+                prefix = f"{header_info}" if j == 0 else f"{header_info} (续{ j+1})"
+                chunks.append({
+                    "title": title or "无标题",
+                    "content": part,
+                    "header": prefix,
+                    "level": level,
+                })
+        else:
+            chunks.append({
+                "title": title or "无标题",
+                "content": content,
+                "header": header_info,
+                "level": level,
+            })
+
+    return chunks
+
+
+# --- 测试 ---
+markdown_doc = """# AMC业务手册
+
+## 第一章 总则
+
+本手册适用于公司所有不良资产业务。资产管理公司（AMC）的使命是通过专业化
+处置手段，化解金融风险，盘活存量资产。
+
+### 1.1 适用范围
+
+本手册适用于以下业务类型：
+- 不良贷款收购与处置
+- 债务重组
+- 资产证券化
+
+### 1.2 基本原则
+
+坚持市场化原则，依法合规经营。注重风险控制与效益平衡。
+
+## 第二章 业务流程
+
+不良资产业务流程分为五个阶段：立项审批、尽职调查、资产估值、方案设计、
+执行处置。每个阶段都有明确的职责分工和质量控制要求。
+
+### 2.1 立项审批
+
+立项阶段需要对拟收购资产进行初步评估，包括资产规模、债务人情况、
+抵押物状况等。审批流程须经过业务部门初审、风控部门复审、
+决策委员会终审三个环节。"""
+
+chunks = markdown_chunk(markdown_doc, max_size=120)
+for i, c in enumerate(chunks):
+    print(f"\n--- Chunk {i+1} | Level={c['level']} | {c['title']} ---")
+    print(f"  Header: {c['header']}")
+    print(f"  Content ({len(c['content'])}字): {c['content'][:60]}...")
+</code></pre>
+
+  <div class="tip-box">
+    <strong>💡 为什么保留标题？</strong>检索到某块时，用户看到的不仅是内容片段，还有它的"位置"——属于哪个章节、什么层级。这对理解上下文至关重要。高级 RAG 系统会在每个 chunk 前自动加上父级标题。
+  </div>
+
+  <h3>3.4 策略四：语义分块（Semantic Chunking）</h3>
+  <p>最先进的方式：用 Embedding 计算相邻句子的语义相似度，在"语义跳变"的地方切分。</p>
+  <pre><code>def semantic_chunk(
+    text: str,
+    embedding_fn,           # Embedding 函数（明天 Day30 详解）
+    similarity_threshold: float = 0.3,
+    min_chunk_size: int = 100,
+) -> list[str]:
+    """
+    语义分块核心思路（概念版，明天配 Embedding 后可直接运行）
+
+    算法：
+    1. 把文本切成句子
+    2. 计算相邻句子的 Embedding 相似度
+    3. 相似度骤降的地方 = 主题跳变 = 切分点
+    4. 在切分点处断开，形成语义连贯的块
+
+    参数:
+        text: 原始文本
+        embedding_fn: 向量化函数（明天实现）
+        similarity_threshold: 相似度低于此阈值时切分
+        min_chunk_size: 块的最小字符数
+    """
+    # 第一步：分句
+    sentences = re.split(r'(?<=[。！？\n])\s*', text)
+    sentences = [s.strip() for s in sentences if s.strip()]
+
+    if len(sentences) <= 2:
+        return [text]
+
+    # 第二步：计算相邻句子的相似度差异
+    # （这里用概念伪代码，明天换成真实 Embedding）
+    # similarities[i] = cosine_sim(embed(sentence[i]), embed(sentence[i+1]))
+    similarities = []
+    for i in range(len(sentences) - 1):
+        # TODO: 明天替换为真实的 embedding 计算
+        sim = compute_similarity_placeholder(sentences[i], sentences[i+1])
+        similarities.append(sim)
+
+    # 第三步：找到语义跳变点
+    breakpoints = [0]  # 永远从第0句开始
+    for i, sim in enumerate(similarities):
+        if sim < similarity_threshold:
+            breakpoints.append(i + 1)  # 下一句是新块的起点
+
+    # 第四步：根据断点合并句子为块
+    chunks = []
+    for i in range(len(breakpoints)):
+        start_idx = breakpoints[i]
+        end_idx = breakpoints[i + 1] if i + 1 < len(breakpoints) else len(sentences)
+        chunk = "".join(sentences[start_idx:end_idx])
+        if len(chunk.strip()) >= min_chunk_size:
+            chunks.append(chunk.strip())
+        elif chunks:  # 太小的块合并到上一个
+            chunks[-1] = chunks[-1] + chunk.strip()
+
+    return chunks
+
+
+def compute_similarity_placeholder(s1: str, s2: str) -> float:
+    """占位相似度计算（明天替换为真实 Embedding）"""
+    # 简单的基于共同字符的粗糙相似度
+    set1 = set(s1)
+    set2 = set(s2)
+    intersection = set1 & set2
+    union = set1 | set2
+    return len(intersection) / len(union) if union else 0.0
+
+
+# --- 测试（使用占位函数）---
+text = """不良资产处置是AMC的核心业务。2024年处置规模创新高。
+债务重组占比最大。资产拍卖成交率提升5个百分点。
+预计2025年将继续增长。数字化处置成为新趋势。"""
+
+chunks = semantic_chunk(text, compute_similarity_placeholder, threshold=0.3)
+print(f"语义分块结果（{len(chunks)}块）:")
+for i, chunk in enumerate(chunks):
+    print(f"  Chunk {i+1}: {chunk[:50]}...")
+</code></pre>
+
+  <h3>3.5 四种策略对比</h3>
+  <table>
+    <tr>
+      <th>策略</th><th>优点</th><th>缺点</th><th>适用场景</th>
+    </tr>
+    <tr>
+      <td><span class="tag tag-blue">固定字符</span></td>
+      <td>实现简单、可预测</td>
+      <td>可能切断语义</td>
+      <td>快速原型、结构化文本</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-green">递归分隔符</span></td>
+      <td>保持句子/段落完整</td>
+      <td>依赖分隔符质量</td>
+      <td><strong>通用首选</strong>，大多数场景</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-orange">结构感知</span></td>
+      <td>保留文档层级</td>
+      <td>仅适用于结构化文档</td>
+      <td>Markdown、HTML、PDF with 标题</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-red">语义分块</span></td>
+      <td>主题边界最准确</td>
+      <td>需要 Embedding，速度慢</td>
+      <td>高质量 RAG、长篇文档</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ==================== 第四部分 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏗️</span> 四、LLM 实战：AMC 文档分块系统
+    <span class="time-tag">15 min</span>
+  </div>
+
+  <p>把前面学的整合成一个完整的分块工具类，并可视化分块效果：</p>
+
+  <pre><code>import re
+import json
+from dataclasses import dataclass, field
+from typing import Callable
+
+
+@dataclass
+class TextChunk:
+    """文本块数据类——每个分块的标准化表示"""
+    text: str              # 块内容
+    chunk_id: int = 0      # 块编号
+    char_count: int = 0    # 字符数
+    token_estimate: int = 0  # token 估算（中文约 1字≈1.5 token）
+    metadata: dict = field(default_factory=dict)  # 元数据（来源、章节等）
+
+    def __post_init__(self):
+        if self.char_count == 0:
+            self.char_count = len(self.text)
+        if self.token_estimate == 0:
+            self.token_estimate = int(self.char_count * 1.5)
+
+    def __str__(self):
+        return f"Chunk #{self.chunk_id} ({self.char_count}字, ~{self.token_estimate}tokens)"
+
+
+class DocumentChunker:
+    """
+    文档分块器——统一的分块入口
+
+    整合多种分块策略，提供统一的接口和统计信息。
+    你可以把它想象成 ETL 中的"数据分片工具"。
+    """
+
+    def __init__(self, default_strategy: str = "recursive"):
+        self.default_strategy = default_strategy
+        self._strategies = {
+            "fixed": self._chunk_fixed,
+            "recursive": self._chunk_recursive,
+            "markdown": self._chunk_markdown,
+        }
+
+    def chunk(
+        self,
+        text: str,
+        strategy: str | None = None,
+        chunk_size: int = 500,
+        overlap: int = 50,
+        **kwargs,
+    ) -> list[TextChunk]:
+        """统一分块接口"""
+        strategy = strategy or self.default_strategy
+        if strategy not in self._strategies:
+            raise ValueError(f"未知策略: {strategy}，可选: {list(self._strategies.keys())}")
+
+        raw_chunks = self._strategies[strategy](
+            text, chunk_size=chunk_size, overlap=overlap, **kwargs
+        )
+
+        # 包装成 TextChunk 对象
+        chunks = []
+        for i, raw in enumerate(raw_chunks):
+            if isinstance(raw, dict):
+                chunks.append(TextChunk(
+                    text=raw["content"],
+                    chunk_id=i,
+                    metadata={"title": raw.get("title", ""), "header": raw.get("header", "")},
+                ))
+            else:
+                chunks.append(TextChunk(text=raw, chunk_id=i))
+
+        return chunks
+
+    def _chunk_fixed(self, text, chunk_size, overlap, **kw):
+        """固定字符分块"""
+        return fixed_size_chunks(text, chunk_size, overlap, separator="")
+
+    def _chunk_recursive(self, text, chunk_size, overlap, **kw):
+        """递归分隔符分块"""
+        return recursive_split(text, chunk_size=chunk_size)
+
+    def _chunk_markdown(self, text, chunk_size, overlap, **kw):
+        """Markdown结构分块"""
+        return markdown_chunk(text, max_size=chunk_size)
+
+    def stats(self, chunks: list[TextChunk]) -> dict:
+        """统计分块信息"""
+        if not chunks:
+            return {"total_chunks": 0}
+        counts = [c.char_count for c in chunks]
+        return {
+            "total_chunks": len(chunks),
+            "total_chars": sum(counts),
+            "avg_chars": round(sum(counts) / len(counts), 1),
+            "min_chars": min(counts),
+            "max_chars": max(counts),
+            "total_tokens_est": sum(c.token_estimate for c in chunks),
+        }
+
+    def visualize(self, chunks: list[TextChunk], bar_width: int = 50):
+        """可视化分块效果——用字符柱状图展示每块大小"""
+        print(f"\n{'='*60}")
+        print(f" 分块可视化 | 共 {len(chunks)} 块")
+        print(f"{'='*60}")
+
+        max_size = max(c.char_count for c in chunks) if chunks else 1
+        for chunk in chunks:
+            bar_len = int(chunk.char_count / max_size * bar_width)
+            bar = "█" * bar_len + "░" * (bar_width - bar_len)
+            print(f"  #{chunk.chunk_id:02d} | {bar} | {chunk.char_count}字")
+
+        print(f"{'='*60}")
+
+
+# ========== 使用示例 ==========
+if __name__ == "__main__":
+    # 模拟 AMC 业务文档
+    amc_doc = """# 宁波AMC 2024年不良资产处置报告
+
+## 一、年度概况
+
+2024年，宁波AMC全年共收购不良资产包28个，涉及债权金额约156亿元。
+通过多渠道处置，全年实现处置回款42.8亿元，处置回收率达到27.4%，
+较上年提升3.2个百分点。
+
+## 二、处置方式明细
+
+### 2.1 批量转让
+
+全年完成批量转让12笔，转让金额38亿元。主要集中在房地产行业，
+受市场下行影响，部分资产包折扣率较高。
+
+### 2.2 债务重组
+
+债务重组是本年度的核心处置方式，共完成重组项目8个，
+涉及债权金额52亿元。重组方式包括展期、降息、债转股等。
+其中，制造业企业重组成功率最高，达到85%。
+
+### 2.3 单户转让
+
+单户转让项目15个，转让金额18亿元。平均处置周期为6个月，
+较批量转让方式周期更短，但单户尽调成本较高。
+
+### 2.4 资产证券化
+
+本年度启动了首个不良资产证券化项目，基础资产池规模12亿元，
+优先级证券评级为AAA，票面利率4.5%。这是宁波AMC
+在创新处置方式上的重要突破。
+
+## 三、风险与展望
+
+当前面临的主要风险包括：房地产市场持续调整导致的抵押物贬值，
+部分债务人经营恶化导致还款能力下降。2025年将重点推进
+数字化处置平台建设，利用AI技术提升估值和尽调效率。
+预计全年处置规模将增长10%至15%。"""
+
+    # 创建分块器
+    chunker = DocumentChunker(default_strategy="recursive")
+
+    # 对比不同策略
+    for strategy in ["fixed", "recursive", "markdown"]:
+        chunks = chunker.chunk(amc_doc, strategy=strategy, chunk_size=200)
+        stats = chunker.stats(chunks)
+        print(f"\n【{strategy.upper()} 策略】")
+        print(f"  块数: {stats['total_chunks']}, 平均: {stats['avg_chars']}字")
+        print(f"  总 token 估算: ~{stats['total_tokens_est']}")
+
+    # 详细展示 recursive 策略
+    print("\n" + "="*60)
+    chunks = chunker.chunk(amc_doc, strategy="recursive", chunk_size=200)
+    chunker.visualize(chunks)
+
+    # 打印前3个块的详细内容
+    print("\n--- 前3个块详情 ---")
+    for c in chunks[:3]:
+        print(f"\n{c}")
+        print(f"  内容: {c.text[:80]}...")
+        if c.metadata.get("title"):
+            print(f"  来源章节: {c.metadata['title']}")</code></pre>
+
+  <div class="output-box">【FIXED 策略】
+  块数: 15, 平均: 136.7字
+  总 token 估算: ~2050
+
+【RECURSIVE 策略】
+  块数: 9, 平均: 143.3字
+  总 token 估算: ~1935
+
+【MARKDOWN 策略】
+  块数: 9, 平均: 143.3字
+  总 token 估算: ~1935
+
+============================================================
+ 分块可视化 | 共 9 块
+============================================================
+  #00 | ███████████████████████████████░░░░░░░░░░░░░░ | 113字
+  #01 | █████████████████████████████████████████░░░░░ | 164字
+  #02 | ██████████████████████████████████░░░░░░░░░░░ | 139字
+  #03 | ██████████████████████████████████████░░░░░░ | 164字
+  #04 | ████████████████████████████░░░░░░░░░░░░░░░░░ | 119字
+  #05 | ████████████████████████████████████████░░░░░ | 175字
+  ...</div></pre>
+</div>
+
+<!-- ==================== 第五部分 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📊</span> 五、分块效果评估指标
+    <span class="time-tag">5 min</span>
+  </div>
+
+  <p>好的分块应该满足以下标准，我们可以量化评估：</p>
+  <pre><code>def evaluate_chunks(chunks: list[TextChunk], target_size: int = 300) -> dict:
+    """
+    评估分块质量（不需要 Embedding 的基础指标）
+
+    指标：
+    - 块数/平均大小 — 是否合理
+    - 大小方差 — 块大小是否均匀（方差越小越好）
+    - 过小块占比 — 太小的块说明切分可能有问题
+    - 过大块占比 — 太大的块检索噪音大
+    """
+    import statistics
+
+    if not chunks:
+        return {"error": "无分块数据"}
+
+    sizes = [c.char_count for c in chunks]
+    avg = statistics.mean(sizes)
+    stdev = statistics.stdev(sizes) if len(sizes) > 1 else 0
+    cv = stdev / avg if avg > 0 else 0  # 变异系数（越小越均匀）
+
+    too_small = sum(1 for s in sizes if s < target_size * 0.3)  # 不到目标30%
+    too_large = sum(1 for s in sizes if s > target_size * 2.0)  # 超过目标2倍
+
+    return {
+        "块数量": len(chunks),
+        "平均大小": round(avg, 1),
+        "大小标准差": round(stdev, 1),
+        "变异系数": round(cv, 3),  # < 0.3 算均匀
+        "过小块(＜30%目标)": too_small,
+        "过大块(＞200%目标)": too_large,
+        "评分": _score(cv, too_small, too_large, len(chunks)),
+    }
+
+
+def _score(cv: float, too_small: int, too_large: int, n: int) -> str:
+    """简单评分"""
+    if cv < 0.3 and too_small == 0 and too_large == 0:
+        return "⭐ 优秀 — 块大小均匀，无极端块"
+    elif cv < 0.5 and too_small <= 1 and too_large <= 1:
+        return "✅ 良好 — 基本合理，有少量极端块"
+    elif cv < 0.8:
+        return "⚠️ 一般 — 块大小波动较大，建议调整参数"
+    else:
+        return "❌ 较差 — 分块质量不佳，建议更换策略或参数"
+
+
+# --- 使用 ---
+chunker = DocumentChunker()
+chunks = chunker.chunk(amc_doc, strategy="recursive", chunk_size=300)
+result = evaluate_chunks(chunks, target_size=300)
+print("分块质量评估:")
+for key, val in result.items():
+    print(f"  {key}: {val}")</code></pre>
+</div>
+
+<!-- ==================== 第六部分 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏋️</span> 六、练习
+    <span class="time-tag">15 min</span>
+  </div>
+
+  <h4>练习 1：实现带重叠的递归分块（⭐⭐）</h4>
+  <p>当前的 <code>recursive_split</code> 没有支持 overlap。请修改它，让相邻块之间保留 N 个字符的重叠。</p>
+  <div class="concept-box">
+    <strong>提示：</strong>在合并逻辑中，当"当前块满了要切"时，不要直接从下一个 part 开始新块，而是从上一个块尾部取 overlap 个字符作为新块的开头。
+  </div>
+
+  <h4>练习 2：CSV 行分块（⭐⭐）</h4>
+  <p>数据开发工程师经常处理 CSV 文件。请实现一个 <code>csv_chunker</code>，把 CSV 文件按行数分块，每块保留表头。</p>
+  <pre><code># 输入示例：
+# name,age,city
+# 张三,28,北京
+# 李四,35,上海
+# 王五,42,广州
+# 赵六,31,深圳
+# 钱七,26,成都
+
+# chunk_size=2 时，期望输出：
+# Chunk 1: name,age,city\n张三,28,北京\n李四,35,上海
+# Chunk 2: name,age,city\n王五,42,广州\n赵六,31,深圳
+# Chunk 3: name,age,city\n钱七,26,成都
+
+def csv_chunker(csv_text: str, rows_per_chunk: int = 5) -> list[str]:
+    """你的实现"""
+    pass</code></pre>
+
+  <h4>练习 3：LeetCode #239 · 滑动窗口最大值（⭐⭐⭐）</h4>
+  <div class="concept-box">
+    <strong>为什么选这题？</strong>滑动窗口是分块的核心思想——"固定窗口大小在序列上滑动"。理解这道题有助于理解 chunk with overlap 的本质。
+  </div>
+  <pre><code># 题目：给定数组 nums 和窗口大小 k，返回每个窗口的最大值
+# 示例：nums = [1,3,-1,-3,5,3,6,7], k = 3
+# 输出：[3,3,5,5,6,7]
+#
+# 提示：用双端队列（collections.deque）维护单调递减队列
+# 时间复杂度 O(n)，空间复杂度 O(k)
+
+from collections import deque
+
+def max_sliding_window(nums: list[int], k: int) -> list[int]:
+    """你的实现"""
+    pass</code></pre>
+</div>
+
+<!-- ==================== 第七部分 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🚀</span> 七、Day 29 总结 & Day 30 预告
+  </div>
+
+  <h3>今日知识图谱</h3>
+  <pre><code>Day 29 文本分块
+│
+├── Python 基础
+│   ├── str.split() / splitlines() — 分割
+│   ├── str.strip() / find() / replace() — 清洗
+│   ├── 生成器表达式 — 内存高效处理
+│   └── functools.partial — 函数预设参数
+│
+├── 分块策略（4 种）
+│   ├── 固定字符 — 简单粗暴
+│   ├── 递归分隔符 — 实践首选 ✅
+│   ├── Markdown 结构 — 保留层级
+│   └── 语义分块 — 最精确（需 Embedding）
+│
+├── 工程化
+│   ├── TextChunk 数据类 — 标准化表示
+│   ├── DocumentChunker — 统一入口
+│   ├── 可视化 — 柱状图对比
+│   └── evaluate_chunks — 质量评估指标
+│
+└── 思维类比
+    └── ETL 分片 Partitioning ≈ RAG 分块 Chunking</code></pre>
+
+  <div class="milestone-box">
+    <h4>Day 30 预告：Embedding 向量化</h4>
+    <p>明天我们将学习如何把文本块变成"向量数字"——这是向量检索的基础。内容包括：</p>
+    <ul>
+      <li>什么是 Embedding？为什么文本能变成数字？</li>
+      <li>调用 Embedding API（智谱 / OpenAI）</li>
+      <li>相似度计算：余弦相似度、欧氏距离</li>
+      <li>用真实 Embedding 重写今天的"语义分块"</li>
+    </ul>
+  </div>
+</div>
+
+<div class="footer">
+  <p>LLM 转型学习计划 · Day 29/70 · Phase 2: RAG + Agent</p>
+  <p>明天见 🎯</p>
+</div>
+
+</body>
+</html>

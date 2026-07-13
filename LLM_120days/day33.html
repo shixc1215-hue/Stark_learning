@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 33 - Reranker 重排序：从"找到"到"找对"</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#eff6ff,#eef2ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #bfdbfe; }
+  .header .badge { display:inline-block;background:#dbeafe;color:var(--accent);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .compare-table { width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px; }
+  .compare-table th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border);color:var(--text2);font-size:13px; }
+  .compare-table td { padding:10px 14px;border:1px solid var(--border);vertical-align:top; }
+  .compare-table tr:hover td { background:#f8fafc; }
+  pre { background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;overflow-x:auto;font-size:13.5px;line-height:1.65;margin:12px 0;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--text); }
+  code { background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace; }
+  pre code { background:none;padding:0;border-radius:0;font-size:inherit; }
+  .hl { color:var(--accent);font-weight:600; }
+  .hl2 { color:var(--accent2);font-weight:600; }
+  .hlg { color:var(--green);font-weight:600; }
+  .hlo { color:var(--orange);font-weight:600; }
+  .hlr { color:var(--red);font-weight:600; }
+  h3 { font-size:16px;font-weight:700;margin:20px 0 10px;color:var(--text); }
+  h4 { font-size:15px;font-weight:600;margin:16px 0 8px;color:var(--text2); }
+  p { margin:8px 0;font-size:14.5px; }
+  ul,ol { margin:8px 0 8px 20px;font-size:14.5px; }
+  li { margin:4px 0; }
+  .flow-diagram { background:var(--surface2);border-radius:8px;padding:16px 20px;margin:14px 0;overflow-x:auto;font-family:'Cascadia Code',monospace;font-size:13.5px;line-height:2;white-space:pre;color:var(--text2); }
+  .output-box { background:#1e293b;color:#e2e8f0;border-radius:8px;padding:14px 18px;margin:12px 0;font-family:'Cascadia Code',monospace;font-size:13px;line-height:1.7;overflow-x:auto; }
+  .output-box .prompt { color:#64748b; }
+  .output-box .success { color:#4ade80; }
+  .output-box .accent { color:#60a5fa; }
+  .output-box .warn { color:#fbbf24; }
+  .output-box .error { color:#f87171; }
+  .tag { display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;margin:2px; }
+  .tag-blue { background:#dbeafe;color:var(--accent); }
+  .tag-green { background:#dcfce7;color:var(--green); }
+  .tag-orange { background:#fff7ed;color:var(--orange); }
+  .tag-red { background:#fef2f2;color:var(--red); }
+  .tag-purple { background:#f3e8ff;color:var(--accent2); }
+  .phase-map { background:var(--surface2);border-radius:8px;padding:16px 20px;margin:14px 0;overflow-x:auto;font-size:13.5px; }
+  .phase-map .stage { display:inline-block;padding:4px 12px;border-radius:6px;margin:2px;font-weight:600;font-size:12.5px; }
+  .phase-map .done { background:#dcfce7;color:#166534; }
+  .phase-map .current { background:#dbeafe;color:#1e40af;box-shadow:0 0 0 2px var(--accent); }
+  .phase-map .future { background:var(--surface);color:var(--text3);border:1px solid var(--border); }
+  .phase-map .arrow { color:var(--text3);margin:0 2px; }
+  .formula-box { background:#fefce8;border:1px solid #fef08a;border-radius:8px;padding:14px 18px;margin:14px 0;font-family:'Cascadia Code',monospace;font-size:14px;text-align:center; }
+  .exercise-box { background:linear-gradient(135deg,#faf5ff,#f5f3ff);border:1px solid #e9d5ff;border-radius:var(--radius);padding:20px 24px;margin:14px 0; }
+  .exercise-box h4 { color:var(--accent2);margin-bottom:10px; }
+  .exercise-box ol { padding-left:20px; }
+  .exercise-box li { margin:6px 0;font-size:14px;color:var(--text2); }
+  .summary-box { background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:1px solid #bbf7d0;border-radius:var(--radius);padding:20px 24px;margin:20px 0; }
+  .summary-box h3 { color:var(--green);margin-bottom:10px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="badge">Phase 2 · Day 5</div>
+  <h1>Day 33 - Reranker 重排序：从"找到"到"找对"</h1>
+  <div class="subtitle">检索召回 Top-K 不够精准？用交叉编码器对 query-doc 精细打分，把最相关的排到最前面</div>
+</div>
+
+<!-- Progress -->
+<div class="progress-bar">
+  <span class="label">总进度</span>
+  <div class="track"><div class="fill" style="width:47%"></div></div>
+  <span class="percent">33/70</span>
+</div>
+
+<!-- Phase Map -->
+<div class="phase-map">
+  <span class="stage done">D29 分块</span><span class="arrow">→</span>
+  <span class="stage done">D30 Embedding</span><span class="arrow">→</span>
+  <span class="stage done">D31 向量库</span><span class="arrow">→</span>
+  <span class="stage done">D32 检索</span><span class="arrow">→</span>
+  <span class="stage current">D33 Reranker</span><span class="arrow">→</span>
+  <span class="stage future">D34 生成</span><span class="arrow">→</span>
+  <span class="stage future">D35 评估</span><span class="arrow">→</span>
+  <span class="stage future">D36 Agent...</span>
+</div>
+
+<!-- ==================== Section 1: Reranker 是什么 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔍</span>
+    一、Reranker 是什么？为什么需要它？
+    <span class="time-tag">⏱ 10min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>Reranker（重排序器）</strong>：在向量检索召回的候选结果基础上，用一个更精细的模型对每个 query-document 对进行交叉打分，重新排序后只取 Top-N 给 LLM 生成。
+  </div>
+
+  <h3>类比理解：数仓的两阶段查询</h3>
+  <p>作为数据开发工程师，你一定熟悉这个场景：</p>
+  <ul>
+    <li><span class="hl">第一阶段（粗筛）</span>：WHERE 过滤出 1000 条 → <strong>类似向量检索（Recall）</strong></li>
+    <li><span class="hl">第二阶段（精排）</span>：ORDER BY + LIMIT 取 Top 10 → <strong>类似 Reranker</strong></li>
+  </ul>
+  <p>SQL 里你写 <code>ORDER BY relevance_score DESC LIMIT 5</code>，RAG 里 Reranker 就是那个 <code>ORDER BY</code>。</p>
+
+  <h3>为什么 Bi-Encoder 检索不够精确？</h3>
+  <pre><code># Bi-Encoder（Day30 学的）独立编码 query 和 document
+query_emb = embed("不良资产处置有哪些方式？")      # → [0.12, -0.34, ...]
+doc_emb   = embed("不良资产处置包括债务重组...")    # → [0.15, -0.31, ...]
+score     = cosine(query_emb, doc_emb)               # → 0.82
+
+# 问题：query 和 doc 是<span class="hl">分别</span>编码的，模型看不到它们的交互关系
+# 就像你只看简历关键词匹配，不面试怎么知道真合不合适？
+</code></pre>
+
+  <h3>Cross-Encoder 如何解决？</h3>
+  <pre><code># Cross-Encoder：把 query 和 doc <span class="hl">拼接后一起</span>送入模型
+input = "[CLS] 不良资产处置有哪些方式？ [SEP] 不良资产处置包括债务重组、资产证券化... [SEP]"
+score = cross_encoder(input)  # → 0.95  ← 精准多了！因为模型同时看到 query 和 doc 的每个词
+
+# 类比：不是看简历关键词匹配度，而是让候选人和HR<span class="hl">面对面面试</span>
+</code></pre>
+
+  <h3>完整 RAG 管线中的位置</h3>
+  <div class="flow-diagram">Query
+  │
+  ▼
+[Retriever] ──召回 Top-20（Bi-Encoder 向量检索，快但粗）
+  │
+  ▼
+[<span class="hl">Reranker</span>] ──精排 Top-5（Cross-Encoder 交叉编码，慢但准）← <span class="hlg">今天学这个</span>
+  │
+  ▼
+[Generator] ──LLM 基于上下文生成回答
+  │
+  ▼
+Answer</div>
+
+  <div class="tip-box">
+    <strong>核心 tradeoff</strong>：Reranker 的本质是用<span class="hl">计算时间换检索精度</span>。Bi-Encoder 对每篇文档只编码一次（离线），Cross-Encoder 每次查询都要和每篇候选文档"交互"（在线）。
+  </div>
+</div>
+
+<!-- ==================== Section 2: Python 知识点 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span>
+    二、Python 知识点：lambda / sorted 高阶 / dataclass 进阶
+    <span class="time-tag">⏱ 15min</span>
+  </div>
+
+  <h3>2.1 lambda 匿名函数：一行搞定简单逻辑</h3>
+  <p>Reranker 经常需要对列表做"按某个分数排序"，<code>lambda</code> 是最常用的写法。</p>
+  <pre><code># 基本语法：lambda 参数: 返回值
+square = lambda x: x ** 2
+print(square(5))  # 25
+
+# 等价于
+def square(x):
+    return x ** 2
+
+# lambda 最常见场景：sorted() 的 key 参数
+scores = [("doc_A", 0.82), ("doc_B", 0.95), ("doc_C", 0.71)]
+ranked = sorted(scores, key=lambda x: x[1], reverse=True)
+print(ranked)
+# [('doc_B', 0.95), ('doc_A', 0.82), ('doc_C', 0.71)]
+</code></pre>
+
+  <div class="warn-box">
+    <strong>lambda 使用原则</strong>：lambda 只适合<span class="hlo">单行简单表达式</span>。如果逻辑超过一行（有 if-else 分支），写成普通 <code>def</code> 函数更清晰。
+  </div>
+
+  <h3>2.2 sorted() 高阶用法回顾与扩展</h3>
+  <p>Day32 学了 <code>sorted</code> 基础，今天扩展到更复杂的排序场景。</p>
+  <pre><code># 场景1：多字段排序（先按分数降序，分数相同按文档ID升序）
+results = [
+    {"id": 3, "score": 0.92, "source": "AMC年报"},
+    {"id": 1, "score": 0.92, "source": "监管文件"},
+    {"id": 5, "score": 0.88, "source": "处置公告"},
+]
+
+# 方法A：lambda 返回元组
+ranked = sorted(results, key=lambda x: (-x["score"], x["id"]))
+# score 降序(加负号) → id 升序
+
+# 方法B：itemgetter（比 lambda 快一点点）
+from operator import itemgetter
+ranked = sorted(results, key=itemgetter("score", "id"), reverse=True)
+
+print([r["id"] for r in ranked])  # [1, 3, 5] 或 [3, 1, 5]
+
+# 场景2：稳定排序 — 多次 sorted 实现"先按X分组，组内按Y排序"
+# 先按 source 分组（稳定排序不改变相同 key 的相对顺序）
+by_source = sorted(results, key=lambda x: x["source"])
+# 再按 score 降序
+by_score = sorted(by_source, key=lambda x: x["score"], reverse=True)
+# 效果：相同 score 的文档，按 source 字母序排列
+</code></pre>
+
+  <h3>2.3 dataclass 进阶：排序支持 + 不可变实例</h3>
+  <pre><code>from dataclasses import dataclass, field
+from typing import Optional
+
+@dataclass(order=True)  # 自动生成 __lt__ 等比较方法
+class RetrievalResult:
+    """检索结果 —— 支持 sorted() 直接排序"""
+    score: float                          # <span class="hl">第一个字段 = 默认排序依据</span>
+    doc_id: str = field(compare=False)      # 不参与比较
+    text: str = field(compare=False)
+    source: str = field(default="", compare=False)
+    rerank_score: Optional[float] = field(default=None, compare=False)
+
+# 直接用 sorted 排序（按 score 字段）
+results = [
+    RetrievalResult(0.82, "d1", "不良资产处置方式...", "AMC年报"),
+    RetrievalResult(0.95, "d2", "债务重组操作指南...", "监管文件"),
+    RetrievalResult(0.71, "d3", "资产证券化案例...", "处置公告"),
+]
+ranked = sorted(results, reverse=True)
+print([r.doc_id for r in ranked])  # ['d2', 'd1', 'd3']
+
+# 如果需要按 rerank_score 排序（不是第一个字段）
+ranked_by_rerank = sorted(
+    results,
+    key=lambda r: r.rerank_score or r.score,  # rerank_score 为 None 时用 score
+    reverse=True
+)
+</code></pre>
+
+  <h3>2.4 Python 知识小结</h3>
+  <table class="compare-table">
+    <tr><th>知识点</th><th>语法</th><th>Reranker 中的应用</th></tr>
+    <tr><td><code>lambda</code></td><td><code>lambda x: x.score</code></td><td>sorted() 的 key 参数，按分数排序</td></tr>
+    <tr><td><code>sorted(, key=)</code></td><td><code>sorted(list, key=func, reverse=True)</code></td><td>按 rerank_score 重新排序候选结果</td></tr>
+    <tr><td><code>itemgetter</code></td><td><code>itemgetter("score")</code></td><td>字典排序的替代写法</td></tr>
+    <tr><td><code>@dataclass(order=True)</code></td><td>第一个字段为默认排序键</td><td>结果对象支持直接排序</td></tr>
+    <tr><td><code>field(compare=False)</code></td><td>排除字段不参与比较</td><td>让 score 排序，其他字段仅存储</td></tr>
+  </table>
+</div>
+
+<!-- ==================== Section 3: Reranker 原理 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚡</span>
+    三、Reranker 核心原理
+    <span class="time-tag">⏱ 10min</span>
+  </div>
+
+  <h3>3.1 Bi-Encoder vs Cross-Encoder 对比</h3>
+  <table class="compare-table">
+    <tr><th>维度</th><th>Bi-Encoder（检索用）</th><th>Cross-Encoder（重排用）</th></tr>
+    <tr><td><strong>输入</strong></td><td>query 和 doc 分别编码</td><td>query 和 doc 拼接后一起编码</td></tr>
+    <tr><td><strong>交互</strong></td><td>❌ 看不到词间交互</td><td>✅ 每个词都能attend到对方</td></tr>
+    <tr><td><strong>速度</strong></td><td>⚡ 快（离线预计算）</td><td>🐢 慢（每次在线计算）</td></tr>
+    <tr><td><strong>精度</strong></td><td>够用但不精确</td><td>高精度</td></tr>
+    <tr><td><strong>用途</strong></td><td>从百万篇中召回 Top-K</td><td>从 Top-K 中精排 Top-N</td></tr>
+    <tr><td><strong>类比</strong></td><td>简历关键词筛选</td><td>面对面面试</td></tr>
+    <tr><td><strong>代表模型</strong></td><td>bge-large / text-embedding-3</td><td>bge-reranker / cohere-rerank</td></tr>
+  </table>
+
+  <h3>3.2 Cross-Encoder 打分过程</h3>
+  <pre><code># Cross-Encoder 的输入格式
+text_pair = f"{query} [SEP] {document}"
+
+# 模型内部：
+# 1. Tokenizer 拼接 → [CLS] query_tokens [SEP] doc_tokens [SEP]
+# 2. BERT self-attention → query 和 doc 的每个 token 可以互相看到
+# 3. [CLS] 的隐向量 → Linear → sigmoid → 相关性分数 (0~1)
+
+# 关键：query 的"处置" 可以 attend 到 doc 里的"债务重组"
+#       因为"处置"和"债务重组"在 BERT 训练中学到了语义关联
+</code></pre>
+
+  <div class="concept-box">
+    <strong>为什么两阶段设计？</strong> 如果直接用 Cross-Encoder 检索百万文档 → 每次 query 要计算百万次 → 太慢。所以用 Bi-Encoder 粗筛（快）+ Cross-Encoder 精排（准），<span class="hl">速度快100倍以上</span>的同时保持高精度。
+  </div>
+
+  <h3>3.3 Reranker 评分公式</h3>
+  <div class="formula-box">
+    rerank_score = sigmoid(W · H[CLS] + b) ∈ [0, 1]<br>
+    <span style="font-size:12px;color:var(--text3)">H[CLS] = BERT([CLS] query [SEP] document [SEP]) 的 [CLS] 隐状态</span>
+  </div>
+
+  <h3>3.4 主流 Reranker 模型</h3>
+  <table class="compare-table">
+    <tr><th>模型</th><th>语言</th><th>特点</th><th>API</th></tr>
+    <tr><td><span class="hl">bge-reranker-v2-m3</span></td><td>多语言</td><td>BAAI开源，中文效果好</td><td>sentence-transformers</td></tr>
+    <tr><td><span class="hl">Cohere Rerank</span></td><td>多语言</td><td>API 服务，商用效果好</td><td>REST API</td></tr>
+    <tr><td><span class="hl">Jina Reranker</span></td><td>多语言</td><td>开源 + API 双模式</td><td>REST API</td></tr>
+    <tr><td><span class="hl">智谱 Rerank</span></td><td>中文</td><td>智谱 API，与 embedding-3 配合</td><td>REST API</td></tr>
+    <tr><td><span class="hl">flashrank</span></td><td>多语言</td><td>超轻量，CPU 可跑</td><td>Python 本地</td></tr>
+  </table>
+</div>
+
+<!-- ==================== Section 4: LLM 实战 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🛠️</span>
+    四、LLM 实战：用 Jina Rerank API 重排序检索结果
+    <span class="time-tag">⏱ 20min</span>
+  </div>
+
+  <h3>4.1 模拟检索结果 + Reranker 打分</h3>
+  <pre><code>"""
+Day 33 - Reranker 实战：Jina Rerank API 重排序检索结果
+用 Jina 免费 Rerank API（每天1000次）对检索结果精排
+"""
+import requests
+import json
+from dataclasses import dataclass, field
+from typing import Optional
+
+# ========== 1. 定义结果数据类 ==========
+@dataclass(order=True)
+class RankedDocument:
+    """带重排分数的检索结果"""
+    rerank_score: float
+    retrieval_score: float = field(compare=False)
+    doc_id: str = field(compare=False)
+    text: str = field(compare=False)
+    source: str = field(compare=False)
+
+    def __str__(self):
+        return f"[{self.doc_id}] score={self.rerank_score:.3f} | {self.text[:60]}..."
+
+
+# ========== 2. Jina Rerank API 调用 ==========
+def jina_rerank(
+    query: str,
+    documents: list[str],
+    top_n: int = 5,
+    api_key: str = None,
+    model: str = "jina-reranker-v2-base-multilingual",
+) -> list[dict]:
+    """
+    调用 Jina Rerank API 对候选文档重排序
+    
+    Args:
+        query: 用户查询
+        documents: 候选文档列表
+        top_n: 返回 Top-N 结果
+        api_key: Jina API Key（免费注册）
+        model: 重排模型名称
+    
+    Returns:
+        重排结果列表，每项包含 index, relevance_score
+    """
+    url = "https://api.jina.ai/v1/rerank"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": model,
+        "query": query,
+        "documents": documents,
+        "top_n": top_n,
+    }
+
+    resp = requests.post(url, headers=headers, json=payload, timeout=30)
+    resp.raise_for_status()
+    result = resp.json()
+
+    return result.get("results", [])
+
+
+# ========== 3. 模拟数据 ==========
+QUERY = "不良资产处置的主要方式有哪些？"
+
+# 模拟 Bi-Encoder 向量检索召回的 Top-10 候选
+RAW_RESULTS = [
+    {"id": "d1", "score": 0.85, "text": "不良资产处置方式包括债务重组、资产证券化、债转股、公开拍卖等多种形式，不同处置方式适用的资产类型和处置效率存在显著差异。", "source": "AMC年报2025"},
+    {"id": "d2", "score": 0.83, "text": "不良资产是指借款人未能按期归还本息的贷款资产，主要包括次级、可疑、损失三类。商业银行应建立不良资产分类管理体系。", "source": "监管指引"},
+    {"id": "d3", "score": 0.80, "text": "债务重组是不良资产处置的核心手段之一，通过调整债务人还款期限、利率、本金等方式实现债权回收最大化。", "source": "AMC年报2025"},
+    {"id": "d4", "score": 0.78, "text": "2025年全国不良贷款余额达到3.2万亿元，不良贷款率1.72%，较上年上升0.12个百分点，风险防控压力持续增大。", "source": "银保监报告"},
+    {"id": "d5", "score": 0.76, "text": "资产证券化(ABS)是不良资产处置的重要创新方式，将不良资产打包为证券产品向投资者发行，实现风险分散和资金回收。", "source": "金融创新研究"},
+    {"id": "d6", "score": 0.74, "text": "商业银行应按照五级分类标准对贷款进行分类管理，及时识别和处置不良资产，确保资产质量。", "source": "监管指引"},
+    {"id": "d7", "score": 0.72, "text": "债转股是将银行债权转为对企业股权，适用于有发展前景但暂时困难的企业，是国家化解不良资产的重要政策工具。", "source": "AMC年报2025"},
+    {"id": "d8", "score": 0.70, "text": "公开拍卖是不良资产处置的传统方式，通过公开竞价实现资产价值最大化，但拍卖流拍率较高，处置周期较长。", "source": "AMC年报2025"},
+    {"id": "d9", "score": 0.68, "text": "金融科技在不良资产管理中的应用日益广泛，大数据风控、AI估值、区块链确权等技术提升了处置效率。", "source": "金融科技周报"},
+    {"id": "d10", "score": 0.65, "text": "房地产市场的调整对不良资产规模产生直接影响，商业地产和住宅抵押贷款的风险敞口需要密切关注。", "source": "宏观分析报告"},
+]
+
+# ========== 4. 执行重排序 ==========
+def rerank_pipeline(query: str, raw_results: list[dict], top_n: int = 5) -> list[RankedDocument]:
+    """
+    完整的重排序管线：
+    1. 提取文档文本
+    2. 调用 Rerank API
+    3. 组装排序后的结果对象
+    4. 返回 Top-N
+    """
+    documents = [r["text"] for r in raw_results]
+
+    # 调用 Rerank API
+    rerank_results = jina_rerank(
+        query=query,
+        documents=documents,
+        top_n=top_n,
+        api_key="your-jina-api-key-here",  # ← 替换为你的 API Key
+    )
+
+    # 组装排序结果
+    ranked = []
+    for item in rerank_results:
+        idx = item["index"]          # 原始结果中的索引
+        score = item["relevance_score"]  # 重排分数
+        original = raw_results[idx]
+
+        ranked.append(RankedDocument(
+            rerank_score=score,
+            retrieval_score=original["score"],
+            doc_id=original["id"],
+            text=original["text"],
+            source=original["source"],
+        ))
+
+    return sorted(ranked, reverse=True)  # 按 rerank_score 降序
+
+
+# ========== 5. 可视化对比 ==========
+def compare_rankings(raw_results: list[dict], ranked: list[RankedDocument]):
+    """对比检索排序和重排排序的差异"""
+    print("=" * 70)
+    print(f"查询: {QUERY}")
+    print("=" * 70)
+
+    print("\n📊 原始检索排序（Bi-Encoder 向量相似度）:")
+    print("-" * 70)
+    for i, r in enumerate(raw_results[:5], 1):
+        print(f"  {i}. [{r['id']}] sim={r['score']:.3f} | {r['text'][:50]}...")
+
+    print("\n🔄 重排后排序（Cross-Encoder 精细打分）:")
+    print("-" * 70)
+    for i, r in enumerate(ranked, 1):
+        print(f"  {i}. [{r.doc_id}] rerank={r.rerank_score:.3f} | {r.text[:50]}...")
+
+    # 分析排序变化
+    print("\n📈 排序变化分析:")
+    print("-" * 70)
+    ranked_ids = [r.doc_id for r in ranked]
+    raw_ids = [r["id"] for r in raw_results[:5]]
+    for new_pos, doc_id in enumerate(ranked_ids, 1):
+        if doc_id in raw_ids:
+            old_pos = raw_ids.index(doc_id) + 1
+            delta = old_pos - new_pos
+            if delta > 0:
+                print(f"  ⬆️ [{doc_id}] 第{old_pos}位 → 第{new_pos}位 (上升{delta}位)")
+            elif delta < 0:
+                print(f"  ⬇️ [{doc_id}] 第{old_pos}位 → 第{new_pos}位 (下降{abs(delta)}位)")
+            else:
+                print(f"  ➡️ [{doc_id}] 位置不变")
+        else:
+            print(f"  🆕 [{doc_id}] 新进入 Top-5")
+
+
+# ========== 6. 主程序 ==========
+if __name__ == "__main__":
+    # 执行重排
+    ranked = rerank_pipeline(QUERY, RAW_RESULTS, top_n=5)
+
+    # 对比展示
+    compare_rankings(RAW_RESULTS, ranked)
+
+    print(f"\n✅ 重排完成，最终 Top-5 上下文将送入 LLM 生成回答")
+</code></pre>
+
+  <h3>4.2 本地离线 Reranker（无需 API Key）</h3>
+  <p>如果不想依赖 API，可以用 <code>flashrank</code> 在本地 CPU 上运行轻量 Reranker：</p>
+  <pre><code>"""
+本地离线 Reranker — flashrank（CPU 可跑，无需 API Key）
+pip install flashrank
+"""
+from flashrank import Ranker, RerankRequest
+
+# 初始化 Reranker（首次运行自动下载模型 ~30MB）
+ranker = Ranker(model_name="ms-marco-MiniLM-L-12-v2", cache_dir="./models")
+
+# 构造请求
+request = RerankRequest(
+    query="不良资产处置的主要方式有哪些？",
+    passages=[
+        {"id": "d1", "text": "不良资产处置方式包括债务重组、资产证券化、债转股、公开拍卖等多种形式"},
+        {"id": "d2", "text": "不良资产是指借款人未能按期归还本息的贷款资产"},
+        {"id": "d3", "text": "债务重组是不良资产处置的核心手段之一"},
+        {"id": "d4", "text": "2025年全国不良贷款余额达到3.2万亿元"},
+        {"id": "d5", "text": "资产证券化(ABS)是不良资产处置的重要创新方式"},
+    ],
+    top_n=3,
+)
+
+# 执行重排
+results = ranker.rank(request)
+
+for result in results:
+    print(f"[{result['id']}] score={result['score']:.4f}")
+    print(f"  {result['meta']['text'][:60]}...")
+
+# 输出示例：
+# [d1] score=0.9821
+#   不良资产处置方式包括债务重组、资产证券化、债转股、公开拍卖等多种形式...
+# [d3] score=0.8934
+#   债务重组是不良资产处置的核心手段之一...
+# [d5] score=0.7521
+#   资产证券化(ABS)是不良资产处置的重要创新方式...
+</code></pre>
+
+  <h3>4.3 封装通用 Reranker 工具类</h3>
+  <pre><code>"""
+通用 Reranker 工具类 — 支持 API 和本地两种模式
+"""
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import Optional
+import requests
+
+
+@dataclass
+class RerankResult:
+    """单条重排结果"""
+    doc_id: str
+    text: str
+    score: float
+    index: int           # 在原始列表中的索引
+    metadata: dict = field(default_factory=dict)
+
+
+class BaseReranker(ABC):
+    """Reranker 抽象基类 — 策略模式"""
+
+    @abstractmethod
+    def rerank(
+        self,
+        query: str,
+        documents: list[str],
+        doc_ids: Optional[list[str]] = None,
+        top_n: int = 5,
+    ) -> list[RerankResult]:
+        """对候选文档重排序，返回 Top-N"""
+        ...
+
+
+class JinaReranker(BaseReranker):
+    """Jina API Reranker"""
+
+    def __init__(self, api_key: str, model: str = "jina-reranker-v2-base-multilingual"):
+        self.api_key = api_key
+        self.model = model
+        self.url = "https://api.jina.ai/v1/rerank"
+
+    def rerank(self, query, documents, doc_ids=None, top_n=5):
+        if doc_ids is None:
+            doc_ids = [str(i) for i in range(len(documents))]
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": self.model,
+            "query": query,
+            "documents": documents,
+            "top_n": top_n,
+        }
+
+        resp = requests.post(self.url, headers=headers, json=payload, timeout=30)
+        resp.raise_for_status()
+
+        results = []
+        for item in resp.json().get("results", []):
+            idx = item["index"]
+            results.append(RerankResult(
+                doc_id=doc_ids[idx],
+                text=documents[idx],
+                score=item["relevance_score"],
+                index=idx,
+            ))
+
+        # 按分数降序
+        return sorted(results, key=lambda r: r.score, reverse=True)
+
+
+# ========== 使用示例 ==========
+reranker = JinaReranker(api_key="your-key")
+
+query = "不良资产处置的主要方式有哪些？"
+docs = [
+    "不良资产处置方式包括债务重组、资产证券化...",
+    "不良资产是指借款人未能按期归还本息的贷款...",
+    "债务重组是不良资产处置的核心手段...",
+]
+
+ranked = reranker.rerank(query, docs, doc_ids=["d1", "d2", "d3"], top_n=2)
+for r in ranked:
+    print(f"[{r.doc_id}] {r.score:.3f}")
+</code></pre>
+</div>
+
+<!-- ==================== Section 5: Reranker 优化技巧 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🎯</span>
+    五、Reranker 优化技巧与最佳实践
+    <span class="time-tag">⏱ 5min</span>
+  </div>
+
+  <h3>5.1 召回数量 vs 重排数量的 tradeoff</h3>
+  <div class="concept-box">
+    <strong>推荐配比</strong>：Bi-Encoder 召回 <code>Top-20~50</code>，Reranker 精排取 <code>Top-3~5</code>。召回太少会丢失相关文档，召回太多会拖慢 Reranker 且 LLM 上下文装不下。
+  </div>
+
+  <pre><code># 最佳实践参数配置
+RERANK_CONFIG = {
+    "retrieval_top_k": 20,    # 向量检索召回 20 篇（够多，不容易漏）
+    "rerank_top_n": 5,        # 重排后取 5 篇（LLM 上下文窗口够用）
+    "score_threshold": 0.3,   # 低于此分数直接丢弃（过滤噪音）
+}
+</code></pre>
+
+  <h3>5.2 分数阈值过滤</h3>
+  <pre><code>def filter_by_threshold(
+    results: list[RerankResult],
+    threshold: float = 0.3
+) -> list[RerankResult]:
+    """过滤低于阈值的结果，避免把不相关的内容送入 LLM"""
+    filtered = [r for r in results if r.score >= threshold]
+
+    if len(filtered) < len(results):
+        dropped = len(results) - len(filtered)
+        print(f"⚠️ 过滤掉 {dropped} 条低分结果（阈值 {threshold}）")
+
+    return filtered
+</code></pre>
+
+  <h3>5.3 Reranker 常见陷阱 Top 5</h3>
+  <table class="compare-table">
+    <tr><th>#</th><th>陷阱</th><th>后果</th><th>解决方案</th></tr>
+    <tr>
+      <td><span class="tag tag-red">1</span></td>
+      <td><span class="hlr">不用 Reranker 直接把 Top-20 送 LLM</span></td>
+      <td>LLM 被不相关内容误导，回答质量下降</td>
+      <td>永远加 Reranker 精排环节</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-orange">2</span></td>
+      <td><span class="hlo">Reranker 和 Embedding 用不同语言训练</span></td>
+      <td>语义空间不匹配，排序效果差</td>
+      <td>用同一系列模型（如 bge-embed + bge-rerank）</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-orange">3</span></td>
+      <td><span class="hlo">文档过长截断后送 Reranker</span></td>
+      <td>丢失关键信息，打分不准</td>
+      <td>Reranker 输入限制 512 tokens，送原文前几段</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-blue">4</span></td>
+      <td><span class="hl">忽略重排耗时</span></td>
+      <td>API 调用延迟高，用户体验差</td>
+      <td>异步并发 + 缓存 + 降级方案</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-blue">5</span></td>
+      <td><span class="hl">只看分数不看内容</span></td>
+      <td>可能过滤掉文本短但高度相关的结果</td>
+      <td>设置合理阈值 + 人工抽查</td>
+    </tr>
+  </table>
+
+  <h3>5.4 何时不需要 Reranker？</h3>
+  <div class="tip-box">
+    <strong>可以跳过 Reranker 的场景</strong>：文档库较小（<1000篇）、查询意图非常明确、对延迟要求极高（<100ms）、原型验证阶段。<strong>必须用 Reranker 的场景</strong>：文档库 >1万篇、用户查询含糊/多义、需要高精度回答的生产系统。
+  </div>
+</div>
+
+<!-- ==================== Section 6: 练习 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">💪</span>
+    六、今日练习
+    <span class="time-tag">⏱ 15min</span>
+  </div>
+
+  <div class="exercise-box">
+    <h4>练习 1：手写排序比较器</h4>
+    <ol>
+      <li>创建一组检索结果（至少 8 条），包含 <code>retrieval_score</code> 和 <code>rerank_score</code></li>
+      <li>用 <code>lambda</code> 分别按两种分数排序，对比排序差异</li>
+      <li>实现 <code>compare_rankings()</code> 函数，输出哪些文档被提升、哪些被下降</li>
+    </ol>
+  </div>
+
+  <div class="exercise-box">
+    <h4>练习 2：实现带阈值的 RerankPipeline</h4>
+    <ol>
+      <li>实现 <code>RerankPipeline</code> 类，包含 <code>retrieve()</code>（模拟）和 <code>rerank()</code> 两步</li>
+      <li>支持配置 <code>retrieval_top_k</code>、<code>rerank_top_n</code>、<code>score_threshold</code> 三个参数</li>
+      <li>实现 <code>__call__</code> 方法，一行调用完成全流程：<code>results = pipeline(query)</code></li>
+    </ol>
+  </div>
+
+  <div class="exercise-box">
+    <h4>练习 3：LeetCode #215 — 数组中的第 K 个最大元素</h4>
+    <p style="font-size:13px;color:var(--text3);margin-bottom:8px;">题目：给定整数数组 nums 和整数 k，返回数组中第 k 个最大的元素。</p>
+    <p>提示：用 <code>sorted(nums, reverse=True)[k-1]</code> 暴力解，再尝试用 <code>heapq.nlargest(k, nums)</code> 优化。</p>
+  </div>
+</div>
+
+<!-- ==================== Summary ==================== -->
+<div class="summary-box">
+  <h3>Day 33 小结</h3>
+  <table class="compare-table" style="margin:0">
+    <tr><th>主题</th><th>核心内容</th></tr>
+    <tr><td><span class="tag tag-blue">概念</span></td><td>Reranker = Cross-Encoder 精排，在 Bi-Encoder 粗筛后二次排序</td></tr>
+    <tr><td><span class="tag tag-green">Python</span></td><td>lambda 匿名函数、sorted 多字段排序、dataclass(order=True) 自动比较</td></tr>
+    <tr><td><span class="tag tag-orange">实战</span></td><td>Jina Rerank API + flashrank 本地离线 + 通用 BaseReranker 工具类</td></tr>
+    <tr><td><span class="tag tag-purple">最佳实践</span></td><td>召回 Top-20 → 重排 Top-5 → 阈值过滤 → 送 LLM</td></tr>
+    <tr><td><span class="tag tag-red">核心 tradeoff</span></td><td>Bi-Encoder 快但粗，Cross-Encoder 慢但准，两阶段互补</td></tr>
+  </table>
+</div>
+
+<div style="text-align:center;color:var(--text3);font-size:13px;margin-top:20px;">
+  Day 33 · Phase 2 RAG+Agent · 下一步 Day 34: 生成（Generation）— 让 LLM 基于检索上下文回答问题
+</div>
+
+</body>
+</html>

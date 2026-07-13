@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 19 - Phase 1B Day 1：面向对象基础（类/对象/属性/方法）</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#faf5ff,#eff6ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #e9d5ff; }
+  .header .badge { display:inline-block;background:#e9d5ff;color:#7c3aed;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,#7c3aed,var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:#7c3aed;min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#faf5ff;border-left:3px solid #7c3aed;padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:#7c3aed; }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  pre { background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;overflow-x:auto;font-size:13.5px;line-height:1.65;margin:12px 0;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--text); }
+  code { font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:13px; }
+  .ic { background:#f1f5f9;padding:2px 7px;border-radius:4px;font-size:13px;color:var(--accent);border:1px solid #e2e8f0; }
+  .step { display:flex;gap:14px;margin:16px 0;align-items:flex-start; }
+  .sn { background:linear-gradient(135deg,#7c3aed,var(--accent2));color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;margin-top:2px; }
+  .sc { flex:1; }
+  .sc h4 { font-size:15px;font-weight:600;margin-bottom:6px; }
+  .sc p { font-size:14px;color:var(--text2); }
+  ul,ol { padding-left:22px;margin:8px 0; }
+  li { font-size:14px;color:var(--text2);margin:4px 0; }
+  li strong { color:var(--text); }
+  .tl { list-style:none;padding:0;margin:12px 0; }
+  .tl li { display:flex;align-items:flex-start;gap:10px;padding:8px 12px;margin:6px 0;background:var(--surface2);border-radius:8px;font-size:14px;color:var(--text);cursor:pointer;transition:opacity .2s; }
+  .tl li.done { opacity:.45;text-decoration:line-through; }
+  .tl li .ck { width:20px;height:20px;border:2px solid var(--border);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px;font-size:12px;transition:all .2s; }
+  .tl li.done .ck { background:var(--green);border-color:var(--green);color:#fff; }
+  .ct { width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px; }
+  .ct th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;color:#7c3aed;border-bottom:2px solid var(--border); }
+  .ct td { padding:10px 14px;border-bottom:1px solid var(--surface3);color:var(--text2); }
+  .compare { display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0; }
+  .compare .card { background:var(--surface2);border-radius:8px;padding:16px;border:1px solid var(--surface3); }
+  .compare .card h4 { font-size:14px;font-weight:600;margin-bottom:8px; }
+  .compare .card.good h4 { color:var(--green); }
+  .compare .card.bad h4 { color:var(--red); }
+  .inline-c { background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--accent); }
+  .quiz { background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:18px 20px;margin:14px 0; }
+  .quiz h4 { color:#7c3aed;font-size:15px;margin-bottom:10px; }
+  .quiz p { color:var(--text2);font-size:14px; }
+  h3 { font-size:16px;font-weight:700;color:var(--text);margin:18px 0 10px; }
+  .milestone { background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;border-radius:var(--radius);padding:20px 24px;margin:16px 0;text-align:center; }
+  .milestone h3 { color:#92400e;font-size:18px;margin-bottom:8px; }
+  .milestone p { color:#78350f;font-size:14px; }
+  .ls { background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-color:#bbf7d0; }
+  .ls .section-title { border-bottom-color:#bbf7d0; }
+  .phase-banner { background:linear-gradient(135deg,#7c3aed,#6366f1);color:#fff;border-radius:var(--radius);padding:22px 28px;margin-bottom:24px;text-align:center; }
+  .phase-banner h2 { font-size:22px;font-weight:700;margin-bottom:6px; }
+  .phase-banner p { font-size:14px;opacity:.9; }
+  .uml { background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:20px;margin:14px 0;text-align:center; }
+  .uml .box { border:2px solid #7c3aed;border-radius:8px;width:200px;margin:0 auto;padding:10px;background:#fff; }
+  .uml .box .title { font-weight:700;color:#7c3aed;font-size:14px;padding-bottom:8px;border-bottom:1px solid #e9d5ff;margin-bottom:8px; }
+  .uml .box .row { font-size:13px;color:var(--text2);padding:3px 0;text-align:left; }
+  .uml .box .sep { border-top:1px solid #e9d5ff;margin:6px 0; }
+</style>
+</head>
+<body>
+
+<!-- ==================== Phase 切换横幅 ==================== -->
+<div class="phase-banner">
+  <h2>🎉 恭喜进入 Phase 1B：Python 工程进阶</h2>
+  <p>从"写脚本"到"写工程"——用面向对象、异步、FastAPI 构建真实 LLM 应用</p>
+</div>
+
+<!-- ==================== 头部 ==================== -->
+<div class="header">
+  <div class="badge">Phase 1B · Day 1</div>
+  <h1>Day 19：面向对象基础 — 类、对象、属性与方法</h1>
+  <div class="subtitle">用 OOP 思维重构你的 LLM 调用代码，为后续构建 ChatBot 和 FastAPI 服务打下基础</div>
+</div>
+
+<!-- ==================== 进度条 ==================== -->
+<div class="progress-bar">
+  <span class="label">总体进度</span>
+  <div class="track"><div class="fill" style="width:27%"></div></div>
+  <span class="percent">19/70</span>
+</div>
+
+<!-- ==================== 今日清单 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">📋</span>今日学习清单</div>
+  <ul class="tl">
+    <li onclick="this.classList.toggle('done')"><span class="ck">✓</span><span>理解"面向对象"思维：为什么 LLM 应用需要 OOP</span></li>
+    <li onclick="this.classList.toggle('done')"><span class="ck">✓</span><span>掌握类的定义：<span class="ic">class</span>、<span class="ic">__init__</span>、<span class="ic">self</span></span></li>
+    <li onclick="this.classList.toggle('done')"><span class="ck">✓</span><span>属性与方法：实例属性、实例方法、<span class="ic">__str__</span></span></li>
+    <li onclick="this.classList.toggle('done')"><span class="ck">✓</span><span>LLM 实战：封装一个 <span class="ic">AMCChatBot</span> 类</span></li>
+    <li onclick="this.classList.toggle('done')"><span class="ck">✓</span><span>进阶：类属性 vs 实例属性、默认参数</span></li>
+    <li onclick="this.classList.toggle('done')"><span class="ck">✓</span><span>每日一练：LeetCode #389 找不同</span></li>
+  </ul>
+</div>
+
+<!-- ==================== Section 1: 为什么要学 OOP ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🤔</span>为什么要学面向对象？<span class="time-tag">5 min</span></div>
+
+  <p>过去 18 天你写的 Python 代码，都是"面向过程"的——写函数、调函数，一步一步来。这种方式在写脚本、做数据分析时完全够用。但现在，你要开始构建真正的 <strong>LLM 应用</strong>，情况变了：</p>
+
+  <div class="compare">
+    <div class="card bad">
+      <h4>❌ 面向过程写法</h4>
+      <p>你的代码里散落着大量变量和函数：</p>
+      <pre style="font-size:12.5px">api_key = "xxx"
+base_url = "https://..."
+model_name = "glm-4-flash"
+history = []
+
+def chat(question):
+    # 20行代码...
+    pass
+
+def save_log(msg):
+    # 10行代码...
+    pass</pre>
+      <p style="margin-top:8px">10个全局变量、8个散落的函数……项目一大就乱套。</p>
+    </div>
+    <div class="card good">
+      <h4>✅ 面向对象写法</h4>
+      <p>所有相关的东西"打包"到一个类里：</p>
+      <pre style="font-size:12.5px">class AMCChatBot:
+    def __init__(self, api_key, model):
+        self.api_key = api_key
+        self.model = model
+        self.history = []
+
+    def chat(self, question):
+        # 20行代码...
+        pass
+
+    def save_log(self, msg):
+        # 10行代码...
+        pass</pre>
+      <p style="margin-top:8px">数据+行为绑定在一起，清晰、可复用、可扩展。</p>
+    </div>
+  </div>
+
+  <div class="concept-box">
+    <strong>核心思想：</strong>面向对象 = 把<strong>数据</strong>和<strong>操作数据的方法</strong>打包在一起，形成"对象"。就像数仓里的"表"——字段（数据）+ SQL查询（方法）绑定在一起，而不是散落各处。
+  </div>
+
+  <h3>OOP 的三个关键概念</h3>
+  <table class="ct">
+    <tr><th>概念</th><th>数仓类比</th><th>Python 中的体现</th></tr>
+    <tr><td><strong>类 (Class)</strong></td><td>表的 Schema 定义（建表 DDL）</td><td><span class="ic">class AMCChatBot:</span></td></tr>
+    <tr><td><strong>对象 (Object)</strong></td><td>表里的具体一张表实例</td><td><span class="ic">bot = AMCChatBot(...)</span></td></tr>
+    <tr><td><strong>方法 (Method)</strong></td><td>对表执行的操作（INSERT/SELECT）</td><td><span class="ic">bot.chat("你好")</span></td></tr>
+  </table>
+</div>
+
+<!-- ==================== Section 2: 类的定义 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🏗️</span>类的定义：<span class="ic">class</span> 与 <span class="ic">__init__</span><span class="time-tag">15 min</span></div>
+
+  <p>类是对象的"蓝图"。用 <span class="ic">class</span> 关键字定义，用 <span class="ic">__init__</span>（初始化方法）设置对象的初始状态。</p>
+
+  <h3>2.1 最简单的类</h3>
+  <pre># ===== 定义一个类 =====
+class NPLReport:
+    """AMC监管报送C表——这是一个空类"""
+    pass
+
+# ===== 从类创建对象（实例化） =====
+report_a = NPLReport()    # 创建了第一个对象
+report_b = NPLReport()    # 创建了第二个对象
+
+print(type(report_a))     # &lt;class '__main__.NPLReport'&gt;
+print(report_a is report_b)  # False —— 两个不同的对象</pre>
+
+  <div class="tip-box">
+    <strong>💡 类命名规范：</strong>Python 类名用<strong>大驼峰</strong>（CamelCase），每个单词首字母大写：<span class="ic">AMCChatBot</span>、<span class="ic">DataLoader</span>。这和函数名的 <span class="ic">snake_case</span> 不同。
+  </div>
+
+  <h3>2.2 <span class="ic">__init__</span>：构造函数（初始化方法）</h3>
+  <pre>class NPLReport:
+    """不良资产C表数据模型"""
+
+    # __init__ 在创建对象时自动调用
+    # self 代表"当前正在创建的这个对象"
+    def __init__(self, report_id, report_date, org_code):
+        self.report_id = report_id       # 实例属性：报送编号
+        self.report_date = report_date   # 实例属性：报送日期
+        self.org_code = org_code         # 实例属性：机构代码
+        self.status = "draft"           # 实例属性：默认状态为草稿
+        self.records = []                # 实例属性：空的数据记录列表
+
+
+# ===== 使用 =====
+rpt = NPLReport(
+    report_id="C-2026-001",
+    report_date="2026-06-30",
+    org_code="ORG001"
+)
+
+print(rpt.report_id)     # C-2026-001
+print(rpt.status)        # draft
+print(rpt.records)       # []</pre>
+
+  <div class="concept-box">
+    <strong>self 是什么？</strong><br>
+    self 是 Python 自动传入的参数，指向<strong>当前对象自己</strong>。你可以理解为"这个对象自己"。在 <span class="ic">__init__</span> 里 <span class="ic">self.report_id = report_id</span> 就是"把传入的 report_id 值存到这个对象自己的 report_id 属性上"。
+  </div>
+
+  <div class="warn-box">
+    <strong>⚠️ 常见错误：</strong>在 <span class="ic">__init__</span> 里忘了写 <span class="ic">self.</span>：<code>report_id = report_id</code>（没有 self）只会创建一个局部变量，对象创建完就丢了！
+  </div>
+</div>
+
+<!-- ==================== Section 3: 属性与方法 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">⚙️</span>实例属性与实例方法<span class="time-tag">15 min</span></div>
+
+  <h3>3.1 实例方法</h3>
+  <p>方法就是定义在类里的函数，第一个参数永远是 <span class="ic">self</span>，可以通过 <span class="ic">self</span> 访问对象的属性：</p>
+
+  <pre>class NPLReport:
+    def __init__(self, report_id, report_date, org_code):
+        self.report_id = report_id
+        self.report_date = report_date
+        self.org_code = org_code
+        self.records = []
+        self.status = "draft"
+
+    # ===== 实例方法：添加一条记录 =====
+    def add_record(self, debtor_name, principal, category):
+        """向C表添加一条不良资产记录"""
+        record = {
+            "debtor_name": debtor_name,   # 债务人名称
+            "principal": principal,         # 本金金额
+            "category": category,            # 不良分类(次级/可疑/损失)
+            "status": "pending"              # 待审核
+        }
+        self.records.append(record)
+        print(f"✅ 已添加记录：{debtor_name}，本金 {principal} 万元")
+
+    # ===== 实例方法：统计总金额 =====
+    def total_principal(self):
+        """计算所有记录的本金总和"""
+        return sum(r["principal"] for r in self.records)
+
+    # ===== 实例方法：生成校验摘要 =====
+    def summary(self):
+        """生成报送校验摘要"""
+        count = len(self.records)
+        total = self.total_principal()
+        return (f"报送 {self.report_id} | 日期 {self.report_date}\n"
+                f"记录数：{count}，本金合计：{total:.2f} 万元")
+
+
+# ===== 使用 =====
+rpt = NPLReport("C-2026-001", "2026-06-30", "ORG001")
+
+# 通过方法操作数据，而不是直接修改属性
+rpt.add_record("XX贸易有限公司", 1500.00, "次级")
+rpt.add_record("YY房地产集团", 8200.50, "可疑")
+rpt.add_record("ZZ制造有限公司", 320.00, "损失")
+
+print(rpt.total_principal())   # 10020.5
+print(rpt.summary())
+# 报送 C-2026-001 | 日期 2026-06-30
+# 记录数：3，本金合计：10020.50 万元</pre>
+
+  <h3>3.2 <span class="ic">__str__</span>：自定义打印格式</h3>
+  <p>直接 <span class="ic">print(对象)</span> 会输出类似 <span class="ic">&lt;__main__.NPLReport object at 0x...&gt;</span> 的无意义内容。重写 <span class="ic">__str__</span> 可以定义"打印时显示什么"：</p>
+
+  <pre>class NPLReport:
+    # ...（前面的 __init__ 和其他方法保持不变）...
+
+    def __str__(self):
+        """定义 print(对象) 时显示的内容"""
+        return (f"NPLReport(id={self.report_id}, "
+                f"date={self.report_date}, "
+                f"records={len(self.records)})")
+
+# ===== 使用 =====
+rpt = NPLReport("C-2026-001", "2026-06-30", "ORG001")
+rpt.add_record("XX贸易有限公司", 1500.00, "次级")
+print(rpt)   # NPLReport(id=C-2026-001, date=2026-06-30, records=1)</pre>
+
+  <div class="tip-box">
+    <strong>💡 <span class="ic">__str__</span> vs <span class="ic">__repr__</span>：</strong><br>
+    <span class="ic">__str__</span> 是给"人"看的（友好格式），<span class="ic">__repr__</span> 是给"开发者"看的（调试用）。日常开发先实现 <span class="ic">__str__</span> 就够了。
+  </div>
+
+  <h3>3.3 方法内调用方法</h3>
+  <pre>class NPLReport:
+    # ...（__init__、add_record 不变）...
+
+    def total_principal(self):
+        return sum(r["principal"] for r in self.records)
+
+    def average_principal(self):
+        """平均每条记录的本金"""
+        if not self.records:
+            return 0
+        return self.total_principal() / len(self.records)  # 方法内调用另一个方法
+
+    def validate(self):
+        """校验规则：单条记录本金不能超过 10000 万元"""
+        errors = []
+        for r in self.records:
+            if r["principal"] > 10000:
+                errors.append(f"⚠️ {r['debtor_name']} 本金超限：{r['principal']} 万")
+        # 也可以调用自己的 summary() 方法
+        print(self.summary())
+        if errors:
+            print("校验结果：❌ 不通过")
+            for e in errors:
+                print(f"  {e}")
+        else:
+            print("校验结果：✅ 通过")
+        return len(errors) == 0</pre>
+</div>
+
+<!-- ==================== Section 4: LLM 实战 - AMCChatBot ==================== -->
+<div class="section ls">
+  <div class="section-title"><span class="icon">🤖</span>LLM 实战：封装 AMCChatBot 类<span class="time-tag">25 min</span></div>
+
+  <p>现在用面向对象的方式，把前 18 天学的 LLM API 调用、对话记录管理、Prompt Engineering 全部封装到一个类里。这将是你后续构建完整 ChatBot 和 Agent 的基石。</p>
+
+  <pre>from openai import OpenAI
+import json
+from datetime import datetime
+
+
+class AMCChatBot:
+    """AMC 智能问答助手——封装 LLM API 调用的类"""
+
+    # ===== 类属性（所有对象共享） =====
+    DEFAULT_SYSTEM_PROMPT = """你是一名AMC（资产管理公司）数据分析助手。
+你的职责是回答关于不良资产管理、监管报送、回收率分析等问题。
+回答时请结合 AMC 业务场景，使用专业但易懂的语言。
+如果不确定答案，请明确说明。"""
+
+    def __init__(self, api_key, base_url=None, model="glm-4-flash"):
+        """
+        初始化 ChatBot
+        - api_key: API 密钥
+        - base_url: API 地址（默认智谱）
+        - model: 模型名称
+        """
+        self.api_key = api_key
+        self.base_url = base_url or "https://open.bigmodel.cn/api/paas/v4/"
+        self.model = model
+        self.client = OpenAI(
+            api_key=api_key,
+            base_url=self.base_url
+        )
+        self.system_prompt = self.DEFAULT_SYSTEM_PROMPT
+        self.history = []          # 对话历史
+        self.log = []              # 操作日志
+        self.created_at = datetime.now()
+
+    def chat(self, user_input, temperature=0.7, max_tokens=1024):
+        """
+        发送消息并获取回复
+        - user_input: 用户输入的问题
+        - temperature: 创造性（0-1，越高越有创意）
+        - max_tokens: 最大返回 token 数
+        返回：LLM 的回复文本
+        """
+        # 1. 构建消息列表
+        messages = [{"role": "system", "content": self.system_prompt}]
+        messages.extend(self.history)  # 加入历史对话
+        messages.append({"role": "user", "content": user_input})
+
+        # 2. 调用 API（带异常处理）
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens
+            )
+
+            # 3. 提取回复内容
+            reply = response.choices[0].message.content
+
+            # 4. 更新对话历史
+            self.history.append({"role": "user", "content": user_input})
+            self.history.append({"role": "assistant", "content": reply})
+
+            # 5. 记录日志
+            self._log(user_input, reply)
+
+            return reply
+
+        except Exception as e:
+            error_msg = f"API 调用失败：{type(e).__name__}: {e}"
+            self.log.append({"time": datetime.now(), "error": error_msg})
+            return f"❌ {error_msg}"
+
+    def _log(self, question, answer):
+        """内部方法（以 _ 开头）：记录日志"""
+        self.log.append({
+            "time": datetime.now(),
+            "question": question[:50] + ("..." if len(question) > 50 else ""),
+            "answer_len": len(answer)
+        })
+
+    def clear_history(self):
+        """清空对话历史"""
+        self.history = []
+        print("🧹 对话历史已清空")
+
+    def export_history(self, filepath):
+        """将对话历史导出为 JSON 文件"""
+        data = {
+            "export_time": str(datetime.now()),
+            "model": self.model,
+            "history": self.history
+        }
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        print(f"💾 对话历史已导出到：{filepath}")
+
+    def show_stats(self):
+        """显示统计信息"""
+        rounds = len(self.history) // 2
+        print(f"📊 Bot 统计：")
+        print(f"   模型：{self.model}")
+        print(f"   对话轮数：{rounds}")
+        print(f"   创建时间：{self.created_at.strftime('%Y-%m-%d %H:%M')}")
+        print(f"   日志条数：{len(self.log)}")
+
+    def __str__(self):
+        return f"AMCChatBot(model={self.model}, rounds={len(self.history)//2})"</pre>
+
+  <div class="concept-box">
+    <strong>代码结构解读：</strong><br>
+    ① <span class="ic">DEFAULT_SYSTEM_PROMPT</span> 是<strong>类属性</strong>，所有 AMCChatBot 对象共享同一个默认 prompt<br>
+    ② <span class="ic">__init__</span> 里用 <span class="ic">self.xxx = xxx</span> 设置<strong>实例属性</strong>，每个对象有自己的 API Key、模型、历史记录<br>
+    ③ <span class="ic">chat()</span> 是核心方法，封装了完整的"发请求→拿回复→更新历史→记录日志"流程<br>
+    ④ <span class="ic">_log()</span> 以 <span class="ic">_</span> 开头，表示"内部方法"，外部不直接调用<br>
+    ⑤ <span class="ic">export_history()</span> 把对话存为 JSON 文件——复用了 Day 6 学的文件读写
+  </div>
+
+  <h3>使用 AMCChatBot</h3>
+  <pre># ===== 创建 Bot 实例 =====
+bot = AMCChatBot(
+    api_key="your_api_key_here",  # 替换为你的 API Key
+    model="glm-4-flash"
+)
+
+print(bot)   # AMCChatBot(model=glm-4-flash, rounds=0)
+
+# ===== 进行多轮对话 =====
+q1 = "什么是五级分类？次级和可疑的区别是什么？"
+a1 = bot.chat(q1)
+print(f"\n🧑 {q1}")
+print(f"🤖 {a1}")
+
+q2 = "如果一笔贷款本金 500 万，逾期 360 天，应该分为哪一级？"
+a2 = bot.chat(q2)
+print(f"\n🧑 {q2}")
+print(f"🤖 {a2}")
+
+# ===== 查看统计 =====
+bot.show_stats()
+# 📊 Bot 统计：
+#    模型：glm-4-flash
+#    对话轮数：2
+#    创建时间：2026-06-17 09:50
+#    日志条数：2
+
+# ===== 导出对话 =====
+bot.export_history("chat_history.json")
+
+# ===== 开始新话题 =====
+bot.clear_history()
+print(bot)   # AMCChatBot(model=glm-4-flash, rounds=0)</pre>
+</div>
+
+<!-- ==================== Section 5: 类属性 vs 实例属性 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🔍</span>深入理解：类属性 vs 实例属性<span class="time-tag">10 min</span></div>
+
+  <table class="ct">
+    <tr><th>特性</th><th>类属性</th><th>实例属性</th></tr>
+    <tr><td><strong>定义位置</strong></td><td>class 块内、方法外</td><td><span class="ic">__init__</span> 或其他方法中</td></tr>
+    <tr><td><strong>访问方式</strong></td><td><span class="ic">类名.属性</span> 或 <span class="ic">self.属性</span></td><td><span class="ic">self.属性</span></td></tr>
+    <tr><td><strong>共享性</strong></td><td>所有对象<strong>共享同一份</strong></td><td>每个对象<strong>各自独立</strong></td></tr>
+    <tr><td><strong>修改影响</strong></td><td>修改后所有对象都受影响</td><td>只影响当前对象</td></tr>
+    <tr><td><strong>典型用途</strong></td><td>常量、默认配置、计数器</td><td>状态数据、配置、记录</td></tr>
+  </table>
+
+  <pre>class AMCChatBot:
+    # 类属性：所有 Bot 共享
+    DEFAULT_MODEL = "glm-4-flash"
+    VERSION = "1.0"
+    instance_count = 0  # 类属性计数器
+
+    def __init__(self, api_key, model=None):
+        # 实例属性：每个 Bot 独立
+        self.api_key = api_key
+        self.model = model or self.DEFAULT_MODEL  # 没传就用默认值
+        self.history = []
+
+        # 修改类属性计数器（每创建一个 Bot +1）
+        AMCChatBot.instance_count += 1
+
+
+# ===== 体验区别 =====
+bot1 = AMCChatBot("key_111")
+bot2 = AMCChatBot("key_222", model="glm-4")
+
+print(AMCChatBot.instance_count)  # 2 —— 类属性，通过类名访问
+print(bot1.model)                 # glm-4-flash —— bot1 用默认模型
+print(bot2.model)                 # glm-4 —— bot2 用自定义模型
+
+# 修改类属性 → 影响所有对象
+AMCChatBot.DEFAULT_MODEL = "glm-4-plus"
+print(bot1.DEFAULT_MODEL)         # glm-4-plus —— 类属性已变
+
+# 修改实例属性 → 只影响自己
+bot1.history.append("hello")
+print(bot1.history)  # ['hello']
+print(bot2.history)  # [] —— bot2 不受影响</pre>
+
+  <div class="warn-box">
+    <strong>⚠️ 陷阱：可变类属性！</strong>如果类属性是可变对象（如 list、dict），要小心"共享副作用"。安全做法：<strong>在 <span class="ic">__init__</span> 里创建新的可变对象</strong>（如 <span class="ic">self.history = []</span>），而不是用类属性 <span class="ic">history = []</span>。上面的代码就是这么做的。
+  </div>
+
+  <h3>默认参数 + None 模式</h3>
+  <pre>class AMCChatBot:
+    def __init__(self, api_key, model=None, temperature=0.7):
+        self.api_key = api_key
+        # 默认参数 + None 模式：避免可变默认参数陷阱
+        self.model = model or self.DEFAULT_MODEL
+        self.temperature = temperature
+        self.history = []   # ✅ 每次创建新列表
+
+
+# 三种创建方式
+bot_a = AMCChatBot("key1")
+# model 用默认值，temperature 用默认值
+
+bot_b = AMCChatBot("key2", model="glm-4")
+# temperature 用默认值
+
+bot_c = AMCChatBot("key3", temperature=0.9)
+# model 用默认值</pre>
+</div>
+
+<!-- ==================== Section 6: AMC 业务场景综合练习 ==================== -->
+<div class="section ls">
+  <div class="section-title"><span class="icon">🏢</span>综合练习：用类建模 AMC 报送校验器<span class="time-tag">10 min</span></div>
+
+  <p>结合你在 AMC 的监管报送经验，用类来封装一个"C表数据校验器"：</p>
+
+  <pre>class CTableValidator:
+    """C表监管报送数据校验器"""
+
+    def __init__(self, report_id):
+        self.report_id = report_id
+        self.rules = []      # 校验规则列表
+        self.results = []    # 校验结果列表
+        self.passed = True
+
+    def add_rule(self, rule_name, check_fn, error_msg):
+        """
+        添加一条校验规则
+        - rule_name: 规则名称
+        - check_fn: 校验函数（接收 records，返回 True/False）
+        - error_msg: 不通过时的提示信息
+        """
+        self.rules.append({
+            "name": rule_name,
+            "check": check_fn,
+            "error_msg": error_msg
+        })
+
+    def validate(self, records):
+        """对数据记录执行全部校验规则"""
+        self.results = []
+        self.passed = True
+
+        for rule in self.rules:
+            is_ok = rule["check"](records)
+            self.results.append({
+                "rule": rule["name"],
+                "passed": is_ok,
+                "message": "" if is_ok else rule["error_msg"]
+            })
+            if not is_ok:
+                self.passed = False
+
+        return self.passed
+
+    def report(self):
+        """生成校验报告"""
+        total = len(self.results)
+        failed = sum(1 for r in self.results if not r["passed"])
+        status = "✅ 全部通过" if self.passed else f"❌ {failed}/{total} 条不通过"
+
+        print(f"{'='*40}")
+        print(f"校验报告 | {self.report_id} | {status}")
+        print(f"{'='*40}")
+        for r in self.results:
+            icon = "✅" if r["passed"] else "❌"
+            msg = r["message"] if r["message"] else "通过"
+            print(f"  {icon} {r['rule']}: {msg}")
+        print(f"{'='*40}")
+
+
+# ===== 使用校验器 =====
+records = [
+    {"debtor": "公司A", "principal": 5000, "category": "次级", "days_overdue": 180},
+    {"debtor": "公司B", "principal": 15000, "category": "可疑", "days_overdue": 720},
+    {"debtor": "公司C", "principal": -200, "category": "损失", "days_overdue": 1000},
+    {"debtor": "", "principal": 800, "category": "次级", "days_overdue": 90},
+]
+
+validator = CTableValidator("C-2026-001")
+
+# 添加校验规则（用 lambda 定义检查逻辑）
+validator.add_rule(
+    "本金非负校验",
+    lambda recs: all(r["principal"] >= 0 for r in recs),
+    "存在本金为负值的记录"
+)
+validator.add_rule(
+    "债务人非空校验",
+    lambda recs: all(r["debtor"].strip() != "" for r in recs),
+    "存在债务人名称为空的记录"
+)
+validator.add_rule(
+    "五级分类合法性",
+    lambda recs: all(r["category"] in ["正常","关注","次级","可疑","损失"] for r in recs),
+    "存在不合法的五级分类值"
+)
+validator.add_rule(
+    "单笔上限校验(1亿)",
+    lambda recs: all(r["principal"] <= 100000 for r in recs),
+    "存在单笔本金超过1亿元的记录"
+)
+
+# 执行校验
+validator.validate(records)
+validator.report()
+
+# 输出：
+# ========================================
+# 校验报告 | C-2026-001 | ❌ 2/4 条不通过
+# ========================================
+#   ✅ 五级分类合法性: 通过
+#   ✅ 单笔上限校验(1亿): 通过
+#   ❌ 本金非负校验: 存在本金为负值的记录
+#   ❌ 债务人非空校验: 存在债务人名称为空的记录
+# ========================================</pre>
+
+  <div class="tip-box">
+    <strong>💡 设计亮点：</strong><br>
+    ① <span class="ic">add_rule</span> 接收<strong>函数</strong>作为参数——这是"高阶函数"的应用（Day 8 学的 map/filter 就是高阶函数）<br>
+    ② 规则和校验器<strong>解耦</strong>：可以随时增减规则，不用修改校验逻辑<br>
+    ③ 你在 AMC 写的 SQL 校验规则，未来都可以迁移成这样的 Python 校验器！
+  </div>
+</div>
+
+<!-- ==================== Section 7: 每日一练 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">💪</span>每日一练：LeetCode #389 找不同<span class="time-tag">10 min</span></div>
+
+  <div class="quiz">
+    <h4>题目：找不同</h4>
+    <p>给定两个字符串 <span class="ic">s</span> 和 <span class="ic">t</span>，<span class="ic">t</span> 是 <span class="ic">s</span> 随机打乱后加了一个字母。找出被添加的字母。</p>
+    <p><strong>示例：</strong>s = "abcd", t = "abcde" → 返回 "e"</p>
+    <p><strong>进阶要求：</strong>尝试用 <strong>面向对象</strong> 的方式封装一个 <span class="ic">DifferenceFinder</span> 类，支持以下方法：<span class="ic">find_diff(s, t)</span>、<span class="ic">find_diff_v2(s, t)</span>（不同解法）。</p>
+  </div>
+
+  <p><strong>思路提示：</strong></p>
+  <ul>
+    <li><strong>解法1（ASCII求和）：</strong>两个字符串的 ASCII 码之和相减，差值就是多出的字母</li>
+    <li><strong>解法2（Counter计数）：</strong>用 collections.Counter 统计字符频次，找差值</li>
+    <li><strong>解法3（位运算XOR）：</strong>所有字符异或，相同的抵消，剩下的就是答案</li>
+  </ul>
+
+  <p>先自己尝试写，再对照下面的参考答案：</p>
+
+  <pre>from collections import Counter
+
+
+class DifferenceFinder:
+    """字符串差异查找器"""
+
+    @staticmethod
+    def find_diff_sum(s, t):
+        """解法1：ASCII 求和法 —— O(n) 时间 O(1) 空间"""
+        # sum() 对字符串求 ASCII 码之和
+        diff = sum(ord(c) for c in t) - sum(ord(c) for c in s)
+        return chr(diff)
+
+    @staticmethod
+    def find_diff_counter(s, t):
+        """解法2：Counter 计数法 —— O(n) 时间 O(n) 空间"""
+        count_s = Counter(s)
+        count_t = Counter(t)
+        # 做差集：t 中有但 s 中没有的字符
+        diff = count_t - count_s
+        return list(diff.keys())[0]
+
+    @staticmethod
+    def find_diff_xor(s, t):
+        """解法3：异或法 —— O(n) 时间 O(1) 空间"""
+        result = 0
+        for c in s + t:
+            result ^= ord(c)
+        return chr(result)
+
+
+# ===== 测试 =====
+finder = DifferenceFinder()
+s, t = "abcd", "abcde"
+print(finder.find_diff_sum(s, t))       # e
+print(finder.find_diff_counter(s, t))    # e
+print(finder.find_diff_xor(s, t))       # e
+
+# 复杂测试
+s2, t2 = "", "y"
+print(finder.find_diff_sum(s2, t2))      # y
+print(finder.find_diff_xor(s2, t2))     # y</pre>
+
+  <div class="concept-box">
+    <strong><span class="ic">@staticmethod</span> 是什么？</strong><br>
+    这是 Python 的"静态方法"装饰器。加了它之后，方法不需要 <span class="ic">self</span> 参数，也不需要创建对象就能调用：<span class="ic">DifferenceFinder.find_diff_sum(s, t)</span>。当方法不需要访问实例属性时，用 <span class="ic">@staticmethod</span> 更合理。
+  </div>
+</div>
+
+<!-- ==================== Section 8: 总结与预习 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">📝</span>今日总结 & 明日预告</div>
+
+  <h3>今天学到了什么</h3>
+  <table class="ct">
+    <tr><th>知识点</th><th>核心内容</th><th>AMC 关联</th></tr>
+    <tr><td><strong>类与对象</strong></td><td>类是蓝图，对象是实例</td><td>Schema vs 表实例</td></tr>
+    <tr><td><strong><span class="ic">__init__</span></strong></td><td>初始化方法，设置对象初始状态</td><td>建表时设置默认值</td></tr>
+    <tr><td><strong><span class="ic">self</span></strong></td><td>指向当前对象，访问自身属性</td><td>类似 SQL 中的表别名</td></tr>
+    <tr><td><strong>实例方法</strong></td><td>对象可以执行的操作</td><td>对表执行 INSERT/SELECT</td></tr>
+    <tr><td><strong>类属性 vs 实例属性</strong></td><td>共享 vs 独立</td><td>全局配置 vs 租户配置</td></tr>
+    <tr><td><strong><span class="ic">__str__</span></strong></td><td>自定义对象的打印格式</td><td>日志输出友好化</td></tr>
+  </table>
+
+  <div class="milestone">
+    <h3>🏆 Phase 1B 第一天完成！</h3>
+    <p>你学会了用类来组织代码——这是从"写脚本"到"写工程"的关键一步。<br>
+    AMCChatBot 类已经可以工作了，明天我们继续给它加功能！</p>
+  </div>
+
+  <h3>明日预告：Day 20</h3>
+  <p><strong>面向对象进阶 —— 继承、封装、用类重构 ChatBot</strong></p>
+  <ul>
+    <li>类的继承：<span class="ic">class SpecializedBot(AMCChatBot)</span> — 在基类基础上扩展</li>
+    <li>封装思想：属性访问控制、<span class="ic">@property</span> 装饰器</li>
+    <li>用继承重构：创建一个"回收率分析专用 Bot"继承 AMCChatBot</li>
+  </ul>
+</div>
+
+<!-- ==================== 页脚 ==================== -->
+<div style="text-align:center;color:var(--text3);font-size:13px;padding:20px 0;margin-top:12px;border-top:1px solid var(--surface3);">
+  LLM 120天学习计划 · Day 19/70 · Phase 1B · Python 工程进阶<br>
+  <span style="font-size:12px">专为 AMC 数据工程师设计 · 每天一小时 · 从零到构建 AI 应用</span>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 15 - Week 3 Day 4：路径操作与日期处理 + LangChain 文档加载</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#eff6ff,#eef2ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #bfdbfe; }
+  .header .badge { display:inline-block;background:#dbeafe;color:var(--accent);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  pre { background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;overflow-x:auto;font-size:13.5px;line-height:1.65;margin:12px 0;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--text); }
+  code { font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:13px; }
+  .ic { background:#f1f5f9;padding:2px 7px;border-radius:4px;font-size:13px;color:var(--accent);border:1px solid #e2e8f0; }
+  .step { display:flex;gap:14px;margin:16px 0;align-items:flex-start; }
+  .sn { background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;margin-top:2px; }
+  .sc { flex:1; }
+  .sc h4 { font-size:15px;font-weight:600;margin-bottom:6px; }
+  .sc p { font-size:14px;color:var(--text2); }
+  ul,ol { padding-left:22px;margin:8px 0; }
+  li { font-size:14px;color:var(--text2);margin:4px 0; }
+  li strong { color:var(--text); }
+  .tl { list-style:none;padding:0;margin:12px 0; }
+  .tl li { display:flex;align-items:flex-start;gap:10px;padding:8px 12px;margin:6px 0;background:var(--surface2);border-radius:8px;font-size:14px;color:var(--text);cursor:pointer;transition:opacity .2s; }
+  .tl li.done { opacity:.45;text-decoration:line-through; }
+  .tl li .ck { width:20px;height:20px;border:2px solid var(--border);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px;font-size:12px;transition:all .2s; }
+  .tl li.done .ck { background:var(--green);border-color:var(--green);color:#fff; }
+  .ct { width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px; }
+  .ct th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;color:var(--accent);border-bottom:2px solid var(--border); }
+  .ct td { padding:10px 14px;border-bottom:1px solid var(--surface3);color:var(--text2); }
+  .fs { background:linear-gradient(135deg,#faf5ff,#fef3c7);border-color:#e9d5ff; }
+  .fs .section-title { border-bottom-color:#e9d5ff; }
+  .ls { background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-color:#bbf7d0; }
+  .ls .section-title { border-bottom-color:#bbf7d0; }
+  .compare { display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0; }
+  .compare .card { background:var(--surface2);border-radius:8px;padding:16px;border:1px solid var(--surface3); }
+  .compare .card h4 { font-size:14px;font-weight:600;margin-bottom:8px; }
+  .compare .card.good h4 { color:var(--green); }
+  .compare .card.bad h4 { color:var(--red); }
+  .inline-c { background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--accent); }
+  .quiz { background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:18px 20px;margin:14px 0; }
+  .quiz h4 { color:#7c3aed;font-size:15px;margin-bottom:10px; }
+  .quiz p { color:var(--text2);font-size:14px; }
+  h3 { font-size:16px;font-weight:700;color:var(--text);margin:18px 0 10px; }
+  .tag { display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;margin-right:6px; }
+  .tag-py { background:#dbeafe;color:var(--accent); }
+  .tag-llm { background:#fef3c7;color:#b45309; }
+  .tag-know { background:#ede9fe;color:#6d28d9; }
+  .tag-lc { background:#dcfce7;color:#15803d; }
+  .daily-schedule { display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0; }
+  .ds-card { background:var(--surface2);border-radius:8px;padding:14px;text-align:center;border:1px solid var(--surface3); }
+  .ds-card .ds-icon { font-size:24px;margin-bottom:6px; }
+  .ds-card .ds-title { font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px; }
+  .ds-card .ds-time { font-size:12px;color:var(--accent);font-weight:600; }
+  .nav { display:flex;justify-content:space-between;margin-top:20px;padding-top:16px;border-top:1px solid var(--surface3); }
+  .nav a { color:var(--accent);text-decoration:none;font-size:14px;font-weight:600;padding:8px 16px;background:var(--surface2);border-radius:8px;border:1px solid var(--surface3);transition:all .2s; }
+  .nav a:hover { background:var(--accent);color:#fff;border-color:var(--accent); }
+  @media(max-width:600px) {
+    body { padding:12px; }
+    .daily-schedule { grid-template-columns:1fr 1fr; }
+    .compare { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== HEADER ========== -->
+<div class="header">
+  <div class="badge">Phase 1A &middot; Week 3 Day 4</div>
+  <h1>Day 15：路径操作与日期处理 + LangChain 文档加载</h1>
+  <div class="subtitle">
+    <span class="tag tag-py">os / pathlib / datetime</span>
+    <span class="tag tag-llm">LangChain 文档加载器</span>
+    <span class="tag tag-know">Hugging Face 生态</span>
+    <span class="tag tag-lc">LeetCode</span>
+  </div>
+</div>
+
+<!-- ========== PROGRESS ========== -->
+<div class="progress-bar">
+  <div class="track"><div class="fill" style="width:13.4%"></div></div>
+  <div class="label">Phase 1A 进度</div>
+  <div class="percent">13.4%</div>
+</div>
+
+<!-- ========== DAILY SCHEDULE ========== -->
+<div class="section">
+  <div class="section-title"><span class="icon">&#128197;</span> 今日学习安排</div>
+  <div class="daily-schedule">
+    <div class="ds-card">
+      <div class="ds-icon">&#128013;</div>
+      <div class="ds-title">Python 路径+日期</div>
+      <div class="ds-time">~1h</div>
+    </div>
+    <div class="ds-card">
+      <div class="ds-icon">&#129302;</div>
+      <div class="ds-title">LangChain 文档加载</div>
+      <div class="ds-time">~1.5h</div>
+    </div>
+    <div class="ds-card">
+      <div class="ds-icon">&#128214;</div>
+      <div class="ds-title">HF 生态概览</div>
+      <div class="ds-time">~15min</div>
+    </div>
+    <div class="ds-card">
+      <div class="ds-icon">&#129513;</div>
+      <div class="ds-title">LeetCode</div>
+      <div class="ds-time">~15min</div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== TODO ========== -->
+<div class="section">
+  <div class="section-title"><span class="icon">&#9989;</span> 今日任务清单（点击完成）</div>
+  <ul class="tl" id="todo">
+    <li onclick="toggle(this)"><span class="ck"></span>学习 os 模块路径操作（os.path.join / exists / listdir）</li>
+    <li onclick="toggle(this)"><span class="ck"></span>学习 pathlib 现代路径操作（Path 对象 / 斜杠拼接 / glob）</li>
+    <li onclick="toggle(this)"><span class="ck"></span>学习 datetime 日期时间处理（datetime / timedelta / strftime）</li>
+    <li onclick="toggle(this)"><span class="ck"></span>综合练习：写一个文件整理脚本（按日期归类文件）</li>
+    <li onclick="toggle(this)"><span class="ck"></span>安装并配置 LangChain 文档加载器（TextLoader / UnstructuredLoader）</li>
+    <li onclick="toggle(this)"><span class="ck"></span>用 LangChain 加载一份 AMC 文档，打印前 500 字符并分析元数据</li>
+    <li onclick="toggle(this)"><span class="ck"></span>（碎片时间）了解 Hugging Face 生态三大核心组件</li>
+    <li onclick="toggle(this)"><span class="ck"></span>完成 1 道 LeetCode 简单题</li>
+  </ul>
+</div>
+
+<!-- ========================================================= -->
+<!--                  SECTION 1: Python 路径操作                -->
+<!-- ========================================================= -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#128013;</span> Python 路径操作：os 模块 vs pathlib
+    <span class="time-tag">~45min</span>
+  </div>
+
+  <!-- 为什么需要路径操作 -->
+  <div class="concept-box">
+    <strong>&#128161; 为什么要专门学路径操作？</strong><br>
+    昨天我们学了模块和包的 <code class="ic">import</code>，今天学的路径操作是它的延伸 —— 你需要告诉程序<strong>文件在哪里</strong>。在 LLM 应用中，你要加载文档、保存对话记录、管理知识库文件，全都需要操作文件路径。这是<strong>自动化处理</strong>的基础能力。
+  </div>
+
+  <h3>1.1 os 模块 —— 传统方式（了解即可，能读别人代码）</h3>
+
+  <p><code class="ic">os</code> 和 <code class="ic">os.path</code> 是 Python 最老牌的路径操作方式。虽然现在推荐用 pathlib，但你在工作中看到老代码时一定要能读懂。</p>
+
+  <h3>常用 os.path 函数速查</h3>
+  <table class="ct">
+    <tr><th>函数</th><th>作用</th><th>示例</th></tr>
+    <tr><td><code class="ic">os.path.join(a, b)</code></td><td>拼接路径（自动处理 / 和 \）</td><td>join("data", "amc.csv") → "data/amc.csv"</td></tr>
+    <tr><td><code class="ic">os.path.exists(path)</code></td><td>路径是否存在</td><td>exists("data/amc.csv") → True/False</td></tr>
+    <tr><td><code class="ic">os.path.isfile(path)</code></td><td>是否是文件</td><td>isfile("data/amc.csv") → True</td></tr>
+    <tr><td><code class="ic">os.path.isdir(path)</code></td><td>是否是目录</td><td>isdir("data") → True</td></tr>
+    <tr><td><code class="ic">os.listdir(path)</code></td><td>列出目录下所有文件/文件夹</td><td>listdir("data") → ['a.csv', 'b.txt']</td></tr>
+    <tr><td><code class="ic">os.path.basename(path)</code></td><td>取文件名</td><td>basename("data/amc.csv") → "amc.csv"</td></tr>
+    <tr><td><code class="ic">os.path.dirname(path)</code></td><td>取目录部分</td><td>dirname("data/amc.csv") → "data"</td></tr>
+    <tr><td><code class="ic">os.makedirs(path)</code></td><td>递归创建目录</td><td>makedirs("output/2026/06") 创建多层目录</td></tr>
+  </table>
+
+  <pre>
+import os
+
+# ===== 拼接路径（核心！永远用 os.path.join，不要手动写 /） =====
+data_dir = os.path.join("data", "amc", "contracts")
+print(data_dir)
+# 输出: data/amc/contracts（Windows 上会自动用 \）
+
+# ===== 检查路径 =====
+csv_path = os.path.join(data_dir, "report.csv")
+print(os.path.exists(csv_path))      # 文件在不在？
+print(os.path.isfile(csv_path))      # 是文件吗？
+print(os.path.isdir(data_dir))       # 是文件夹吗？
+
+# ===== 遍历目录 =====
+for filename in os.listdir("data"):
+    full_path = os.path.join("data", filename)  # 重要：要拼接完整路径
+    if os.path.isfile(full_path):
+        print(f"  文件: {filename}")
+    else:
+        print(f"  目录: {filename}")
+
+# ===== 创建目录 =====
+os.makedirs("output/charts", exist_ok=True)
+# exist_ok=True 表示"目录已存在也不报错"，非常实用！
+</pre>
+
+  <div class="warn-box">
+    <strong>&#9888;&#65039; 常见坑</strong>：<br>
+    <strong>永远不要手动拼接路径字符串</strong>！<code class="ic">"data/" + "file.txt"</code> 在 Windows 上会出问题（Windows 用反斜杠 <code class="ic">\</code>）。用 <code class="ic">os.path.join()</code> 自动适配当前操作系统。<br><br>
+    <strong>也不要手动写 <code class="ic">\</code></strong> —— Python 中 <code class="ic">\</code> 是转义字符，<code class="ic">"data\new"</code> 会被解释成 <code class="ic">data</code> + 换行符 + <code class="ic">ew</code>。用 <code class="ic">os.path.join()</code> 或 r 前缀原始字符串 <code class="ic">r"data\new"</code>。
+  </div>
+
+  <h3>1.2 pathlib —— 现代方式（&#9989; 重点掌握，自己写代码用它）</h3>
+
+  <p><code class="ic">pathlib</code> 是 Python 3.4 引入的，用<strong>面向对象</strong>的方式操作路径。比 os 模块更直观、更安全。以后写代码<strong>优先用 pathlib</strong>。</p>
+
+  <div class="concept-box">
+    <strong>&#127919; 核心思路</strong>：pathlib 把路径变成一个<strong>对象</strong>（Path），用 <code class="ic">/</code> 符号拼接路径（像数学除法一样自然），路径对象的每个部分都可以直接访问。
+  </div>
+
+  <pre>
+from pathlib import Path
+
+# ===== 创建路径对象 =====
+# 当前目录下的 data/amc 文件夹
+data_dir = Path("data") / "amc"      # 用 / 拼接！比 os.path.join() 直观多了
+print(data_dir)
+# 输出: data\amc（Windows）或 data/amc（Linux/Mac）
+
+# ===== 检查路径 =====
+data_dir.exists()       # 是否存在？
+data_dir.is_file()      # 是文件？
+data_dir.is_dir()       # 是目录？
+
+# ===== 获取路径的各个部分 =====
+p = Path("data/amc/contracts/report_2026.csv")
+p.name          # "report_2026.csv" — 文件名（含后缀）
+p.stem          # "report_2026" — 文件名（不含后缀）
+p.suffix        # ".csv" — 后缀名
+p.parent        # "data/amc/contracts" — 父目录
+p.parents[0]    # 同 parent
+p.parents[1]    # "data/amc" — 上上级目录
+
+# ===== 创建目录 =====
+data_dir.mkdir(parents=True, exist_ok=True)
+# parents=True = 自动创建所有缺失的父目录
+# exist_ok=True = 已存在不报错
+
+# ===== 遍历文件（比 os.listdir 更强大） =====
+# 列出目录下所有 .csv 文件
+for csv_file in Path("data").glob("*.csv"):
+    print(csv_file)    # 输出: data\report1.csv, data\report2.csv ...
+
+# 递归查找（包括子文件夹里的 .csv）
+for csv_file in Path("data").glob("**/*.csv"):
+    print(csv_file)    # 输出: data\sub\deep\file.csv 也能找到！
+
+# ===== 读写文件（Path 对象自带方法！） =====
+config = Path("config.json")
+content = config.read_text(encoding="utf-8")   # 读取文本
+config.write_text('{"key": "value"}', encoding="utf-8")  # 写入文本
+</pre>
+
+  <div class="tip-box">
+    <strong>&#128161; pathlib vs os.path 对比记忆</strong><br>
+    记住一个公式：<code class="ic">Path("a") / "b" / "c"</code> 就等于 <code class="ic">os.path.join("a", "b", "c")</code>。pathlib 用斜杠拼路径，更直观。<br><br>
+    在 LLM 项目中，管理文档知识库时 pathlib 特别好用 —— <code class="ic">Path("knowledge_base").glob("**/*.pdf")</code> 一行代码就能找到所有 PDF 文档。
+  </div>
+
+  <h3>1.3 os vs pathlib 对照表</h3>
+  <table class="ct">
+    <tr><th>os 模块写法</th><th>pathlib 写法</th></tr>
+    <tr><td><code class="ic">os.path.join("a", "b")</code></td><td><code class="ic">Path("a") / "b"</code></td></tr>
+    <tr><td><code class="ic">os.path.exists("a/b")</code></td><td><code class="ic">Path("a/b").exists()</code></td></tr>
+    <tr><td><code class="ic">os.path.isfile("a/b")</code></td><td><code class="ic">Path("a/b").is_file()</code></td></tr>
+    <tr><td><code class="ic">os.path.basename("a/b.txt")</code></td><td><code class="ic">Path("a/b.txt").name</code></td></tr>
+    <tr><td><code class="ic">os.path.dirname("a/b.txt")</code></td><td><code class="ic">Path("a/b.txt").parent</code></td></tr>
+    <tr><td><code class="ic">os.listdir("a")</code></td><td><code class="ic">list(Path("a").iterdir())</code></td></tr>
+    <tr><td><code class="ic">glob.glob("a/*.csv")</code></td><td><code class="ic">Path("a").glob("*.csv")</code></td></tr>
+    <tr><td><code class="ic">os.makedirs("a/b", exist_ok=True)</code></td><td><code class="ic">Path("a/b").mkdir(parents=True, exist_ok=True)</code></td></tr>
+  </table>
+
+</div>
+
+<!-- ========================================================= -->
+<!--                  SECTION 2: datetime                        -->
+<!-- ========================================================= -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#128013;</span> Python 日期时间处理：datetime
+    <span class="time-tag">~15min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>&#128161; 为什么要学 datetime？</strong><br>
+    在数据处理和 LLM 应用中，日期无处不在 —— AMC 项目的收购日期、报告生成时间、日志时间戳。你需要<strong>创建日期</strong>、<strong>计算日期差</strong>（某项目逾期了多少天）、<strong>格式化输出</strong>（"2026年06月08日"）。
+  </div>
+
+  <pre>
+from datetime import datetime, date, timedelta
+
+# ===== 获取当前时间 =====
+now = datetime.now()          # 2026-06-08 09:45:58.123456
+today = date.today()          # 2026-06-08
+
+print(now.year)               # 2026
+print(now.month)              # 6
+print(now.day)                # 8
+print(now.hour)               # 9
+
+# ===== 创建指定日期 =====
+# AMC 项目收购日期
+acquire_date = date(2024, 3, 15)   # 2024年3月15日
+print(acquire_date)                # 2024-03-15
+
+# ===== 日期差计算（timedelta）=====
+# 计算项目持有天数
+days_held = today - acquire_date
+print(f"项目已持有 {days_held.days} 天")   # 项目已持有 820 天
+
+# 往前/往后推 N 天
+deadline = today + timedelta(days=30)    # 30天后
+last_week = today - timedelta(days=7)    # 7天前
+print(f"处置截止日: {deadline}")          # 处置截止日: 2026-07-08
+
+# ===== 日期转字符串（strftime —— format） =====
+# 常用格式化符号：
+# %Y=四位数年  %m=两位数月  %d=两位数日
+# %H=时  %M=分  %S=秒
+now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+print(now_str)                    # 2026-06-08 09:45:58
+
+cn_str = now.strftime("%Y年%m月%d日")
+print(cn_str)                     # 2026年06月08日
+
+# 文件命名常用格式
+file_str = now.strftime("%Y%m%d_%H%M%S")
+print(file_str)                   # 20260608_094558
+filename = f"report_{file_str}.csv"
+# → report_20260608_094558.csv
+
+# ===== 字符串转日期（strptime —— parse） =====
+raw = "2024-03-15"
+parsed = datetime.strptime(raw, "%Y-%m-%d")
+print(parsed)                     # 2024-03-15 00:00:00
+print(type(parsed))               # &lt;class 'datetime.datetime'&gt;
+
+# ===== 判断日期先后 =====
+if acquire_date < today:
+    print("收购日已过去")
+if deadline > today:
+    remaining = (deadline - today).days
+    print(f"距截止日还有 {remaining} 天")
+</pre>
+
+  <div class="tip-box">
+    <strong>&#128161; strftime vs strptime 记忆技巧</strong><br>
+    <code class="ic">strftime</code> = String Format Time = <strong>日期 → 字符串</strong>（f = format）<br>
+    <code class="ic">strptime</code> = String Parse Time = <strong>字符串 → 日期</strong>（p = parse）<br><br>
+    在 AMC 场景中：用 datetime 计算逾期天数、生成报告文件名、记录日志时间戳 —— 这三个操作是最常用的。
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!--             SECTION 3: 综合练习                           -->
+<!-- ========================================================= -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#128736;&#65039;</span> 综合练习：文件整理脚本
+    <span class="time-tag">~15min</span>
+  </div>
+
+  <p>用今天学的 pathlib + datetime，写一个<strong>按日期整理文件</strong>的小脚本。这会出现在你未来的 LLM 项目中 —— 自动管理生成的文档。</p>
+
+  <pre>
+from pathlib import Path
+from datetime import datetime
+
+def organize_by_date(source_dir: str, target_dir: str):
+    """
+    把 source_dir 中的文件按最后修改日期整理到 target_dir 的子文件夹中
+    子文件夹命名格式: YYYY-MM
+    """
+    source = Path(source_dir)
+    target = Path(target_dir)
+    target.mkdir(parents=True, exist_ok=True)
+
+    for filepath in source.iterdir():
+        if not filepath.is_file():    # 跳过文件夹
+            continue
+
+        # 获取文件修改时间并格式化为 YYYY-MM
+        mtime = datetime.fromtimestamp(filepath.stat().st_mtime)
+        folder_name = mtime.strftime("%Y-%m")
+        dest_folder = target / folder_name
+        dest_folder.mkdir(exist_ok=True)
+
+        # 移动文件到目标文件夹
+        dest_file = dest_folder / filepath.name
+        filepath.rename(dest_file)
+        print(f"  {filepath.name} → {folder_name}/{filepath.name}")
+
+    print(f"整理完成！共处理文件到: {target}")
+
+# 使用示例
+# organize_by_date("downloads", "organized")
+# downloads/
+#   ├── report1.csv  (修改于 2026-03-15)
+#   ├── photo.jpg    (修改于 2026-03-15)
+#   └── notes.txt    (修改于 2026-04-20)
+# 整理后:
+# organized/
+#   ├── 2026-03/
+#   │   ├── report1.csv
+#   │   └── photo.jpg
+#   └── 2026-04/
+#       └── notes.txt
+</pre>
+
+  <div class="concept-box">
+    <strong>&#128161; LLM 应用中的路径+日期联动</strong><br>
+    在 RAG 系统中，你经常需要：<br>
+    1. 用 <code class="ic">Path().glob()</code> 扫描知识库文件夹中的所有文档<br>
+    2. 用 <code class="ic">filepath.stat().st_mtime</code> 判断文档是否需要更新<br>
+    3. 用 <code class="ic">datetime</code> 生成时间戳命名的输出文件<br>
+    今天学的两个模块，就是 RAG 数据管道的文件管理基础。
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!--          SECTION 4: LangChain 文档加载                      -->
+<!-- ========================================================= -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#129302;</span> LangChain 文档加载器实战
+    <span class="time-tag">~1.5h</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>&#128161; 什么是文档加载器？为什么重要？</strong><br>
+    在 RAG 系统中，第一步就是<strong>把文档加载进来</strong>。LangChain 的文档加载器能读取各种格式的文件（.txt、.md、.pdf、.csv、网页等），统一转换成 <code class="ic">Document</code> 对象。<br><br>
+    每个 Document 对象包含两部分：<br>
+    - <code class="ic">page_content</code>：文档的文本内容<br>
+    - <code class="ic">metadata</code>：元数据（来源路径、页码、创建时间等）<br><br>
+    <strong>这是 RAG 系统的第一步</strong>，后面还要做"分块→向量化→检索→生成"，今天的重点是加载。
+  </div>
+
+  <!-- Step 1 -->
+  <div class="step">
+    <div class="sn">1</div>
+    <div class="sc">
+      <h4>准备一份 AMC 文档</h4>
+      <p>先创建一份测试用的 AMC 不良资产知识文档：</p>
+    </div>
+  </div>
+
+  <pre>
+# 创建测试文档 data/amc_knowledge.md
+from pathlib import Path
+
+Path("data").mkdir(exist_ok=True)
+
+doc_content = """
+# AMC不良资产处置业务知识库
+
+## 一、基本概念
+
+### 1.1 什么是不良资产？
+不良资产是指银行或其他金融机构在经营过程中形成的、由于借款人无法按期偿还本息而形成的资产。
+主要包括：不良贷款、抵债资产、呆账等。
+
+### 1.2 不良资产处置方式
+1. **催收**：通过电话、上门等方式催促债务人还款
+2. **诉讼**：通过法律途径追偿债务
+3. **债务重组**：与债务人协商调整还款计划
+4. **债权转让**：将不良资产打包转让给AMC公司
+5. **资产证券化**：将不良资产打包发行证券
+6. **债转股**：将债权转换为股权
+
+### 1.3 净回收率计算
+净回收率 = (实际回收金额 - 处置费用) / 原始收购成本 × 100%
+
+举例：某项目收购成本 1000 万元，实际回收 600 万元，处置费用 80 万元。
+净回收率 = (600 - 80) / 1000 × 100% = 52%
+
+## 二、监管报送要求
+
+### 2.1 C表报送
+AMC需要定期向监管部门报送C表，主要包括：
+- 资产负债表相关指标
+- 不良资产处置进度
+- 风险资产分类情况
+- 回收率统计
+
+### 2.2 EAST报送
+EAST（ Examination and Analysis System Technology）
+是银保监会建立的监管数据采集和分析系统。
+AMC需要按季度报送标准化数据。
+"""
+
+Path("data/amc_knowledge.md").write_text(doc_content.strip(), encoding="utf-8")
+print("测试文档已创建: data/amc_knowledge.md")
+</pre>
+
+  <!-- Step 2 -->
+  <div class="step">
+    <div class="sn">2</div>
+    <div class="sc">
+      <h4>用 TextLoader 加载 .md 文件</h4>
+      <p>最简单的文档加载器，适合 .txt 和 .md 文件：</p>
+    </div>
+  </div>
+
+  <pre>
+# 需要先安装: pip install langchain-community
+
+from langchain_community.document_loaders import TextLoader
+
+# 加载文档
+loader = TextLoader("data/amc_knowledge.md", encoding="utf-8")
+documents = loader.load()
+
+# 查看加载结果
+print(f"加载了 {len(documents)} 个文档")
+print(f"类型: {type(documents[0])}")
+print(f"文档总长度: {len(documents[0].page_content)} 字符")
+print()
+
+# 打印前 500 字符
+print("=" * 50)
+print("文档内容（前 500 字符）:")
+print("=" * 50)
+print(documents[0].page_content[:500])
+print("...")
+print()
+
+# 查看元数据
+print("=" * 50)
+print("元数据:")
+print("=" * 50)
+for key, value in documents[0].metadata.items():
+    print(f"  {key}: {value}")
+</pre>
+
+  <p>预期输出：</p>
+  <pre>
+加载了 1 个文档
+类型: &lt;class 'langchain_core.documents.Document'&gt;
+文档总长度: 612 字符
+
+==================================================
+文档内容（前 500 字符）:
+==================================================
+# AMC不良资产处置业务知识库
+
+## 一、基本概念
+
+### 1.1 什么是不良资产？
+不良资产是指银行或其他金融机构在经营过程中形成的、
+由于借款人无法按期偿还本息而形成的资产。
+主要包括：不良贷款、抵债资产、呆账等。
+...
+==================================================
+元数据:
+  source: data/amc_knowledge.md
+</pre>
+
+  <!-- Step 3 -->
+  <div class="step">
+    <div class="sn">3</div>
+    <div class="sc">
+      <h4>用 DirectoryLoader 批量加载文件夹</h4>
+      <p>实际项目中知识库有很多文件，需要批量加载：</p>
+    </div>
+  </div>
+
+  <pre>
+from langchain_community.document_loaders import DirectoryLoader, TextLoader
+
+# 批量加载 data 文件夹下所有 .md 文件
+loader = DirectoryLoader(
+    path="data",
+    glob="**/*.md",         # 匹配模式：所有子文件夹中的 .md 文件
+    loader_cls=TextLoader,
+    loader_kwargs={"encoding": "utf-8"}
+)
+
+all_docs = loader.load()
+print(f"共加载 {len(all_docs)} 个文档")
+
+for i, doc in enumerate(all_docs):
+    source = doc.metadata["source"]
+    chars = len(doc.page_content)
+    print(f"  [{i+1}] {source} ({chars} 字符)")
+</pre>
+
+  <!-- Step 4 -->
+  <div class="step">
+    <div class="sn">4</div>
+    <div class="sc">
+      <h4>配合昨天学的 LangChain Chain 使用</h4>
+      <p>把加载的文档和 LLM 调用串起来 —— 这就是 RAG 的雏形！</p>
+    </div>
+  </div>
+
+  <pre>
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+# 1. 加载文档（今天学的）
+loader = TextLoader("data/amc_knowledge.md", encoding="utf-8")
+doc = loader.load()[0]
+
+# 2. 截取前 1500 字符作为上下文（避免 token 超限）
+context = doc.page_content[:1500]
+
+# 3. 构建 Chain（昨天学的）
+prompt = ChatPromptTemplate.from_template("""
+你是AMC不良资产处置领域的专家。请根据以下参考资料回答用户问题。
+如果资料中没有相关内容，请明确告知。
+
+参考资料：
+{context}
+
+用户问题：{question}
+请用简洁的中文回答：
+""")
+
+llm = ChatOpenAI(
+    model="glm-4-flash",
+    api_key="你的智谱API Key",
+    base_url="https://open.bigmodel.cn/api/paas/v4"
+)
+
+chain = prompt | llm | StrOutputParser()
+
+# 4. 提问
+question = input("请输入问题（如"净回收率怎么算"）: ")
+answer = chain.invoke({"context": context, "question": question})
+print(f"\n回答: {answer}")
+</pre>
+
+  <div class="tip-box">
+    <strong>&#128161; 这就是最简单的 RAG！</strong><br>
+    虽然我们还没有用向量数据库和 Embedding（那是 Phase 2 的内容），但你已经做了一个<strong>简化版的 RAG</strong>：<br><br>
+    <strong>加载文档 → 截取内容 → 放进 Prompt → 调用 LLM</strong><br><br>
+    后面我们会把"截取内容"这一步替换成"向量化+语义检索"，效果会精确很多。
+  </div>
+
+  <h3>LangChain 支持的文档格式速查</h3>
+  <table class="ct">
+    <tr><th>文件格式</th><th>Loader 类名</th><th>需要安装的包</th></tr>
+    <tr><td>.txt / .md</td><td><code class="ic">TextLoader</code></td><td>langchain-community</td></tr>
+    <tr><td>.csv</td><td><code class="ic">CSVLoader</code></td><td>langchain-community</td></tr>
+    <tr><td>.json</td><td><code class="ic">JSONLoader</code></td><td>langchain-community</td></tr>
+    <tr><td>.pdf</td><td><code class="ic">PyPDFLoader</code></td><td>pip install pypdf</td></tr>
+    <tr><td>.docx</td><td><code class="ic">Docx2txtLoader</code></td><td>pip install docx2txt</td></tr>
+    <tr><td>网页 URL</td><td><code class="ic">WebBaseLoader</code></td><td>pip install beautifulsoup4</td></tr>
+    <tr><td>整个文件夹</td><td><code class="ic">DirectoryLoader</code></td><td>langchain-community</td></tr>
+  </table>
+
+  <div class="warn-box">
+    <strong>&#9888;&#65039; 关于 PDF 加载</strong><br>
+    PDF 加载比文本文件复杂得多（扫描件需要 OCR、表格需要特殊处理）。今天的重点是理解<strong>文档加载的概念</strong>，先用 .txt/.md 文件练手。PDF 加载会在 Phase 2 的 RAG 系统中深入学习。
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!--          SECTION 5: 碎片知识 - Hugging Face               -->
+<!-- ========================================================= -->
+<div class="section fs">
+  <div class="section-title">
+    <span class="icon">&#128214;</span> 碎片知识：Hugging Face 生态概览
+    <span class="time-tag">~15min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>&#127919; Hugging Face 是什么？</strong><br>
+    Hugging Face 是 AI 领域的"GitHub + npm + PyPI"综合体。它是<strong>最大的开源模型和工具社区</strong>，几乎所有主流开源模型都能在上面找到。<br><br>
+    你在 Phase 0 注册了 HF 账号，今天来了解它的三大核心组件：
+  </div>
+
+  <h3>三大核心组件</h3>
+
+  <div class="compare">
+    <div class="card">
+      <h4>&#128218; Model Hub（模型库）</h4>
+      <p style="font-size:14px;color:var(--text2)">
+        <strong>做什么</strong>：存储和分享开源模型<br><br>
+        <strong>类比</strong>：就像 GitHub 存代码，Model Hub 存模型<br><br>
+        <strong>热门模型</strong>：<br>
+        - Qwen2.5（通义千问）<br>
+        - Llama 3（Meta）<br>
+        - GLM-4（智谱）<br>
+        - BGE（Embedding 模型）
+      </p>
+    </div>
+    <div class="card">
+      <h4>&#128202; Datasets（数据集库）</h4>
+      <p style="font-size:14px;color:var(--text2)">
+        <strong>做什么</strong>：存储和分享训练/微调数据集<br><br>
+        <strong>类比</strong>：就像数据科学版的 Kaggle<br><br>
+        <strong>常用场景</strong>：<br>
+        - 下载对话数据集做微调<br>
+        - 查看评测基准数据集<br>
+        - 分享你自己的 AMC 领域数据
+      </p>
+    </div>
+  </div>
+
+  <div style="background:var(--surface2);border-radius:8px;padding:16px;border:1px solid var(--surface3);margin:14px 0">
+    <h4 style="color:var(--text);margin-bottom:8px">&#128736;&#65039; Transformers 库（核心工具包）</h4>
+    <p style="font-size:14px;color:var(--text2);margin-bottom:8px">
+      <strong>做什么</strong>：统一的 API 来加载、运行任何开源模型<br><br>
+      <strong>核心代码</strong>（概念了解即可）：
+    </p>
+    <pre>
+from transformers import AutoModel, AutoTokenizer
+
+# 一行代码加载任何模型
+tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B")
+model = AutoModel.from_pretrained("Qwen/Qwen2.5-7B")
+
+# 编码文本 → 得到向量（就是 Embedding！）
+inputs = tokenizer("不良资产净回收率", return_tensors="pt")
+outputs = model(**inputs)
+    </pre>
+    <p style="font-size:14px;color:var(--text2);margin-top:8px">
+      <strong>什么时候会用到？</strong>：Phase 3 微调时（PEFT 库基于 Transformers），以及直接加载开源 Embedding 模型做 RAG。<br>
+      <strong>现在不需要深入</strong>，知道这个生态存在就够了。
+    </p>
+  </div>
+
+  <h3>国内替代：魔搭社区（ModelScope）</h3>
+  <p style="font-size:14px;color:var(--text2)">
+    国内访问 Hugging Face 经常很慢，阿里云的<strong>魔搭社区（modelscope.cn）</strong>是国内版的 Hugging Face：<br>
+    - 模型下载速度更快<br>
+    - 同样有 Model Hub + Datasets<br>
+    - 支持 <code class="ic">modelscope download</code> 命令行下载模型<br>
+    - 后续用到开源模型时，优先用魔搭社区
+  </p>
+
+  <div class="tip-box">
+    <strong>&#128161; 面试知识点</strong><br>
+    面试官问"你怎么获取开源模型？" → 回答：<br>
+    "主要通过 Hugging Face Model Hub 和国内魔搭社区。Transformers 库的 <code class="ic">from_pretrained()</code> 方法可以一行代码加载模型。如果模型太大本地跑不了，可以用 AutoDL 等云 GPU 平台。"
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!--          SECTION 6: LeetCode                              -->
+<!-- ========================================================= -->
+<div class="section ls">
+  <div class="section-title">
+    <span class="icon">&#129513;</span> LeetCode 每日一题
+    <span class="time-tag">~15min</span>
+  </div>
+
+  <div class="quiz">
+    <h4>&#128218; 今日题目：LeetCode #283 移动零</h4>
+    <p><strong>难度</strong>：简单 &nbsp;|&nbsp; <strong>标签</strong>：数组、双指针</p>
+    <p style="margin-top:10px"><strong>题目</strong>：给定一个数组 <code class="ic">nums</code>，编写一个函数将所有 0 移动到数组的末尾，同时保持非零元素的相对顺序。</p>
+    <p style="margin-top:6px"><strong>示例</strong>：<code class="ic">[0,1,0,3,12]</code> → <code class="ic">[1,3,12,0,0]</code></p>
+    <p style="margin-top:6px"><strong>要求</strong>：原地操作，不能使用额外数组。</p>
+  </div>
+
+  <h3>思路提示</h3>
+  <p style="font-size:14px;color:var(--text2)">
+    用一个<strong>指针（变量）</strong>记录"下一个非零元素应该放的位置"。遍历数组，遇到非零数就放到指针位置，指针前进。最后把剩余位置都填 0。
+  </p>
+
+  <pre>
+def moveZeroes(nums):
+    """
+    双指针思路：
+    - slow 指针：下一个非零元素应该放的位置
+    - fast 指针：遍历数组的当前位置
+    """
+    slow = 0  # 慢指针：非零元素的"放置位"
+
+    for fast in range(len(nums)):
+        if nums[fast] != 0:
+            nums[slow] = nums[fast]  # 把非零数移到前面
+            slow += 1                # 放置位后移
+
+    # slow 之后的位置全部填 0
+    for i in range(slow, len(nums)):
+        nums[i] = 0
+
+    return nums
+
+# 测试
+print(moveZeroes([0, 1, 0, 3, 12]))       # [1, 3, 12, 0, 0]
+print(moveZeroes([0, 0, 0, 1]))            # [1, 0, 0, 0]
+print(moveZeroes([1, 2, 3]))               # [1, 2, 3]
+</pre>
+
+  <div class="tip-box">
+    <strong>&#128161; 本题要点</strong><br>
+    1. <strong>双指针</strong>是数组题的核心技巧，后面会遇到很多类似的<br>
+    2. <code class="ic">slow</code> 指针只负责"非零区间的下一个空位"，<code class="ic">fast</code> 负责扫描<br>
+    3. 时间复杂度 O(n)，空间复杂度 O(1) —— 只遍历了两次，没有额外空间
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!--          SECTION 7: 自测                                  -->
+<!-- ========================================================= -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#9997;&#65039;</span> 今日自测
+  </div>
+
+  <div class="quiz">
+    <h4>&#128221; 自测题（完成后对照答案检查）</h4>
+    <p><strong>Q1</strong>：用 pathlib 写一行代码，找到当前目录下所有 .csv 文件（含子目录）。</p>
+    <p><strong>Q2</strong>：计算 2024-01-01 到今天（2026-06-08）相差多少天？</p>
+    <p><strong>Q3</strong>：用 LangChain 的 TextLoader 加载一个 .txt 文件后，<code class="ic">Document</code> 对象的哪两个属性最重要？分别存什么？</p>
+    <p><strong>Q4</strong>：Hugging Face 的三大核心组件分别是什么？国内访问慢用什么替代？</p>
+  </div>
+
+  <details style="margin-top:12px">
+    <summary style="cursor:pointer;font-size:14px;color:var(--accent);font-weight:600;padding:8px 0">
+      &#128064; 点击查看参考答案
+    </summary>
+    <pre>
+Q1: list(Path(".").glob("**/*.csv"))
+
+Q2:
+from datetime import date
+d1 = date(2024, 1, 1)
+d2 = date(2026, 6, 8)
+print((d2 - d1).days)  # 889 天
+
+Q3:
+- page_content: 文档的文本内容（字符串）
+- metadata: 元数据（字典，包含 source 路径等信息）
+
+Q4:
+- Model Hub（模型库）
+- Datasets（数据集库）
+- Transformers（工具包）
+- 国内替代：魔搭社区（modelscope.cn）
+    </pre>
+  </details>
+</div>
+
+<!-- ========================================================= -->
+<!--          SECTION 8: 明日预告                              -->
+<!-- ========================================================= -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#128076;</span> 明日预告：Day 16
+  </div>
+
+  <div class="compare">
+    <div class="card">
+      <h4 style="color:var(--accent)">&#128013; Python</h4>
+      <p style="font-size:14px;color:var(--text2)">
+        <strong>pandas 基础</strong><br>
+        读写 CSV / 筛选 / 分组聚合<br>
+        （数据分析师必备工具）
+      </p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--orange)">&#129302; LLM 实操</h4>
+      <p style="font-size:14px;color:var(--text2)">
+        <strong>LLM + 数据分析</strong><br>
+        用 pandas 读取 CSV → 数据摘要<br>
+        → 传给 LLM 生成中文分析报告
+      </p>
+    </div>
+  </div>
+  <p style="font-size:14px;color:var(--text2);margin-top:10px">
+    明天正式进入 pandas 大数据工具的学习，这也是你作为数据开发工程师最熟悉的领域 —— 把 SQL 的思维翻译成 Python！
+  </p>
+</div>
+
+<!-- ========== NAV ========== -->
+<div class="nav">
+  <a href="day14.html">&#8592; Day 14</a>
+  <a href="day16.html">Day 16 &#8594;</a>
+</div>
+
+<!-- ========== JS ========== -->
+<script>
+function toggle(el){
+  el.classList.toggle('done');
+  var ck=el.querySelector('.ck');
+  ck.textContent=el.classList.contains('done')?'✓':'';
+}
+</script>
+
+</body>
+</html>

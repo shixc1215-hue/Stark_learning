@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 28 - Phase 1B 综合实战：构建完整 AMC 智能问答平台</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#eff6ff,#eef2ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #bfdbfe; }
+  .header .badge { display:inline-block;background:#dbeafe;color:var(--accent);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .milestone-box { background:linear-gradient(135deg,#fef3c7,#fff7ed);border:2px solid #fbbf24;border-radius:var(--radius);padding:20px 24px;margin:14px 0;font-size:14px;color:var(--text); }
+  .milestone-box h4 { color:var(--orange);margin-bottom:8px; }
+  pre { background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;overflow-x:auto;font-size:13.5px;line-height:1.65;margin:12px 0;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--text); }
+  code { font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:13px; }
+  .inline-code { background:#f1f5f9;padding:2px 7px;border-radius:4px;font-size:13px;color:var(--accent);border:1px solid #e2e8f0;font-family:'Cascadia Code','Fira Code',Consolas,monospace; }
+  h3 { font-size:16px;font-weight:700;margin:18px 0 10px;color:var(--text); }
+  h4 { font-size:14.5px;font-weight:600;margin:14px 0 8px;color:var(--text2); }
+  p { margin:8px 0;font-size:14.5px; }
+  ul,ol { margin:8px 0 8px 20px;font-size:14.5px; }
+  li { margin:4px 0; }
+  table { width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px; }
+  th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border);font-size:13px; }
+  td { padding:10px 14px;border:1px solid var(--border); }
+  .file-tree { background:var(--surface2);border-radius:8px;padding:14px 18px;margin:12px 0;font-family:'Cascadia Code',Consolas,monospace;font-size:13px;line-height:1.8;color:var(--text2); }
+  .file-tree .dir { color:var(--accent);font-weight:600; }
+  .file-tree .file { color:var(--text); }
+  .file-tree .comment { color:var(--text3);font-style:italic; }
+  .compare { display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0; }
+  .compare-card { background:var(--surface2);border-radius:8px;padding:14px 16px;border:1px solid var(--border); }
+  .compare-card h4 { margin-top:0;color:var(--accent); }
+  .footer { text-align:center;padding:20px;color:var(--text3);font-size:13px; }
+  .quiz { background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:16px 20px;margin:14px 0; }
+  .quiz q { display:block;font-weight:600;margin-bottom:8px;color:var(--text); }
+  .quiz .answer { margin-top:8px;padding-top:8px;border-top:1px dashed #fde68a;color:var(--green);font-size:14px; }
+  a { color:var(--accent);text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  .phase-summary { background:linear-gradient(135deg,#eff6ff,#f0fdf4);border:2px solid var(--accent);border-radius:var(--radius);padding:24px 28px;margin:14px 0; }
+  .phase-summary h3 { color:var(--accent);margin-bottom:12px; }
+  .phase-summary table { margin:10px 0; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Phase 1B · 工程进阶 · Day 14/14 🎯 收官</div>
+  <h1>Day 28 · 综合实战：构建完整 AMC 智能问答平台</h1>
+  <div class="subtitle">Phase 1B 终极挑战 —— 用 OOP + 异步 + FastAPI + 工程化，从零搭一个能跑的生产级服务</div>
+</div>
+
+<div class="progress-bar">
+  <span class="label">Day 28 / 70</span>
+  <div class="track"><div class="fill" style="width:40%"></div></div>
+  <span class="percent">40%</span>
+</div>
+
+<!-- ==================== 开篇 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🎯</span> 项目总览：我们要做什么？
+    <span class="time-tag">⏱ 5 min</span>
+  </div>
+
+  <p>今天我们要把 Phase 1B（Day 19-27）学过的<strong>所有知识点</strong>融到一个真实项目中：</p>
+
+  <div class="concept-box">
+    <strong>AMC 智能问答平台</strong> —— 一个能让分析师用自然语言查询不良资产数据的 Web 服务。<br>
+    类比你做数仓时的"即席查询"，只不过用户不用写 SQL，用中文问就行，LLM 帮你翻译。
+  </div>
+
+  <h3>项目功能清单</h3>
+  <table>
+    <tr><th>功能</th><th>技术要点</th><th>用到的 Day</th></tr>
+    <tr><td>📊 数据模型层</td><td>OOP 类设计、继承、Pydantic 模型</td><td>Day 19-22</td></tr>
+    <tr><td>🤖 LLM 服务层</td><td>异步并发调用、重试、超时</td><td>Day 24</td></tr>
+    <tr><td>🌐 API 接口层</td><td>FastAPI 路由、依赖注入、中间件</td><td>Day 25-26</td></tr>
+    <tr><td>🔐 认证 + 限流</td><td>API Key、配额管理</td><td>Day 26</td></tr>
+    <tr><td>📝 工程化</td><td>logging、.env 配置、pytest 测试</td><td>Day 27</td></tr>
+    <tr><td>🔄 设计模式</td><td>工厂、策略、单例</td><td>Day 23</td></tr>
+  </table>
+
+  <div class="tip-box">
+    <strong>💡 今天的目标不是"学新东西"，而是"把旧东西串起来"</strong>。就像你做 ETL 时，单表 INSERT 和整个数仓流水线是两回事 —— 今天就是搭那条流水线。
+  </div>
+</div>
+
+<!-- ==================== Section 1 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📁</span> 一、项目结构设计
+    <span class="time-tag">⏱ 8 min</span>
+  </div>
+
+  <p>先想清楚项目怎么组织。你在数仓分层（ODS → DWD → DWS → ADS）就是"架构思维"，这里同理：</p>
+
+  <div class="file-tree">
+<span class="comment"># AMC 智能问答平台项目结构</span>
+<span class="dir">amc_platform/</span>
+├── <span class="file">main.py</span>              <span class="comment"># FastAPI 入口（启动文件）</span>
+├── <span class="file">config.py</span>            <span class="comment"># pydantic-settings 配置管理</span>
+├── <span class="file">requirements.txt</span>     <span class="comment"># 依赖清单</span>
+├── <span class="file">.env</span>                 <span class="comment"># 环境变量（API Key 等敏感信息）</span>
+├── <span class="file">.gitignore</span>
+│
+├── <span class="dir">models/</span>              <span class="comment"># 📊 数据模型层（类比 DWD 表结构定义）</span>
+│   ├── <span class="file">__init__.py</span>
+│   ├── <span class="file">amc.py</span>        <span class="comment"># AMC 业务数据模型（NPL/资产/债务人）</span>
+│   └── <span class="file">schemas.py</span>    <span class="comment"># API 请求/响应 Pydantic 模型</span>
+│
+├── <span class="dir">services/</span>            <span class="comment"># 🤖 服务层（类比数仓 ETL 脚本）</span>
+│   ├── <span class="file">__init__.py</span>
+│   ├── <span class="file">llm_service.py</span> <span class="comment"># LLM 调用服务（异步+重试）</span>
+│   ├── <span class="file">query_service.py</span> <span class="comment"># SQL 生成服务（NL→SQL 翻译）</span>
+│   └── <span class="file">report_service.py</span> <span class="comment"># 报表生成服务（数据+摘要）</span>
+│
+├── <span class="dir">api/</span>                <span class="comment"># 🌐 API 路由层（类比 ADS 报表接口）</span>
+│   ├── <span class="file">__init__.py</span>
+│   ├── <span class="file">deps.py</span>       <span class="comment"># 依赖注入（认证/配额/日志）</span>
+│   ├── <span class="file">chat.py</span>       <span class="comment"># 问答接口</span>
+│   └── <span class="file">reports.py</span>    <span class="comment"># 报表接口</span>
+│
+├── <span class="dir">core/</span>                <span class="comment"># 🔧 核心模块（基础设施）</span>
+│   ├── <span class="file">__init__.py</span>
+│   ├── <span class="file">logging.py</span>    <span class="comment"># 日志配置</span>
+│   ├── <span class="file">database.py</span>   <span class="comment"># 数据库连接（模拟）</span>
+│   └── <span class="file">exceptions.py</span> <span class="comment"># 自定义异常</span>
+│
+├── <span class="dir">tests/</span>              <span class="comment"># 🧪 测试</span>
+│   ├── <span class="file">test_query_service.py</span>
+│   └── <span class="file">test_api.py</span>
+│
+└── <span class="dir">data/</span>               <span class="comment"># 📂 模拟数据</span>
+    └── <span class="file">sample_amc.csv</span> <span class="comment"># 不良资产样本数据</span>
+  </div>
+
+  <h3>分层原则</h3>
+  <table>
+    <tr><th>层</th><th>职责</th><th>类比数仓</th><th>关键约束</th></tr>
+    <tr><td><strong>models</strong></td><td>定义数据结构</td><td>建表 DDL</td><td>只放类定义，不放业务逻辑</td></tr>
+    <tr><td><strong>services</strong></td><td>业务逻辑</td><td>ETL 脚本</td><td>不依赖 FastAPI，可独立测试</td></tr>
+    <tr><td><strong>api</strong></td><td>HTTP 接口</td><td>报表服务接口</td><td>只做参数校验 + 调 service</td></tr>
+    <tr><td><strong>core</strong></td><td>基础设施</td><td>调度系统/元数据</td><td>被其他所有层引用</td></tr>
+  </table>
+
+  <div class="concept-box">
+    <strong>核心设计原则：</strong>api 层调 services 层，services 层调 core 层。<br>
+    想象数仓：<strong>ADS 调 DWS，DWS 调 DWD，DWD 调 ODS</strong> —— 数据只能自上而下引用，不能反向。
+  </div>
+</div>
+
+<!-- ==================== Section 2 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔧</span> 二、基础设施层（core）
+    <span class="time-tag">⏱ 10 min</span>
+  </div>
+
+  <h3>2.1 配置管理 — config.py</h3>
+  <p>用 Day 27 学的 pydantic-settings，把所有配置集中管理：</p>
+
+<pre>
+# config.py
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
+
+
+class Settings(BaseSettings):
+    """AMC 平台全局配置 —— 所有环境变量集中管理"""
+
+    # ===== LLM 配置 =====
+    llm_api_key: str = Field(..., description="智谱 API Key")
+    llm_base_url: str = "https://open.bigmodel.cn/api/paas/v4"
+    llm_model: str = "glm-4-flash"
+    llm_timeout: float = 30.0       # 超时秒数
+    llm_max_retries: int = 3        # 最大重试次数
+
+    # ===== 服务配置 =====
+    host: str = "0.0.0.0"
+    port: int = 8000
+    debug: bool = False
+
+    # ===== 业务配置 =====
+    max_daily_queries: int = 100    # 每用户每日最大查询次数
+    max_concurrent: int = 5         # 最大并发 LLM 调用数
+
+    model_config = SettingsConfigDict(
+        env_file=".env",             # 从 .env 文件读取
+        env_prefix="AMC_",          # 环境变量前缀 AMC_
+        extra="ignore"               # 忽略多余变量
+    )
+
+
+# 单例：整个应用共用一个配置实例
+# （这就是 Day 23 学的单例模式）
+settings = Settings()
+</pre>
+
+  <div class="tip-box">
+    <strong>💡 单例模式在这里的意义：</strong>就像你的数仓只有一个"全局参数表"，配置全局只有一份。<code>settings = Settings()</code> 在模块加载时创建一次，其他文件 <code>from config import settings</code> 直接用。
+  </div>
+
+  <h3>2.2 日志配置 — core/logging.py</h3>
+
+<pre>
+# core/logging.py
+import logging
+import sys
+from config import settings
+
+
+def setup_logging() -> None:
+    """配置日志系统 —— Day 27 logging 的工程级配置"""
+    log_level = logging.DEBUG if settings.debug else logging.INFO
+
+    # 根 logger 配置
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s | %(levelname)-8s | %(name)-20s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        handlers=[
+            # 控制台输出
+            logging.StreamHandler(sys.stdout),
+        ]
+    )
+
+    # 降噪：把第三方库的日志级别调高
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
+    # 业务 logger
+    logger = logging.getLogger("amc")
+    logger.info("AMC 平台日志系统初始化完成")
+</pre>
+
+  <h3>2.3 自定义异常 — core/exceptions.py</h3>
+
+<pre>
+# core/exceptions.py
+from fastapi import HTTPException, status
+
+
+class AMCError(Exception):
+    """AMC 业务异常基类"""
+    def __init__(self, message: str, error_code: str = "AMC_ERROR"):
+        self.message = message
+        self.error_code = error_code
+        super().__init__(message)
+
+
+class QuotaExceededError(AMCError):
+    """配额不足"""
+    def __init__(self, user_id: str, limit: int):
+        super().__init__(
+            message=f"用户 {user_id} 已达到每日查询上限 {limit} 次",
+            error_code="QUOTA_EXCEEDED"
+        )
+
+
+class LLMTimeoutError(AMCError):
+    """LLM 调用超时"""
+    def __init__(self):
+        super().__init__(
+            message="LLM 服务响应超时，请稍后重试",
+            error_code="LLM_TIMEOUT"
+        )
+</pre>
+
+  <div class="concept-box">
+    <strong>自定义异常的设计思路：</strong>和 SQL 里自定义异常码一样 —— <code>RAISERROR 50001 '配额不足'</code>。<br>
+    把"业务异常"和"系统异常"分开，上层 API 可以根据 error_code 返回不同的 HTTP 状态码。
+  </div>
+</div>
+
+<!-- ==================== Section 3 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📊</span> 三、数据模型层（models）
+    <span class="time-tag">⏱ 10 min</span>
+  </div>
+
+  <h3>3.1 AMC 业务模型 — models/amc.py</h3>
+  <p>用 Day 19-21 学的 OOP，把 AMC 的核心业务实体建模成类：</p>
+
+<pre>
+# models/amc.py
+from dataclasses import dataclass, field
+from datetime import date
+from typing import Optional
+from enum import Enum
+
+
+class AssetStatus(str, Enum):
+    """资产状态枚举 —— 用 Day 22 学的枚举模式"""
+    NORMAL = "正常"
+    OVERDUE = "逾期"
+    NPL = "不良"       # Non-Performing Loan
+    WRITE_OFF = "核销"
+    DISPOSED = "处置"
+
+
+@dataclass
+class Debtor:
+    """债务人类 —— 类比数仓 dim_debtor 表"""
+    debtor_id: str
+    name: str
+    id_type: str            # 证件类型
+    id_number: str          # 证件号（脱敏）
+    industry: Optional[str] = None
+    region: Optional[str] = None
+
+    @property
+    def masked_name(self) -> str:
+        """姓名脱敏 —— @property 计算属性（Day 21 学的）"""
+        if len(self.name) <= 2:
+            return self.name[0] + "*"
+        return self.name[0] + "*" * (len(self.name) - 2) + self.name[-1]
+
+
+@dataclass
+class NonPerformingAsset:
+    """不良资产 —— 类比数仓 dwd_npl_asset 表"""
+    asset_id: str
+    debtor: Debtor
+    principal: float        # 本金余额
+    interest: float         # 利息余额
+    status: AssetStatus
+    category: str           # 资产类别（贷款/债券/垫款）
+    acquire_date: date      # 收购日期
+    dispose_date: Optional[date] = None
+
+    @property
+    def total_balance(self) -> float:
+        """总余额 = 本金 + 利息"""
+        return self.principal + self.interest
+
+    @property
+    def days_held(self) -> int:
+        """持有天数"""
+        end = self.dispose_date or date.today()
+        return (end - self.acquire_date).days
+
+    @property
+    def is_over_threshold(self) -> bool:
+        """是否超过管理阈值（本金 > 1000万）"""
+        return self.principal > 10_000_000
+
+    def __str__(self) -> str:
+        """自定义打印 —— Day 19 学的 __str__"""
+        return (
+            f"[{self.asset_id}] {self.debtor.masked_name} | "
+            f"本金: {self.principal:,.0f} | 状态: {self.status.value}"
+        )
+
+    def __lt__(self, other: "NonPerformingAsset") -> bool:
+        """按本金排序 —— Day 21 学的 __lt__"""
+        return self.principal < other.principal
+
+    def to_dict(self) -> dict:
+        """转为字典，方便序列化"""
+        return {
+            "asset_id": self.asset_id,
+            "debtor_name": self.debtor.masked_name,
+            "principal": self.principal,
+            "interest": self.interest,
+            "total_balance": self.total_balance,
+            "status": self.status.value,
+            "category": self.category,
+            "days_held": self.days_held,
+        }
+
+
+@dataclass
+class AMCReport:
+    """AMC 报表 —— 类比数仓 ads 层的汇总表"""
+    report_date: date
+    total_assets: int = 0          # 资产总数
+    total_principal: float = 0     # 本金总额
+    total_interest: float = 0      # 利息总额
+    npl_count: int = 0             # 不良笔数
+    npl_ratio: float = 0.0         # 不良率
+
+    @classmethod
+    def from_assets(cls, assets: list[NonPerformingAsset]) -> "AMCReport":
+        """工厂方法 —— Day 21 学的 @classmethod"""
+        total = len(assets)
+        npls = [a for a in assets if a.status == AssetStatus.NPL]
+        return cls(
+            report_date=date.today(),
+            total_assets=total,
+            total_principal=sum(a.principal for a in assets),
+            total_interest=sum(a.interest for a in assets),
+            npl_count=len(npls),
+            npl_ratio=len(npls) / total if total > 0 else 0.0,
+        )
+</pre>
+
+  <div class="tip-box">
+    <strong>💡 数据开发视角：</strong>每个 dataclass 就是一张表的 Schema 定义。<br>
+    <code>@property</code> 就像 SQL 的计算列：<code>SELECT principal + interest AS total_balance</code>。<br>
+    <code>from_assets</code> 工厂方法就像 <code>INSERT INTO ads_report SELECT ... FROM dwd_asset GROUP BY</code>。
+  </div>
+
+  <h3>3.2 API 请求/响应模型 — models/schemas.py</h3>
+
+<pre>
+# models/schemas.py
+from pydantic import BaseModel, Field
+from typing import Optional
+
+
+class ChatRequest(BaseModel):
+    """问答请求 —— Pydantic 模型（Day 25 学的）"""
+    question: str = Field(..., min_length=1, max_length=500,
+                           description="用户问题")
+    user_id: str = Field(default="anonymous", max_length=50)
+    top_k: int = Field(default=5, ge=1, le=20, description="返回条数")
+
+
+class ChatResponse(BaseModel):
+    """问答响应"""
+    answer: str                          # LLM 回答
+    sql: Optional[str] = None             # 生成的 SQL（可展示给用户）
+    data: Optional[list[dict]] = None     # 查询结果
+    tokens_used: int = 0                 # Token 消耗
+
+
+class ReportRequest(BaseModel):
+    """报表生成请求"""
+    report_type: str = Field(..., description="报表类型：summary/detail/top_n")
+    filters: Optional[dict] = None        # 筛选条件
+    user_id: str = Field(default="anonymous")
+
+
+class HealthResponse(BaseModel):
+    """健康检查响应"""
+    status: str = "ok"
+    version: str = "1.0.0"
+    model: str = ""
+</pre>
+</div>
+
+<!-- ==================== Section 4 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🤖</span> 四、LLM 服务层（services/llm_service.py）
+    <span class="time-tag">⏱ 12 min</span>
+  </div>
+
+  <p>这是整个平台的核心 —— LLM 调用服务。把 Day 24 学的异步 + Day 23 学的策略模式结合起来：</p>
+
+<pre>
+# services/llm_service.py
+import asyncio
+import logging
+from abc import ABC, abstractmethod
+from typing import Optional
+import httpx
+
+from config import settings
+from core.exceptions import LLMTimeoutError
+
+logger = logging.getLogger("amc.llm")
+
+
+# ===== 策略模式：LLM 提供商抽象基类（Day 23 设计模式）=====
+class LLMProvider(ABC):
+    """LLM 提供商抽象基类 —— 策略模式中的 Strategy"""
+
+    @abstractmethod
+    async def chat(self, messages: list[dict],
+                   temperature: float = 0.7) -> str:
+        """发送对话请求"""
+        ...
+
+    @abstractmethod
+    async def count_tokens(self, text: str) -> int:
+        """估算 token 数"""
+        ...
+
+
+class ZhipuProvider(LLMProvider):
+    """智谱 GLM 提供商 —— 具体策略"""
+
+    def __init__(self):
+        self.api_key = settings.llm_api_key
+        self.base_url = settings.llm_base_url
+        self.model = settings.llm_model
+        self._client: Optional[httpx.AsyncClient] = None
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        """延迟创建 HTTP 客户端（懒加载）"""
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                base_url=self.base_url,
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                timeout=settings.llm_timeout
+            )
+        return self._client
+
+    async def chat(self, messages: list[dict],
+                   temperature: float = 0.7) -> str:
+        """调用智谱 API —— Day 24 学的异步 HTTP"""
+        client = await self._get_client()
+
+        # 指数退避重试（Day 24 学的）
+        last_error = None
+        for attempt in range(settings.llm_max_retries):
+            try:
+                logger.debug(f"LLM 请求尝试 {attempt + 1}/{settings.llm_max_retries}")
+
+                response = await client.post(
+                    "/chat/completions",
+                    json={
+                        "model": self.model,
+                        "messages": messages,
+                        "temperature": temperature,
+                    }
+                )
+                response.raise_for_status()
+
+                data = response.json()
+                content = data["choices"][0]["message"]["content"]
+                tokens = data.get("usage", {}).get("total_tokens", 0)
+
+                logger.info(f"LLM 响应成功，tokens={tokens}")
+                return content
+
+            except httpx.TimeoutException as e:
+                last_error = e
+                # 指数退避：1s, 2s, 4s
+                wait = 2 ** attempt
+                logger.warning(f"LLM 超时，{wait}s 后重试...")
+                await asyncio.sleep(wait)
+
+            except httpx.HTTPStatusError as e:
+                last_error = e
+                if e.response.status_code == 429:  # 限流
+                    wait = 2 ** attempt
+                    logger.warning(f"LLM 限流 429，{wait}s 后重试...")
+                    await asyncio.sleep(wait)
+                else:
+                    raise  # 非 429 错误直接抛出
+
+        raise LLMTimeoutError()
+
+    async def count_tokens(self, text: str) -> int:
+        """简单估算：中文约 1.5 字/token，英文约 4 字母/token"""
+        chinese_chars = sum(1 for c in text if '\u4e00' <= c <= '\u9fff')
+        other_chars = len(text) - chinese_chars
+        return int(chinese_chars / 1.5 + other_chars / 4)
+
+
+# ===== 工厂模式：LLM 服务入口（Day 23 学的）=====
+def create_llm_provider() -> LLMProvider:
+    """工厂函数：根据配置创建 LLM 提供商"""
+    return ZhipuProvider()
+
+
+# ===== 单例模式：全局 LLM 服务（Day 23 + Day 27 学的）=====
+class LLMService:
+    """
+    LLM 服务门面类（Facade 模式）
+    封装了：Provider 选择 + Prompt 构建 + 重试逻辑
+    对外只暴露一个简单的 ask() 方法
+    """
+
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._provider = create_llm_provider()
+            cls._instance._semaphore = asyncio.Semaphore(
+                settings.max_concurrent  # 并发限流（Day 24 学的）
+            )
+        return cls._instance
+
+    async def ask(self, question: str,
+                  system_prompt: str = "") -> tuple[str, int]:
+        """
+        发送问题到 LLM
+
+        Returns:
+            (回答文本, token 消耗)
+        """
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": question})
+
+        # 信号量限流，防止并发过高
+        async with self._semaphore:
+            answer = await self._provider.chat(messages)
+            tokens = self._provider.count_tokens(
+                question + answer
+            )
+            return answer, tokens
+
+    async def batch_ask(self, questions: list[str],
+                        system_prompt: str = "") -> list[tuple[str, int]]:
+        """
+        批量并发提问 —— Day 24 学的 asyncio.gather
+
+        Returns:
+            [(回答, tokens), ...]  按原始顺序返回
+        """
+        tasks = [
+            self.ask(q, system_prompt)
+            for q in questions
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # 处理异常
+        final = []
+        for i, r in enumerate(results):
+            if isinstance(r, Exception):
+                logger.error(f"批量提问第 {i+1} 个失败: {r}")
+                final.append((f"[错误] {r}", 0))
+            else:
+                final.append(r)
+        return final
+</pre>
+
+  <div class="concept-box">
+    <strong>这里用到的设计模式：</strong>
+    <ul>
+      <li><strong>策略模式</strong>：<code>LLMProvider</code> 抽象基类 → 未来切换 DeepSeek/OpenAI 只需加一个子类</li>
+      <li><strong>工厂模式</strong>：<code>create_llm_provider()</code> 根据配置自动选择提供商</li>
+      <li><strong>单例模式</strong>：<code>LLMService.__new__</code> 保证全局只有一个实例 + 一个 HTTP 连接池</li>
+      <li><strong>门面模式</strong>：<code>LLMService.ask()</code> 隐藏了 Provider/重试/限流等复杂度</li>
+    </ul>
+    就像数仓里，你用视图封装了底层多表关联，对外只暴露一个简单字段。
+  </div>
+</div>
+
+<!-- ==================== Section 5 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">💬</span> 五、查询服务（services/query_service.py）
+    <span class="time-tag">⏱ 10 min</span>
+  </div>
+
+  <p>这是 NL→SQL 翻译的核心服务 —— LLM 把用户的自然语言问题翻译成 SQL，然后我们模拟执行：</p>
+
+<pre>
+# services/query_service.py
+import logging
+from services.llm_service import LLMService
+
+logger = logging.getLogger("amc.query")
+
+# AMC 数据库的表结构描述 —— 告诉 LLM 有哪些表和字段
+AMC_SCHEMA = """
+AMC 不良资产管理系统数据库结构：
+
+表1: npl_asset（不良资产表）
+  - asset_id VARCHAR: 资产编号
+  - debtor_name VARCHAR: 债务人名称
+  - principal DECIMAL: 本金余额（元）
+  - interest DECIMAL: 利息余额（元）
+  - total_balance DECIMAL: 本息合计（计算列 = principal + interest）
+  - status ENUM: 资产状态（正常/逾期/不良/核销/处置）
+  - category VARCHAR: 资产类别（贷款/债券/垫款）
+  - region VARCHAR: 地区
+  - acquire_date DATE: 收购日期
+  - days_held INT: 持有天数（计算列）
+"""
+
+# 模拟数据 —— 真实项目中这里会查数据库
+MOCK_DATA = [
+    {"asset_id": "NPL-001", "debtor_name": "张*华", "principal": 5000000,
+     "interest": 800000, "status": "不良", "category": "贷款",
+     "region": "浙江", "days_held": 365},
+    {"asset_id": "NPL-002", "debtor_name": "李*明", "principal": 12000000,
+     "interest": 2400000, "status": "不良", "category": "债券",
+     "region": "上海", "days_held": 520},
+    {"asset_id": "NPL-003", "debtor_name": "王*强", "principal": 800000,
+     "interest": 120000, "status": "逾期", "category": "贷款",
+     "region": "江苏", "days_held": 90},
+    {"asset_id": "NPL-004", "debtor_name": "赵*丽", "principal": 35000000,
+     "interest": 7000000, "status": "核销", "category": "垫款",
+     "region": "广东", "days_held": 1200},
+    {"asset_id": "NPL-005", "debtor_name": "陈*伟", "principal": 2500000,
+     "interest": 350000, "status": "不良", "category": "贷款",
+     "region": "浙江", "days_held": 180},
+]
+
+SYSTEM_PROMPT = f"""你是不良资产管理系统的 SQL 助手。
+{AMC_SCHEMA}
+
+规则：
+1. 只生成 SELECT 语句，不要写 UPDATE/DELETE
+2. 金额单位统一用元
+3. 先输出 SQL（用```sql包裹），再给出简洁的中文回答
+4. 如果问题不需要 SQL，直接回答即可
+"""
+
+
+class QueryService:
+    """自然语言查询服务"""
+
+    def __init__(self):
+        self.llm = LLMService()  # 单例，不会重复创建
+
+    async def ask(self, question: str, user_id: str = "") -> dict:
+        """
+        处理用户的自然语言查询
+
+        流程：用户提问 → LLM 生成 SQL → 模拟执行 → 返回结果
+
+        Returns:
+            {"answer": "中文回答", "sql": "生成的SQL", "data": [...]}
+        """
+        logger.info(f"用户 {user_id} 提问: {question[:50]}...")
+
+        # 1. 调用 LLM
+        answer, tokens = await self.llm.ask(question, SYSTEM_PROMPT)
+
+        # 2. 提取 SQL（如果回答中包含）
+        sql = self._extract_sql(answer)
+
+        # 3. 如果有 SQL，模拟执行
+        data = None
+        if sql:
+            data = self._mock_execute(sql)
+            logger.info(f"SQL 执行返回 {len(data) if data else 0} 条结果")
+
+        return {
+            "answer": self._clean_answer(answer),
+            "sql": sql,
+            "data": data,
+            "tokens_used": tokens,
+        }
+
+    def _extract_sql(self, text: str) -> str | None:
+        """从 LLM 回答中提取 SQL"""
+        import re
+        match = re.search(r"```sql\s*(.*?)```", text, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+        return None
+
+    def _mock_execute(self, sql: str) -> list[dict]:
+        """模拟 SQL 执行 —— 真实项目中替换为数据库查询"""
+        # 简单过滤模拟
+        sql_lower = sql.lower()
+
+        if "count" in sql_lower:
+            return [{"count": len(MOCK_DATA)}]
+        elif "sum" in sql_lower:
+            total = sum(r["principal"] for r in MOCK_DATA)
+            return [{"total_principal": total}]
+        elif "group by" in sql_lower:
+            # 按地区分组
+            from collections import defaultdict
+            groups = defaultdict(list)
+            for r in MOCK_DATA:
+                groups[r["region"]].append(r)
+            return [
+                {"region": k, "count": len(v),
+                 "total": sum(x["principal"] for x in v)}
+                for k, v in groups.items()
+            ]
+        else:
+            return MOCK_DATA[:5]  # 默认返回前5条
+
+    def _clean_answer(self, answer: str) -> str:
+        """清理回答（去掉 SQL 代码块标记）"""
+        import re
+        return re.sub(r"```sql.*?```", "[SQL 已生成]", answer, flags=re.DOTALL)
+</pre>
+
+  <div class="tip-box">
+    <strong>💡 数据开发视角：</strong><code>AMC_SCHEMA</code> 就是你在做 NL2SQL 时的"表结构字典"。<br>
+    这个模式和你日常做的事一样 —— 写文档告诉别人表结构，只不过这里的"别人"是 LLM。
+  </div>
+</div>
+
+<!-- ==================== Section 6 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🌐</span> 六、API 接口层（FastAPI）
+    <span class="time-tag">⏱ 12 min</span>
+  </div>
+
+  <h3>6.1 依赖注入 — api/deps.py</h3>
+
+<pre>
+# api/deps.py
+from fastapi import Depends, Header, HTTPException, status
+from typing import Optional
+import logging
+
+from config import settings
+from core.exceptions import QuotaExceededError
+
+logger = logging.getLogger("amc.api")
+
+# 模拟的配额存储（真实项目用 Redis）
+_quota_store: dict[str, int] = {}
+
+
+def verify_api_key(
+    x_api_key: Optional[str] = Header(default=None)
+) -> str:
+    """
+    API Key 认证 —— Day 26 学的依赖注入
+    如果没传 Key，在 debug 模式下放行
+    """
+    if settings.debug:
+        return "debug_user"
+
+    if not x_api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="请提供 X-API-Key 请求头"
+        )
+
+    if x_api_key != settings.llm_api_key:  # 简化：用 LLM Key 充当 API Key
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="API Key 无效"
+        )
+
+    return "authenticated_user"
+
+
+def check_quota(
+    user_id: str = Depends(verify_api_key)
+) -> str:
+    """
+    配额检查 —— 依赖链：先认证 → 再查配额
+    这里用到了 Day 26 学的依赖链概念
+    """
+    used = _quota_store.get(user_id, 0)
+    if used >= settings.max_daily_queries:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"今日已用 {used}/{settings.max_daily_queries} 次"
+        )
+    _quota_store[user_id] = used + 1
+    logger.info(f"用户 {user_id} 配额: {used+1}/{settings.max_daily_queries}")
+    return user_id
+
+
+def get_query_service():
+    """获取 QueryService 实例 —— Day 26 学的 yield 依赖"""
+    from services.query_service import QueryService
+    service = QueryService()
+    try:
+        yield service
+    finally:
+        logger.debug("QueryService 请求处理完毕")
+</pre>
+
+  <h3>6.2 聊天接口 — api/chat.py</h3>
+
+<pre>
+# api/chat.py
+import logging
+from fastapi import APIRouter, Depends
+
+from api.deps import check_quota, get_query_service
+from models.schemas import ChatRequest, ChatResponse
+from services.query_service import QueryService
+
+logger = logging.getLogger("amc.chat")
+
+router = APIRouter(prefix="/api/v1", tags=["问答"])
+
+
+@router.post("/chat", response_model=ChatResponse)
+async def chat(
+    req: ChatRequest,
+    user_id: str = Depends(check_quota),
+    service: QueryService = Depends(get_query_service),
+):
+    """
+    智能问答接口
+
+    用户输入自然语言问题，LLM 翻译成 SQL 并返回结果
+    认证 → 配额 → 限流 → LLM → 返回
+    """
+    logger.info(f"收到问答请求: user={user_id}, q={req.question[:30]}...")
+
+    result = await service.ask(
+        question=req.question,
+        user_id=user_id,
+    )
+
+    return ChatResponse(
+        answer=result["answer"],
+        sql=result["sql"],
+        data=result["data"],
+        tokens_used=result["tokens_used"],
+    )
+</pre>
+
+  <h3>6.3 主入口 — main.py</h3>
+
+<pre>
+# main.py
+import logging
+import time
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+
+from config import settings
+from core.logging import setup_logging
+from core.exceptions import AMCError
+from api.chat import router as chat_router
+from api.reports import router as reports_router
+from models.schemas import HealthResponse
+
+# ===== 应用生命周期 =====
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用启动/关闭钩子 —— Day 26 学的 lifespan"""
+    setup_logging()
+    logging.getLogger("amc").info(
+        f"AMC 智能问答平台启动 | model={settings.llm_model}"
+    )
+    yield  # 应用运行中
+    logging.getLogger("amc").info("AMC 智能问答平台关闭")
+
+
+# ===== FastAPI 实例 =====
+app = FastAPI(
+    title="AMC 智能问答平台",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+# CORS（Day 25 学的）
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# 注册路由
+app.include_router(chat_router)
+app.include_router(reports_router)
+
+
+# ===== 请求计时中间件（Day 25 学的）=====
+@app.middleware("http")
+async def timing_middleware(request: Request, call_next):
+    start = time.time()
+    response = await call_next(request)
+    elapsed = time.time() - start
+    response.headers["X-Response-Time"] = f"{elapsed:.3f}s"
+    return response
+
+
+# ===== 全局异常处理 =====
+@app.exception_handler(AMCError)
+async def amc_error_handler(request, exc):
+    return JSONResponse(
+        status_code=400,
+        content={
+            "error_code": exc.error_code,
+            "message": exc.message,
+        }
+    )
+
+
+# ===== 健康检查 =====
+@app.get("/health", response_model=HealthResponse)
+async def health_check():
+    return HealthResponse(
+        status="ok",
+        model=settings.llm_model,
+    )
+</pre>
+
+  <div class="concept-box">
+    <strong>从 main.py 看完整的请求链路：</strong><br>
+    <code>HTTP 请求 → CORS → timing_middleware → 路由匹配 → check_quota(认证) → get_query_service → service.ask → LLM → 响应</code><br>
+    这和你做数仓时的链路一样：<code>调度触发 → 参数校验 → 数据抽取 → ETL 加工 → 结果落表</code>
+  </div>
+</div>
+
+<!-- ==================== Section 7 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🧪</span> 七、测试（tests/test_query_service.py）
+    <span class="time-tag">⏱ 8 min</span>
+  </div>
+
+  <p>用 Day 27 学的 pytest 写单元测试 —— service 层不依赖 FastAPI，可以独立测：</p>
+
+<pre>
+# tests/test_query_service.py
+import pytest
+from unittest.mock import AsyncMock, patch
+
+from services.query_service import QueryService, MOCK_DATA
+
+
+class TestQueryService:
+    """QueryService 单元测试"""
+
+    @pytest.fixture
+    def service(self):
+        """每个测试方法前创建 Service 实例"""
+        return QueryService()
+
+    def test_extract_sql_with_code_block(self, service):
+        """测试：能从回答中提取 SQL"""
+        text = "答案是：```sql SELECT * FROM npl_asset``` 就这些"
+        sql = service._extract_sql(text)
+        assert sql == "SELECT * FROM npl_asset"
+
+    def test_extract_sql_without_code_block(self, service):
+        """测试：没有 SQL 代码块时返回 None"""
+        sql = service._extract_sql("没有SQL，直接回答")
+        assert sql is None
+
+    def test_clean_answer_removes_sql(self, service):
+        """测试：清理回答时移除 SQL 代码块"""
+        text = "分析如下：```sql SELECT count(*) FROM npl_asset``` 共5条"
+        cleaned = service._clean_answer(text)
+        assert "```sql" not in cleaned
+        assert "共5条" in cleaned
+
+    def test_mock_execute_count(self, service):
+        """测试：模拟执行 COUNT 查询"""
+        data = service._mock_execute("SELECT COUNT(*) FROM npl_asset")
+        assert len(data) == 1
+        assert data[0]["count"] == len(MOCK_DATA)
+
+    def test_mock_execute_sum(self, service):
+        """测试：模拟执行 SUM 查询"""
+        data = service._mock_execute("SELECT SUM(principal) FROM npl_asset")
+        expected = sum(r["principal"] for r in MOCK_DATA)
+        assert data[0]["total_principal"] == expected
+
+    def test_mock_execute_default(self, service):
+        """测试：默认返回前5条"""
+        data = service._mock_execute("SELECT * FROM npl_asset LIMIT 5")
+        assert len(data) <= 5
+
+    @pytest.mark.asyncio
+    async def test_ask_with_mocked_llm(self, service):
+        """测试：mock LLM 的完整 ask 流程"""
+        # mock LLM 的 ask 方法
+        service.llm.ask = AsyncMock(return_value=(
+            "```sql SELECT COUNT(*) FROM npl_asset WHERE status='不良'```\n共有3条不良资产。",
+            100
+        ))
+
+        result = await service.ask("有多少不良资产？", "test_user")
+
+        assert result["sql"] is not None
+        assert "3条" in result["answer"]
+        assert result["tokens_used"] == 100
+
+
+# 运行命令：
+# pytest tests/ -v --tb=short
+# pytest tests/ -k "test_extract" --tb=short  # 只跑匹配的测试
+</pre>
+
+  <div class="tip-box">
+    <strong>💡 测试策略：</strong>
+    <ul>
+      <li><strong>不 mock 的测试</strong>：_extract_sql、_clean_answer、_mock_execute（纯函数，直接测）</li>
+      <li><strong>mock LLM 的测试</strong>：完整的 ask 流程（用 AsyncMock 模拟 LLM 返回）</li>
+      <li><strong>不测的</strong>：FastAPI 路由（单独用 TestClient 测，Day 27 提过）</li>
+    </ul>
+    这和数仓测试一样：单元测 UDF，集成测整条流水线，端到端测调度结果。
+  </div>
+</div>
+
+<!-- ==================== Section 8 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📦</span> 八、启动与部署
+    <span class="time-tag">⏱ 5 min</span>
+  </div>
+
+  <h3>8.1 依赖安装</h3>
+
+<pre>
+# requirements.txt
+fastapi>=0.110.0
+uvicorn>=0.27.0
+httpx>=0.27.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+
+# 安装命令
+pip install -r requirements.txt
+</pre>
+
+  <h3>8.2 环境变量配置</h3>
+
+<pre>
+# .env（不要提交到 Git！）
+AMC_LLM_API_KEY=your_api_key_here
+AMC_DEBUG=true
+AMC_PORT=8000
+</pre>
+
+  <h3>8.3 启动命令</h3>
+
+<pre>
+# 开发模式（自动重载）
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# 生产模式（多 worker）
+uvicorn main:app --workers 4 --host 0.0.0.0 --port 8000
+</pre>
+
+  <h3>8.4 测试 API</h3>
+
+<pre>
+# 1. 健康检查
+curl http://localhost:8000/health
+
+# 2. 问答
+curl -X POST http://localhost:8000/api/v1/chat \
+  -H "Content-Type: application/json" \
+  -d '{"question": "查询所有不良资产的总额", "user_id": "zhangsan"}'
+
+# 3. 用 Python 测试
+import requests
+resp = requests.post(
+    "http://localhost:8000/api/v1/chat",
+    json={"question": "哪些资产持有超过一年？"}
+)
+print(resp.json())
+</pre>
+</div>
+
+<!-- ==================== Section 9 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🗺️</span> 九、全链路串讲 —— 一次请求的完整旅程
+    <span class="time-tag">⏱ 10 min</span>
+  </div>
+
+  <p>让我们用一个具体例子，追踪一次请求从发达到返回的完整路径：</p>
+
+  <div class="concept-box">
+    <strong>场景：</strong>分析师在浏览器里输入 <code>"浙江省的不良资产有多少笔？本金总额是多少？"</code>
+  </div>
+
+<pre>
+用户浏览器
+  │
+  ▼ POST /api/v1/chat
+  │ {"question": "浙江省的不良资产有多少笔？本金总额是多少？"}
+  │
+  ▼ ① CORS 中间件放行
+  │
+  ▼ ② timing_middleware 记录开始时间
+  │
+  ▼ ③ 路由匹配 → api/chat.py 的 chat() 函数
+  │
+  ▼ ④ 依赖注入链执行：
+  │   verify_api_key() → 检查 Header 中的 X-API-Key ✓
+  │   check_quota()    → 配额 12/100，未超限 ✓
+  │   get_query_service() → 创建 QueryService 实例
+  │
+  ▼ ⑤ Pydantic 校验 ChatRequest:
+  │   question 非空 ✓  top_k 在 1-20 之间 ✓
+  │
+  ▼ ⑥ service.ask(question) 被调用
+  │   ├─ LLMService.ask() 被调用
+  │   ├─ Semaphore 等待（当前并发 1/5，立即放行）
+  │   ├─ ZhipuProvider.chat() 发 HTTP 请求到智谱 API
+  │   ├─ 智谱返回: "```sql SELECT count(*), sum(principal)
+  │   │   FROM npl_asset WHERE region='浙江'```"
+  │   └─ _extract_sql() 提取出 SQL
+  │
+  ▼ ⑦ _mock_execute() 模拟执行 SQL
+  │   返回: [{"count": 2, "total": 7500000}]
+  │
+  ▼ ⑧ 组装 ChatResponse 返回
+  │
+  ▼ ⑨ timing_middleware 记录耗时 0.847s
+  │
+  ▼ ⑩ 返回 JSON 给用户浏览器
+  {
+    "answer": "浙江省共有2笔不良资产，本金总额7,500,000元",
+    "sql": "SELECT count(*), sum(principal) FROM npl_asset WHERE region='浙江'",
+    "data": [{"count": 2, "total": 7500000}],
+    "tokens_used": 256
+  }
+</pre>
+
+  <div class="tip-box">
+    <strong>💡 对比你的数仓经验：</strong>
+    <table>
+      <tr><th>数仓链路</th><th>AMC 平台链路</th></tr>
+      <tr><td>调度触发 → ODS 抽取 → DWD 清洗 → DWS 汇总 → ADS 落表</td><td>请求 → 认证 → 校验 → LLM翻译 → SQL执行 → JSON返回</td></tr>
+      <tr><td>参数表 → 业务规则 → 目标表</td><td>.env → config.py → Settings 单例</td></tr>
+      <tr><td>ETL 日志表</td><td>logging 模块</td></tr>
+      <tr><td>对账脚本</td><td>pytest 单元测试</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== Phase 1B 总结 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏆</span> Phase 1B 完结总结
+    <span class="time-tag">⏱ 5 min</span>
+  </div>
+
+  <div class="milestone-box">
+    <h4>🎉 恭喜！Phase 1B（Day 19-28）工程进阶 全部完成！</h4>
+    <p>你已经从"能写 Python 函数"进化到"能搭完整的 Web 服务"。</p>
+  </div>
+
+  <div class="phase-summary">
+    <h3>Phase 1B 知识图谱回顾</h3>
+    <table>
+      <tr><th>Day</th><th>主题</th><th>核心收获</th></tr>
+      <tr><td>19</td><td>面向对象基础</td><td>类/对象/self/__init__/实例方法</td></tr>
+      <tr><td>20</td><td>面向对象进阶</td><td>继承/super()/封装/property</td></tr>
+      <tr><td>21</td><td>魔术方法</td><td>__str__/__len__/__getitem__/__call__/容器协议</td></tr>
+      <tr><td>22</td><td>装饰器 + 设计模式</td><td>函数装饰器/工厂/策略/观察者</td></tr>
+      <tr><td>23</td><td>设计模式深入</td><td>单例/MVC/Repository/实际应用</td></tr>
+      <tr><td>24</td><td>异步编程</td><td>asyncio/aiohttp/gather/Semaphore</td></tr>
+      <tr><td>25</td><td>FastAPI 入门</td><td>路由/Pydantic/自动文档/CRUD</td></tr>
+      <tr><td>26</td><td>FastAPI 进阶</td><td>依赖注入/ORM/认证/中间件</td></tr>
+      <tr><td>27</td><td>工程化实践</td><td>logging/.env/pytest/部署</td></tr>
+      <tr style="background:#eff6ff;font-weight:600">
+        <td>28</td><td>综合实战</td><td>完整 AMC 平台（串联全部知识点）</td>
+      </tr>
+    </table>
+  </div>
+
+  <h3>能力升级对照</h3>
+  <div class="compare">
+    <div class="compare-card">
+      <h4>Phase 1A 之后（Day 18）</h4>
+      <ul>
+        <li>能写 Python 脚本</li>
+        <li>会用 requests 调 API</li>
+        <li>会用 pandas 处理数据</li>
+        <li>会 VS Code 调试</li>
+      </ul>
+    </div>
+    <div class="compare-card">
+      <h4>Phase 1B 之后（Day 28）✅</h4>
+      <ul>
+        <li>能设计 OOP 类体系</li>
+        <li>能用异步并发提速</li>
+        <li>能搭 FastAPI 服务</li>
+        <li>能写 pytest 测试</li>
+        <li>能做工程化部署</li>
+        <li><strong>能从零搭完整项目</strong></li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>📊 总进度</h3>
+  <table>
+    <tr><th>阶段</th><th>Day 范围</th><th>主题</th><th>状态</th></tr>
+    <tr><td>Phase 1A</td><td>D6-D18</td><td>Python 核心 + LLM API</td><td>✅ 已完成</td></tr>
+    <tr style="background:#eff6ff;font-weight:600">
+      <td>Phase 1B</td><td>D19-D28</td><td>工程进阶</td><td>✅ 已完成（今天）</td>
+    </tr>
+    <tr><td>Phase 2</td><td>D29-D42</td><td>RAG + Agent</td><td>⬜ 待开始</td></tr>
+    <tr><td>Phase 3</td><td>D43-D49</td><td>微调部署</td><td>⬜ 待开始</td></tr>
+    <tr><td>Phase 4</td><td>D50-D70</td><td>项目实战</td><td>⬜ 待开始</td></tr>
+  </table>
+
+  <div class="tip-box">
+    <strong>🌟 下一步预告 —— Phase 2：RAG + Agent（Day 29-42）</strong><br>
+    你已经能用 LLM 做问答了，但有一个问题：<strong>LLM 不知道你公司的私有数据</strong>。<br>
+    Phase 2 就是解决这个问题 —— RAG（检索增强生成）让 LLM 能查到你的 AMC 内部文档和报表数据。<br>
+    Day 29 的主题：<strong>文本分块（Chunking）—— 把长文档切成 LLM 能消化的片段</strong>
+  </div>
+</div>
+
+<!-- ==================== 今日练习 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">💪</span> 今日练习
+    <span class="time-tag">⏱ 15 min</span>
+  </div>
+
+  <div class="quiz">
+    <q>练习 1：完善 models/amc.py，给 NonPerformingAsset 添加 __eq__ 方法，两笔资产相等当且仅当 asset_id 相同</q>
+    <div class="answer">
+      <pre>
+def __eq__(self, other: object) -> bool:
+    if not isinstance(other, NonPerformingAsset):
+        return NotImplemented
+    return self.asset_id == other.asset_id
+      </pre>
+    </div>
+  </div>
+
+  <div class="quiz">
+    <q>练习 2：给 LLMService 添加缓存功能 —— 相同的问题 5 分钟内不重复调用 LLM（提示：用字典 + 时间戳）</q>
+    <div class="answer">
+      <pre>
+import time
+
+class LLMService:
+    def __init__(self):
+        self._cache: dict[str, tuple[str, float]] = {}  # {question: (answer, timestamp)}
+        self._cache_ttl = 300  # 5分钟
+
+    async def ask(self, question: str, system_prompt: str = "") -> tuple[str, int]:
+        # 检查缓存
+        if question in self._cache:
+            answer, ts = self._cache[question]
+            if time.time() - ts < self._cache_ttl:
+                logger.info("命中缓存")
+                return answer, self._provider.count_tokens(question + answer)
+        # 正常调用 LLM ...
+        result = await self._provider.chat(messages)
+        self._cache[question] = (result, time.time())
+        return result, tokens
+      </pre>
+    </div>
+  </div>
+
+  <div class="quiz">
+    <q>练习 3（LeetCode #146 LRU 缓存，预热 Phase 2）：</q>
+    <p>实现一个 LRU 缓存类，支持 get/put 操作，容量有限，超出时淘汰最近最少使用的 key。</p>
+    <div class="answer">
+      <pre>
+from collections import OrderedDict
+
+class LRUCache:
+    """LRU 缓存 —— Day 26 学过的 OrderedDict 正好能实现"""
+
+    def __init__(self, capacity: int):
+        self.capacity = capacity
+        self.cache: OrderedDict = OrderedDict()
+
+    def get(self, key: int) -> int:
+        if key not in self.cache:
+            return -1
+        # 命中后移到末尾（标记为最近使用）
+        self.cache.move_to_end(key)
+        return self.cache[key]
+
+    def put(self, key: int, value: int) -> None:
+        if key in self.cache:
+            self.cache.move_to_end(key)
+        self.cache[key] = value
+        # 超出容量，移除最前面的（最久未使用）
+        if len(self.cache) > self.capacity:
+            self.cache.popitem(last=False)  # FIFO 方向弹出
+      </pre>
+      <p>OrderedDict 的 move_to_end + popitem(last=False) 天然就是 LRU 的实现。面试常考，也和 Phase 2 的缓存策略直接相关。</p>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== Footer ==================== -->
+<div class="footer">
+  <p>Day 28 / 70 · Phase 1B 完结 · AMC 智能问答平台综合实战</p>
+  <p>明天 Day 29：文本分块（Chunking）—— 进入 Phase 2 RAG + Agent 🚀</p>
+</div>
+
+</body>
+</html>

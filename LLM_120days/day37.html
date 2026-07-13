@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 37 - Function Calling：LLM 原生结构化工具调用</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#eff6ff,#eef2ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #bfdbfe; }
+  .header .badge { display:inline-block;background:#dbeafe;color:var(--accent);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--green); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .compare-table { width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px; }
+  .compare-table th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border);color:var(--text2);font-size:13px; }
+  .compare-table td { padding:10px 14px;border:1px solid var(--border);vertical-align:top; }
+  .compare-table tr:hover td { background:#f8fafc; }
+  pre { background:#1e293b;color:#e2e8f0;padding:16px 20px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.6;margin:14px 0;font-family:'Cascadia Code','Fira Code','Consolas',monospace; }
+  pre .comment { color:#6b7280; }
+  pre .keyword { color:#93c5fd; }
+  pre .string { color:#86efac; }
+  pre .func { color:#fbbf24; }
+  pre .decorator { color:#c084fc; }
+  pre .number { color:#f9a8d4; }
+  pre .type { color:#67e8f9; }
+  pre .highlight { background:#3b82f633;padding:2px 6px;border-radius:4px; }
+  .flow-diagram { display:flex;align-items:center;justify-content:center;gap:8px;margin:18px 0;flex-wrap:wrap; }
+  .flow-step { background:var(--surface2);border:2px solid var(--border);padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;min-width:90px; }
+  .flow-step.active { background:#dbeafe;border-color:var(--accent);color:var(--accent); }
+  .flow-arrow { font-size:20px;color:var(--text3);font-weight:700; }
+  .sub-title { font-size:16px;font-weight:700;margin:18px 0 10px;color:var(--text); }
+  .sub-title .num { color:var(--accent);margin-right:6px; }
+  .code-label { font-size:12px;color:var(--text3);font-weight:600;margin-top:14px;margin-bottom:6px;display:flex;align-items:center;gap:6px; }
+  .code-label .dot { width:8px;height:8px;border-radius:50%;display:inline-block; }
+  .code-label .dot.green { background:var(--green); }
+  .code-label .dot.orange { background:var(--orange); }
+  .quiz-box { background:linear-gradient(135deg,#faf5ff,#fdf4ff);border:1px solid #e9d5ff;border-radius:var(--radius);padding:20px 24px;margin:14px 0; }
+  .quiz-box .q { font-weight:700;font-size:14px;margin-bottom:10px; }
+  .quiz-box .hint { font-size:13px;color:var(--text2);margin-top:8px; }
+  ul,ol { padding-left:22px;margin:10px 0; }
+  li { margin:5px 0;font-size:14px; }
+  .tag-list { display:flex;flex-wrap:wrap;gap:6px;margin:10px 0; }
+  .tag { background:var(--surface2);color:var(--text2);padding:4px 12px;border-radius:16px;font-size:12px;font-weight:500; }
+  .summary-grid { display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0; }
+  .summary-card { background:var(--surface2);border-radius:8px;padding:14px 18px; }
+  .summary-card .card-title { font-size:13px;font-weight:700;color:var(--accent);margin-bottom:6px; }
+  .summary-card .card-body { font-size:13px;color:var(--text2); }
+  @media(max-width:600px) {
+    body { padding:12px; }
+    .summary-grid { grid-template-columns:1fr; }
+    .header { padding:20px; }
+    .section { padding:18px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="badge">Phase 2 · RAG + Agent · Day 9</div>
+  <h1>Function Calling：LLM 原生结构化工具调用</h1>
+  <div class="subtitle">告别正则解析，让大模型自己告诉你要调用什么工具、传什么参数</div>
+</div>
+
+<!-- Progress -->
+<div class="progress-bar">
+  <div class="label">总进度</div>
+  <div class="track"><div class="fill" style="width:52.9%"></div></div>
+  <div class="percent">37/70</div>
+</div>
+
+<!-- ===== Section 1: Concept ===== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔍</span> Function Calling 是什么？为什么要学？
+    <span class="time-tag">⏱ 10min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>核心定义：</strong>Function Calling（函数调用）是 LLM 提供的一种结构化输出能力——模型不再只返回自然语言文本，而是返回 <strong>"我想调用 XXX 函数，参数是 YYY"</strong> 的 JSON 结构。你的代码解析这个 JSON，执行真正的函数，再把结果喂回模型。
+  </div>
+
+  <p>昨天我们用<strong>手写 Agent</strong>（Day 36）实现了 ReAct 循环，但有一个痛点：解析 LLM 的工具调用依赖正则表达式，脆弱且容易出错。今天学 Function Calling，就是让 LLM <strong>原生支持结构化的工具调用协议</strong>。</p>
+
+  <div class="sub-title"><span class="num">1.1</span> 回顾：手写 Agent 的痛点</div>
+
+  <pre><span class="comment"># Day 36 的 SimpleAgent 用正则解析 LLM 输出</span>
+<span class="keyword">import</span> re
+
+<span class="keyword">def</span> <span class="func">_parse_response</span>(self, text: <span class="type">str</span>) -> <span class="type">dict</span>:
+    <span class="comment"># 用正则从自由文本中提取 Action 和参数 —— 很脆弱！</span>
+    action_pattern = <span class="string">r"Action:\s*(\w+)"</span>
+    action = re.<span class="func">search</span>(action_pattern, text)
+    <span class="keyword">if not</span> action:
+        <span class="keyword">return</span> {<span class="string">"type"</span>: <span class="string">"final_answer"</span>, <span class="string">"content"</span>: text}
+
+    <span class="comment"># 还要自己解析参数……容易出格式问题</span>
+    param_pattern = <span class="string">r"Action Input:\s*(.+?)(?:\n|$)"</span>
+    params = re.<span class="func">search</span>(param_pattern, text, re.DOTALL)
+    <span class="keyword">return</span> {<span class="string">"type"</span>: <span class="string">"tool_call"</span>, <span class="string">"name"</span>: action.group(1),
+            <span class="string">"input"</span>: params.group(1).strip() <span class="keyword">if</span> params <span class="keyword">else</span> <span class="string">""</span>}</pre>
+
+  <div class="warn-box">
+    <strong>痛点总结：</strong>① 正则容易匹配失败 ② 参数只能传字符串，无法传结构化数据 ③ 无法区分同名不同参数的函数 ④ LLM 偶尔会"忘记"格式
+  </div>
+
+  <div class="sub-title"><span class="num">1.2</span> Function Calling 的优势</div>
+
+  <table class="compare-table">
+    <tr>
+      <th>对比维度</th>
+      <th>手写 ReAct（Day 36）</th>
+      <th>Function Calling（今天）</th>
+    </tr>
+    <tr>
+      <td><strong>输出格式</strong></td>
+      <td>自然语言文本，需正则解析</td>
+      <td>结构化 JSON，直接反序列化</td>
+    </tr>
+    <tr>
+      <td><strong>参数类型</strong></td>
+      <td>字符串（需手动解析）</td>
+      <td>强类型（string/int/boolean/array/object）</td>
+    </tr>
+    <tr>
+      <td><strong>多函数支持</strong></td>
+      <td>靠文本匹配区分</td>
+      <td>模型自动选择正确的函数签名</td>
+    </tr>
+    <tr>
+      <td><strong>可靠性</strong></td>
+      <td>⚠️ 中等（依赖 prompt 格式）</td>
+      <td>✅ 高（模型原生能力）</td>
+    </tr>
+    <tr>
+      <td><strong>适用场景</strong></td>
+      <td>不支持 FC 的模型</td>
+      <td>智谱/OpenAI/DeepSeek 等主流模型</td>
+    </tr>
+  </table>
+
+  <div class="sub-title"><span class="num">1.3</span> 数仓类比：Function Calling 像什么？</div>
+
+  <div class="concept-box">
+    把 Function Calling 想象成<strong>ETL 的参数化存储过程</strong>：<br>
+    你定义好存储过程的签名（函数名 + 参数 + 类型），调用方不需要知道内部逻辑，只需按签名传入参数就能执行。<br>
+    LLM 就是那个"智能调度器"——根据用户意图，自动选择调用哪个存储过程、传什么参数。
+  </div>
+
+  <div class="flow-diagram">
+    <div class="flow-step active">用户提问</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">LLM 思考</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step active">返回 tool_calls</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">本地执行</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">结果回传</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">LLM 总结</div>
+  </div>
+</div>
+
+<!-- ===== Section 2: Python 知识 ===== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span> Python 知识储备：json / Pydantic 模型验证 / 字典合并
+    <span class="time-tag">⏱ 15min</span>
+  </div>
+
+  <div class="sub-title"><span class="num">2.1</span> json 模块深度使用</div>
+
+  <pre><span class="keyword">import</span> json
+<span class="keyword">from</span> json <span class="keyword">import</span> JSONEncoder, JSONDecodeError
+
+<span class="comment"># ① dumps 序列化：Python → JSON 字符串</span>
+data = {
+    <span class="string">"function"</span>: <span class="string">"query_database"</span>,
+    <span class="string">"arguments"</span>: {<span class="string">"table"</span>: <span class="string">"amc_loan"</span>, <span class="string">"limit"</span>: 10, <span class="string">"where"</span>: <span class="string">"status='不良'"</span>}
+}
+json_str = json.<span class="func">dumps</span>(data, ensure_ascii=<span class="keyword">False</span>, indent=2)
+<span class="func">print</span>(json_str)
+<span class="comment"># {"function": "query_database", "arguments": {"table": "amc_loan", ...}}</span>
+
+<span class="comment"># ② loads 反序列化：JSON 字符串 → Python 字典</span>
+parsed = json.<span class="func">loads</span>(json_str)
+<span class="func">print</span>(parsed[<span class="string">"arguments"</span>][<span class="string">"table"</span>])  <span class="comment"># amc_loan</span>
+
+<span class="comment"># ③ 解析失败时优雅处理（Function Calling 必备）</span>
+<span class="keyword">try</span>:
+    result = json.<span class="func">loads</span>(<span class="string">"这不是合法JSON"</span>)
+<span class="keyword">except</span> JSONDecodeError <span class="keyword">as</span> e:
+    <span class="func">print</span>(<span class="string">f"JSON 解析失败: 行 {e.lineno}, 列 {e.colno}, 原因: {e.msg}"</span>)
+
+<span class="comment"># ④ 自定义编码器（处理 datetime 等特殊类型）</span>
+<span class="keyword">from</span> datetime <span class="keyword">import</span> datetime
+
+<span class="keyword">class</span> <span class="type">ToolResultEncoder</span>(JSONEncoder):
+    <span class="keyword">def</span> <span class="func">default</span>(self, obj):
+        <span class="keyword">if isinstance</span>(obj, datetime):
+            <span class="keyword">return</span> obj.<span class="func">isoformat</span>()
+        <span class="keyword">return super</span>().<span class="func">default</span>(obj)
+
+<span class="func">print</span>(json.<span class="func">dumps</span>({<span class="string">"time"</span>: datetime.now()}, cls=ToolResultEncoder))</pre>
+
+  <div class="sub-title"><span class="num">2.2</span> Pydantic：结构化数据验证（FC 参数定义利器）</div>
+
+  <p>Pydantic 在 Day 25/26（FastAPI）已经用过，今天复习它在 Function Calling 中的核心用法：</p>
+
+  <pre><span class="keyword">from</span> pydantic <span class="keyword">import</span> BaseModel, Field
+<span class="keyword">from</span> typing <span class="keyword">import</span> Optional, Literal
+
+<span class="comment"># 定义工具参数的数据模型 —— 既是验证器，又是文档</span>
+<span class="keyword">class</span> <span class="type">QueryParams</span>(BaseModel):
+    table_name: <span class="type">str</span> = Field(..., description=<span class="string">"要查询的表名"</span>)
+    columns: <span class="type">list</span>[<span class="type">str</span>] = Field(default=[<span class="string">"*"</span>], description=<span class="string">"查询的列名列表"</span>)
+    limit: <span class="type">int</span> = Field(default=10, ge=1, le=100, description=<span class="string">"返回行数（1-100）"</span>)
+    where: Optional[<span class="type">str</span>] = Field(None, description=<span class="string">"WHERE 过滤条件"</span>)
+    order_by: Optional[<span class="type">str</span>] = Field(None, description=<span class="string">"排序字段，如 'amount DESC'"</span>)
+
+<span class="comment"># 参数验证 —— 自动检查类型和约束</span>
+<span class="keyword">try</span>:
+    params = <span class="type">QueryParams</span>(table_name=<span class="string">"amc_loan"</span>, limit=200)  <span class="comment"># limit 超过 100！</span>
+<span class="keyword">except</span> Exception <span class="keyword">as</span> e:
+    <span class="func">print</span>(<span class="string">f"验证失败: {e}"</span>)  <span class="comment"># limit must be less than or equal to 100</span>
+
+<span class="comment"># 从字典直接构建（API 返回的参数直接喂进来）</span>
+raw_args = {<span class="string">"table_name"</span>: <span class="string">"amc_loan"</span>, <span class="string">"where"</span>: <span class="string">"status='不良'"</span>}
+params = <span class="type">QueryParams</span>(**raw_args)  <span class="comment"># ✅ 自动验证</span>
+
+<span class="comment"># 导出为 JSON Schema（LLM 需要的格式）</span>
+schema = <span class="type">QueryParams</span>.model_json_schema()
+<span class="func">print</span>(json.<span class="func">dumps</span>(schema, indent=2, ensure_ascii=<span class="keyword">False</span>))
+<span class="comment"># {
+#   "type": "object",
+#   "properties": {
+#     "table_name": {"type": "string", "description": "要查询的表名"},
+#     "columns": {"type": "array", "items": {"type": "string"}, ...},
+#     "limit": {"type": "integer", "minimum": 1, "maximum": 100, ...},
+#     ...
+#   },
+#   "required": ["table_name"]
+# }</span></pre>
+
+  <div class="tip-box">
+    <strong>关键洞察：</strong>Pydantic 的 <code>model_json_schema()</code> 方法可以自动生成 JSON Schema，而 Function Calling 的工具定义本质上就是 JSON Schema！这让参数定义既有人类可读的验证逻辑，又有机器可读的 Schema。
+  </div>
+
+  <div class="sub-title"><span class="num">2.3</span> 字典合并与安全取值</div>
+
+  <pre><span class="comment"># Python 3.9+ 字典合并运算符 |</span>
+tools_config = {<span class="string">"db"</span>: {<span class="string">"host"</span>: <span class="string">"localhost"</span>}}
+env_config = {<span class="string">"db"</span>: {<span class="string">"port"</span>: 3306}}
+merged = tools_config | env_config
+<span class="comment"># {'db': {'host': 'localhost'}} | {'db': {'port': 3306}}</span>
+<span class="comment"># ⚠️ 嵌套字典不会被深度合并，后者的 key 会覆盖前者</span>
+
+<span class="comment"># 安全取值（Function Calling 参数解析必备）</span>
+<span class="comment"># get() 返回 None 而不是抛 KeyError</span>
+args = {<span class="string">"table"</span>: <span class="string">"amc_loan"</span>, <span class="string">"limit"</span>: 10}
+table = args.<span class="func">get</span>(<span class="string">"table"</span>)            <span class="comment"># "amc_loan"</span>
+where = args.<span class="func">get</span>(<span class="string">"where"</span>, <span class="string">"1=1"</span>)   <span class="comment"># 默认值 "1=1"</span>
+missing = args.<span class="func">get</span>(<span class="string">"missing"</span>)         <span class="comment"># None（不报错）</span>
+
+<span class="comment"># dict.setdefault() —— 取不到就设置并返回</span>
+counter = {}
+counter.<span class="func">setdefault</span>(<span class="string">"calls"</span>, []).<span class="func">append</span>(<span class="string">"query_db"</span>)
+<span class="func">print</span>(counter)  <span class="comment"># {'calls': ['query_db']}</span></pre>
+</div>
+
+<!-- ===== Section 3: FC 原理 ===== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚙️</span> Function Calling 工作原理
+    <span class="time-tag">⏱ 10min</span>
+  </div>
+
+  <div class="sub-title"><span class="num">3.1</span> 工具定义（Tools Schema）</div>
+
+  <p>使用 Function Calling 前要先"注册"你的工具——告诉 LLM 有哪些函数可用、每个函数的参数和类型：</p>
+
+  <pre><span class="comment"># 标准工具定义格式（几乎所有 LLM API 都兼容）</span>
+tools = [
+    {
+        <span class="string">"type"</span>: <span class="string">"function"</span>,
+        <span class="string">"function"</span>: {
+            <span class="string">"name"</span>: <span class="string">"query_amc_database"</span>,          <span class="comment"># 函数名（模型用来选择）</span>
+            <span class="string">"description"</span>: <span class="string">"查询AMC不良资产管理数据库，支持SQL查询"</span>,  <span class="comment"># 功能描述（模型用来决策）</span>
+            <span class="string">"parameters"</span>: {                    <span class="comment"># JSON Schema 格式的参数定义</span>
+                <span class="string">"type"</span>: <span class="string">"object"</span>,
+                <span class="string">"properties"</span>: {
+                    <span class="string">"table"</span>: {
+                        <span class="string">"type"</span>: <span class="string">"string"</span>,
+                        <span class="string">"enum"</span>: [<span class="string">"amc_loan"</span>, <span class="string">"amc_collateral"</span>, <span class="string">"amc_debtor"</span>],
+                        <span class="string">"description"</span>: <span class="string">"要查询的AMC业务表"</span>
+                    },
+                    <span class="string">"condition"</span>: {
+                        <span class="string">"type"</span>: <span class="string">"string"</span>,
+                        <span class="string">"description"</span>: <span class="string">"查询条件，如 status='不良' AND amount > 10000"</span>
+                    },
+                    <span class="string">"limit"</span>: {
+                        <span class="string">"type"</span>: <span class="type">integer</span>,
+                        <span class="string">"description"</span>: <span class="string">"返回行数"</span>,
+                        <span class="string">"default"</span>: 10
+                    }
+                },
+                <span class="string">"required"</span>: [<span class="string">"table"</span>]    <span class="comment"># 必填参数列表</span>
+            }
+        }
+    },
+    {
+        <span class="string">"type"</span>: <span class="string">"function"</span>,
+        <span class="string">"function"</span>: {
+            <span class="string">"name"</span>: <span class="string">"calculate_statistics"</span>,
+            <span class="string">"description"</span>: <span class="string">"对查询结果做统计分析（求和/均值/计数/分组统计）"</span>,
+            <span class="string">"parameters"</span>: {
+                <span class="string">"type"</span>: <span class="string">"object"</span>,
+                <span class="string">"properties"</span>: {
+                    <span class="string">"data"</span>: {
+                        <span class="string">"type"</span>: <span class="string">"array"</span>,
+                        <span class="string">"items"</span>: {<span class="string">"type"</span>: <span class="string">"object"</span>},
+                        <span class="string">"description"</span>: <span class="string">"待统计的数据列表"</span>
+                    },
+                    <span class="string">"metric"</span>: {
+                        <span class="string">"type"</span>: <span class="string">"string"</span>,
+                        <span class="string">"enum"</span>: [<span class="string">"sum"</span>, <span class="string">"avg"</span>, <span class="string">"count"</span>, <span class="string">"max"</span>, <span class="string">"min"</span>, <span class="string">"group_by"</span>],
+                        <span class="string">"description"</span>: <span class="string">"统计指标"</span>
+                    }
+                },
+                <span class="string">"required"</span>: [<span class="string">"data"</span>, <span class="string">"metric"</span>]
+            }
+        }
+    }
+]</pre>
+
+  <div class="tip-box">
+    <strong>工具描述心法：</strong><code>description</code> 是模型决策的核心依据！写得越清晰，模型选择越准确。用自然语言说明：<br>
+    ① 这个函数<strong>做什么</strong> ② 什么时候<strong>该用</strong>它 ③ 参数<strong>怎么填</strong>（举例子）
+  </div>
+
+  <div class="sub-title"><span class="num">3.2</span> 完整交互流程</div>
+
+  <div class="flow-diagram">
+    <div class="flow-step" style="min-width:120px">① 注册工具<br><small>tools 列表</small></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step active" style="min-width:120px">② 用户提问<br><small>messages</small></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step active" style="min-width:120px">③ LLM 返回<br><small>tool_calls</small></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step" style="min-width:120px">④ 本地执行<br><small>真实函数</small></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step active" style="min-width:120px">⑤ 结果回传<br><small>tool message</small></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step" style="min-width:120px">⑥ LLM 总结<br><small>自然语言</small></div>
+  </div>
+
+  <p>关键点：第 ③ 步返回的不是自然语言文本，而是一个特殊的 <code>tool_calls</code> 结构；第 ⑤ 步需要把 <code>assistant</code> 消息（含 tool_calls）和 <code>tool</code> 消息（含执行结果）一起回传。</p>
+</div>
+
+<!-- ===== Section 4: 智谱实战 ===== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🚀</span> LLM 实战：智谱 API Function Calling
+    <span class="time-tag">⏱ 20min</span>
+  </div>
+
+  <div class="sub-title"><span class="num">4.1</span> 单次工具调用</div>
+
+  <pre><span class="comment"># ====================</span>
+<span class="comment"># 智谱 Function Calling 基础示例</span>
+<span class="comment"># ====================</span>
+<span class="keyword">import</span> requests
+<span class="keyword">import</span> json
+
+API_KEY = <span class="string">"your_zhipu_api_key"</span>
+API_URL = <span class="string">"https://open.bigmodel.cn/api/paas/v4/chat/completions"</span>
+
+<span class="comment"># ---- Step 1: 定义工具 ----</span>
+tools = [
+    {
+        <span class="string">"type"</span>: <span class="string">"function"</span>,
+        <span class="string">"function"</span>: {
+            <span class="string">"name"</span>: <span class="string">"query_amc_loan"</span>,
+            <span class="string">"description"</span>: (
+                <span class="string">"查询 AMC 不良贷款信息。"</span>
+                <span class="string">"当用户问关于贷款、借款人、不良率、金额等问题时使用此工具。"</span>
+            ),
+            <span class="string">"parameters"</span>: {
+                <span class="string">"type"</span>: <span class="string">"object"</span>,
+                <span class="string">"properties"</span>: {
+                    <span class="string">"borrower_name"</span>: {
+                        <span class="string">"type"</span>: <span class="string">"string"</span>,
+                        <span class="string">"description"</span>: <span class="string">"借款人姓名，模糊匹配"</span>
+                    },
+                    <span class="string">"min_amount"</span>: {
+                        <span class="string">"type"</span>: <span class="type">number</span>,
+                        <span class="string">"description"</span>: <span class="string">"最低贷款金额（万元）"</span>
+                    },
+                    <span class="string">"status"</span>: {
+                        <span class="string">"type"</span>: <span class="string">"string"</span>,
+                        <span class="string">"enum"</span>: [<span class="string">"正常"</span>, <span class="string">"关注"</span>, <span class="string">"次级"</span>, <span class="string">"可疑"</span>, <span class="string">"损失"</span>],
+                        <span class="string">"description"</span>: <span class="string">"五级分类状态"</span>
+                    }
+                },
+                <span class="string">"required"</span>: []  <span class="comment"># 全部可选，模型根据用户意图填充</span>
+            }
+        }
+    }
+]
+
+<span class="comment"># ---- Step 2: 发送请求（带 tools 参数）----</span>
+<span class="keyword">def</span> <span class="func">chat_with_tools</span>(user_msg: <span class="type">str</span>) -> <span class="type">dict</span>:
+    <span class="string">"""发送带工具定义的请求"""</span>
+    response = requests.<span class="func">post</span>(
+        API_URL,
+        headers={<span class="string">"Authorization"</span>: <span class="string">f"Bearer {API_KEY}"</span>},
+        json={
+            <span class="string">"model"</span>: <span class="string">"glm-4-flash"</span>,
+            <span class="string">"messages"</span>: [{<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: user_msg}],
+            <span class="string">"tools"</span>: tools  <span class="comment"># 关键：传入工具定义</span>
+        }
+    )
+    result = response.<span class="func">json</span>()
+    <span class="keyword">return</span> result[<span class="string">"choices"</span>][0][<span class="string">"message"</span>]
+
+<span class="comment"># ---- Step 3: 解析模型返回 ----</span>
+msg = <span class="func">chat_with_tools</span>(<span class="string">"帮我查一下张三的不良贷款，金额大于50万的"</span>)
+
+<span class="keyword">if</span> <span class="string">"tool_calls"</span> <span class="keyword">in</span> msg:
+    <span class="keyword">for</span> tc <span class="keyword">in</span> msg[<span class="string">"tool_calls"</span>]:
+        func_name = tc[<span class="string">"function"</span>][<span class="string">"name"</span>]
+        func_args = json.<span class="func">loads</span>(tc[<span class="string">"function"</span>][<span class="string">"arguments"</span>])
+        <span class="func">print</span>(<span class="string">f"模型想调用: {func_name}"</span>)
+        <span class="func">print</span>(<span class="string">f"参数: {json.dumps(func_args, ensure_ascii=False, indent=2)}"</span>)
+        <span class="comment"># 输出:</span>
+        <span class="comment"># 模型想调用: query_amc_loan</span>
+        <span class="comment"># 参数: {"borrower_name": "张三", "min_amount": 50, "status": "可疑"}</span>
+<span class="keyword">else</span>:
+    <span class="func">print</span>(<span class="string">"模型直接回答（未调用工具）:"</span>, msg[<span class="string">"content"</span>])</pre>
+
+  <div class="sub-title"><span class="num">4.2</span> 执行工具 + 回传结果</div>
+
+  <pre><span class="comment"># ====================</span>
+<span class="comment"># 模拟工具函数（实际项目中替换为真实的数据库查询）</span>
+<span class="comment"># ====================</span>
+
+<span class="comment"># 模拟 AMC 贷款数据</span>
+MOCK_LOANS = [
+    {<span class="string">"id"</span>: <span class="string">"L001"</span>, <span class="string">"borrower"</span>: <span class="string">"张三"</span>, <span class="string">"amount"</span>: 120, <span class="string">"status"</span>: <span class="string">"可疑"</span>,
+     <span class="string">"bank"</span>: <span class="string">"A银行"</span>, <span class="string">"date"</span>: <span class="string">"2024-03-15"</span>},
+    {<span class="string">"id"</span>: <span class="string">"L002"</span>, <span class="string">"borrower"</span>: <span class="string">"张三"</span>, <span class="string">"amount"</span>: 35, <span class="string">"status"</span>: <span class="string">"次级"</span>,
+     <span class="string">"bank"</span>: <span class="string">"B银行"</span>, <span class="string">"date"</span>: <span class="string">"2024-06-20"</span>},
+    {<span class="string">"id"</span>: <span class="string">"L003"</span>, <span class="string">"borrower"</span>: <span class="string">"李四"</span>, <span class="string">"amount"</span>: 200, <span class="string">"status"</span>: <span class="string">"损失"</span>,
+     <span class="string">"bank"</span>: <span class="string">"A银行"</span>, <span class="string">"date"</span>: <span class="string">"2023-12-01"</span>},
+]
+
+<span class="keyword">def</span> <span class="func">execute_tool</span>(name: <span class="type">str</span>, args: <span class="type">dict</span>) -> <span class="type">str</span>:
+    <span class="string">"""工具路由：根据函数名分发到实际处理逻辑"""</span>
+    <span class="keyword">if</span> name == <span class="string">"query_amc_loan"</span>:
+        results = []
+        <span class="keyword">for</span> loan <span class="keyword">in</span> MOCK_LOANS:
+            <span class="comment"># 逐个条件匹配</span>
+            <span class="keyword">if</span> <span class="string">"borrower_name"</span> <span class="keyword">in</span> args <span class="keyword">and</span> args[<span class="string">"borrower_name"</span>] <span class="keyword">not in</span> loan[<span class="string">"borrower"</span>]:
+                <span class="keyword">continue</span>
+            <span class="keyword">if</span> <span class="string">"min_amount"</span> <span class="keyword">in</span> args <span class="keyword">and</span> loan[<span class="string">"amount"</span>] < args[<span class="string">"min_amount"</span>]:
+                <span class="keyword">continue</span>
+            <span class="keyword">if</span> <span class="string">"status"</span> <span class="keyword">in</span> args <span class="keyword">and</span> loan[<span class="string">"status"</span>] != args[<span class="string">"status"</span>]:
+                <span class="keyword">continue</span>
+            results.<span class="func">append</span>(loan)
+
+        <span class="keyword">if not</span> results:
+            <span class="keyword">return</span> json.<span class="func">dumps</span>({<span class="string">"count"</span>: 0, <span class="string">"data"</span>: []}, ensure_ascii=<span class="keyword">False</span>)
+        <span class="keyword">return</span> json.<span class="func">dumps</span>({<span class="string">"count"</span>: <span class="func">len</span>(results), <span class="string">"data"</span>: results}, ensure_ascii=<span class="keyword">False</span>)
+
+    <span class="keyword">return</span> json.<span class="func">dumps</span>({<span class="string">"error"</span>: <span class="string">f"未知工具: {name}"</span>})
+
+<span class="comment"># ---- Step 4: 把执行结果回传给 LLM ----</span>
+<span class="keyword">def</span> <span class="func">full_function_calling</span>(user_msg: <span class="type">str</span>) -> <span class="type">str</span>:
+    <span class="string">"""完整的 Function Calling 流程：调用工具 → 回传结果 → 获取总结"""</span>
+
+    <span class="comment"># 第一次请求：用户提问</span>
+    messages = [{<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: user_msg}]
+
+    response = requests.<span class="func">post</span>(
+        API_URL,
+        headers={<span class="string">"Authorization"</span>: <span class="string">f"Bearer {API_KEY}"</span>},
+        json={<span class="string">"model"</span>: <span class="string">"glm-4-flash"</span>, <span class="string">"messages"</span>: messages, <span class="string">"tools"</span>: tools}
+    )
+    assistant_msg = response.<span class="func">json</span>()[<span class="string">"choices"</span>][0][<span class="string">"message"</span>]
+
+    <span class="comment"># 如果模型没有调用工具，直接返回文本回答</span>
+    <span class="keyword">if</span> <span class="string">"tool_calls"</span> <span class="keyword">not in</span> assistant_msg:
+        <span class="keyword">return</span> assistant_msg.<span class="func">get</span>(<span class="string">"content"</span>, <span class="string">"(无回答)"</span>)
+
+    <span class="comment"># 记录 assistant 的 tool_calls 消息</span>
+    messages.<span class="func">append</span>(assistant_msg)
+
+    <span class="comment"># 逐个执行工具调用</span>
+    <span class="keyword">for</span> tc <span class="keyword">in</span> assistant_msg[<span class="string">"tool_calls"</span>]:
+        func_name = tc[<span class="string">"function"</span>][<span class="string">"name"</span>]
+        func_args = json.<span class="func">loads</span>(tc[<span class="string">"function"</span>][<span class="string">"arguments"</span>])
+        tool_call_id = tc[<span class="string">"id"</span>]
+
+        <span class="func">print</span>(<span class="string">f"🔧 调用工具: {func_name}({json.dumps(func_args, ensure_ascii=False)})"</span>)
+
+        <span class="comment"># 执行真实函数</span>
+        result_str = <span class="func">execute_tool</span>(func_name, func_args)
+        <span class="func">print</span>(<span class="string">f"   结果: {result_str[:100]}..."</span>)
+
+        <span class="comment"># 添加 tool 消息（注意 role="tool"，必须有 tool_call_id）</span>
+        messages.<span class="func">append</span>({
+            <span class="string">"role"</span>: <span class="string">"tool"</span>,
+            <span class="string">"content"</span>: result_str,
+            <span class="string">"tool_call_id"</span>: tool_call_id  <span class="comment"># 关键！绑定到对应的 tool_call</span>
+        })
+
+    <span class="comment"># 第二次请求：让模型根据工具结果生成回答</span>
+    response2 = requests.<span class="func">post</span>(
+        API_URL,
+        headers={<span class="string">"Authorization"</span>: <span class="string">f"Bearer {API_KEY}"</span>},
+        json={<span class="string">"model"</span>: <span class="string">"glm-4-flash"</span>, <span class="string">"messages"</span>: messages, <span class="string">"tools"</span>: tools}
+    )
+    final_answer = response2.<span class="func">json</span>()[<span class="string">"choices"</span>][0][<span class="string">"message"</span>][<span class="string">"content"</span>]
+    <span class="keyword">return</span> final_answer
+
+<span class="comment"># 测试</span>
+answer = <span class="func">full_function_calling</span>(<span class="string">"查一下张三的不良贷款，金额超过50万的"</span>)
+<span class="func">print</span>(<span class="string">f"\n💬 LLM 回答: {answer}"</span>)</pre>
+
+  <div class="tip-box">
+    <strong>消息角色三要素：</strong><br>
+    ① <code>user</code> — 用户提问 <br>
+    ② <code>assistant</code>（含 <code>tool_calls</code>）— 模型决定调用工具 <br>
+    ③ <code>tool</code>（含 <code>tool_call_id</code>）— 工具执行结果回传<br>
+    这三者构成一次完整的工具调用闭环。
+  </div>
+
+  <div class="sub-title"><span class="num">4.3</span> 多工具 + 多轮对话</div>
+
+  <pre><span class="comment"># ====================</span>
+<span class="comment"># 多工具 + 多轮对话完整示例</span>
+<span class="comment"># ====================</span>
+
+<span class="comment"># 扩充工具列表：数据库查询 + 统计分析 + 知识库搜索</span>
+ALL_TOOLS = [
+    {
+        <span class="string">"type"</span>: <span class="string">"function"</span>,
+        <span class="string">"function"</span>: {
+            <span class="string">"name"</span>: <span class="string">"query_amc_database"</span>,
+            <span class="string">"description"</span>: <span class="string">"查询AMC数据库（不良贷款/抵押物/债务人表）。传入表名、条件、列名即可。"</span>,
+            <span class="string">"parameters"</span>: {
+                <span class="string">"type"</span>: <span class="string">"object"</span>,
+                <span class="string">"properties"</span>: {
+                    <span class="string">"table"</span>: {
+                        <span class="string">"type"</span>: <span class="string">"string"</span>,
+                        <span class="string">"enum"</span>: [<span class="string">"loan"</span>, <span class="string">"collateral"</span>, <span class="string">"debtor"</span>],
+                        <span class="string">"description"</span>: <span class="string">"表名: loan=贷款, collateral=抵押物, debtor=债务人"</span>
+                    },
+                    <span class="string">"condition"</span>: {<span class="string">"type"</span>: <span class="string">"string"</span>, <span class="string">"description"</span>: <span class="string">"SQL WHERE 条件"</span>},
+                    <span class="string">"columns"</span>: {<span class="string">"type"</span>: <span class="string">"string"</span>, <span class="string">"description"</span>: <span class="string">"列名，逗号分隔"</span>},
+                    <span class="string">"limit"</span>: {<span class="string">"type"</span>: <span class="type">integer</span>, <span class="string">"default"</span>: 10}
+                },
+                <span class="string">"required"</span>: [<span class="string">"table"</span>]
+            }
+        }
+    },
+    {
+        <span class="string">"type"</span>: <span class="string">"function"</span>,
+        <span class="string">"function"</span>: {
+            <span class="string">"name"</span>: <span class="string">"calculate_stats"</span>,
+            <span class="string">"description"</span>: <span class="string">"对数值列表做统计分析：sum=求和, avg=均值, count=计数, max=最大, min=最小"</span>,
+            <span class="string">"parameters"</span>: {
+                <span class="string">"type"</span>: <span class="string">"object"</span>,
+                <span class="string">"properties"</span>: {
+                    <span class="string">"values"</span>: {<span class="string">"type"</span>: <span class="string">"array"</span>, <span class="string">"items"</span>: {<span class="string">"type"</span>: <span class="type">number</span>}},
+                    <span class="string">"metric"</span>: {<span class="string">"type"</span>: <span class="string">"string"</span>, <span class="string">"enum"</span>: [<span class="string">"sum"</span>, <span class="string">"avg"</span>, <span class="string">"count"</span>, <span class="string">"max"</span>, <span class="string">"min"</span>]}
+                },
+                <span class="string">"required"</span>: [<span class="string">"values"</span>, <span class="string">"metric"</span>]
+            }
+        }
+    },
+    {
+        <span class="string">"type"</span>: <span class="string">"function"</span>,
+        <span class="string">"function"</span>: {
+            <span class="string">"name"</span>: <span class="string">"search_knowledge_base"</span>,
+            <span class="string">"description"</span>: <span class="string">"搜索 AMC 知识库（监管文件/操作手册/制度规范）。当用户问政策、法规、流程时使用。"</span>,
+            <span class="string">"parameters"</span>: {
+                <span class="string">"type"</span>: <span class="string">"object"</span>,
+                <span class="string">"properties"</span>: {
+                    <span class="string">"query"</span>: {<span class="string">"type"</span>: <span class="string">"string"</span>, <span class="string">"description"</span>: <span class="string">"搜索关键词"</span>},
+                    <span class="string">"top_k"</span>: {<span class="string">"type"</span>: <span class="type">integer</span>, <span class="string">"default"</span>: 3}
+                },
+                <span class="string">"required"</span>: [<span class="string">"query"</span>]
+            }
+        }
+    }
+]
+
+<span class="comment"># 工具注册表：函数名 → 真实执行函数</span>
+TOOL_REGISTRY = {
+    <span class="string">"query_amc_database"</span>: <span class="keyword">lambda</span> args: json.<span class="func">dumps</span>({
+        <span class="string">"count"</span>: 2, <span class="string">"data"</span>: [
+            {<span class="string">"id"</span>: <span class="string">"L001"</span>, <span class="string">"borrower"</span>: <span class="string">"张三"</span>, <span class="string">"amount"</span>: 120, <span class="string">"status"</span>: <span class="string">"可疑"</span>},
+            {<span class="string">"id"</span>: <span class="string">"L003"</span>, <span class="string">"borrower"</span>: <span class="string">"李四"</span>, <span class="string">"amount"</span>: 200, <span class="string">"status"</span>: <span class="string">"损失"</span>}
+        ]}, ensure_ascii=<span class="keyword">False</span>),
+    <span class="string">"calculate_stats"</span>: <span class="keyword">lambda</span> args: json.<span class="func">dumps</span>({
+        <span class="string">"metric"</span>: args[<span class="string">"metric"</span>],
+        <span class="string">"result"</span>: <span class="keyword">if</span> args[<span class="string">"metric"</span>] == <span class="string">"sum"</span> <span class="keyword">then</span> <span class="func">sum</span>(args[<span class="string">"values"</span>])
+                 <span class="keyword">elif</span> args[<span class="string">"metric"</span>] == <span class="string">"avg"</span> <span class="keyword">then</span> <span class="func">sum</span>(args[<span class="string">"values"</span>])/<span class="func">len</span>(args[<span class="string">"values"</span>])
+                 <span class="keyword">elif</span> args[<span class="string">"metric"</span>] == <span class="string">"count"</span> <span class="keyword">then</span> <span class="func">len</span>(args[<span class="string">"values"</span>])
+                 <span class="keyword">elif</span> args[<span class="string">"metric"</span>] == <span class="string">"max"</span> <span class="keyword">then</span> <span class="func">max</span>(args[<span class="string">"values"</span>])
+                 <span class="keyword">else</span> <span class="func">min</span>(args[<span class="string">"values"</span>])
+    }, ensure_ascii=<span class="keyword">False</span>),
+    <span class="string">"search_knowledge_base"</span>: <span class="keyword">lambda</span> args: json.<span class="func">dumps</span>({
+        <span class="string">"results"</span>: [
+            {<span class="string">"title"</span>: <span class="string">"不良资产五级分类管理办法"</span>,
+             <span class="string">"content"</span>: <span class="string">"根据银监会《贷款风险分类指引》，贷款分为正常、关注、次级、可疑、损失五类..."</span>}
+        ]
+    }, ensure_ascii=<span class="keyword">False</span>),
+}</pre>
+
+  <div class="sub-title"><span class="num">4.4</span> 通用 Function Calling 循环引擎</div>
+
+  <pre><span class="comment"># ====================</span>
+<span class="comment"># 通用 FC 循环引擎（支持多轮工具调用）</span>
+<span class="comment"># ====================</span>
+
+<span class="keyword">def</span> <span class="func">fc_loop</span>(
+    user_msg: <span class="type">str</span>,
+    tools: <span class="type">list</span>,
+    tool_registry: <span class="type">dict</span>,
+    system_prompt: <span class="type">str</span> = <span class="string">"你是AMC不良资产管理助手，请根据用户需求调用合适的工具。"</span>,
+    max_rounds: <span class="type">int</span> = 5
+) -> <span class="type">str</span>:
+    <span class="string">"""
+    通用 Function Calling 循环引擎
+    支持：多轮工具调用 + 自动终止 + 错误处理
+
+    Args:
+        user_msg: 用户原始问题
+        tools: 工具定义列表
+        tool_registry: 工具名 → 执行函数的映射
+        system_prompt: 系统提示词
+        max_rounds: 最大工具调用轮次（防死循环）
+    """
+    messages = [
+        {<span class="string">"role"</span>: <span class="string">"system"</span>, <span class="string">"content"</span>: system_prompt},
+        {<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: user_msg}
+    ]
+
+    <span class="keyword">for</span> round_num <span class="keyword">in</span> <span class="func">range</span>(1, max_rounds + 1):
+        <span class="func">print</span>(<span class="string">f"\n--- 第 {round_num} 轮 ---"</span>)
+
+        response = requests.<span class="func">post</span>(
+            API_URL,
+            headers={<span class="string">"Authorization"</span>: <span class="string">f"Bearer {API_KEY}"</span>},
+            json={<span class="string">"model"</span>: <span class="string">"glm-4-flash"</span>, <span class="string">"messages"</span>: messages, <span class="string">"tools"</span>: tools}
+        ).<span class="func">json</span>()
+
+        assistant_msg = response[<span class="string">"choices"</span>][0][<span class="string">"message"</span>]
+        messages.<span class="func">append</span>(assistant_msg)
+
+        <span class="comment"># 情况1：模型直接给出文本回答（不调用工具）</span>
+        <span class="keyword">if</span> <span class="string">"tool_calls"</span> <span class="keyword">not in</span> assistant_msg:
+            <span class="func">print</span>(<span class="string">"✅ 模型给出最终回答"</span>)
+            <span class="keyword">return</span> assistant_msg.<span class="func">get</span>(<span class="string">"content"</span>, <span class="string">""</span>)
+
+        <span class="comment"># 情况2：模型要调用工具</span>
+        <span class="keyword">for</span> tc <span class="keyword">in</span> assistant_msg[<span class="string">"tool_calls"</span>]:
+            name = tc[<span class="string">"function"</span>][<span class="string">"name"</span>]
+            <span class="keyword">try</span>:
+                args = json.<span class="func">loads</span>(tc[<span class="string">"function"</span>][<span class="string">"arguments"</span>])
+            <span class="keyword">except</span> JSONDecodeError:
+                args = {}
+
+            <span class="func">print</span>(<span class="string">f"🔧 [{name}] 参数: {args}"</span>)
+
+            <span class="comment"># 执行工具（带错误兜底）</span>
+            <span class="keyword">if</span> name <span class="keyword">in</span> tool_registry:
+                <span class="keyword">try</span>:
+                    result = tool_registry[name](args)
+                    <span class="func">print</span>(<span class="string">f"   ✅ 成功"</span>)
+                <span class="keyword">except</span> Exception <span class="keyword">as</span> e:
+                    result = json.<span class="func">dumps</span>({<span class="string">"error"</span>: <span class="func">str</span>(e)})
+                    <span class="func">print</span>(<span class="string">f"   ❌ 错误: {e}"</span>)
+            <span class="keyword">else</span>:
+                result = json.<span class="func">dumps</span>({<span class="string">"error"</span>: <span class="string">f"未知工具: {name}"</span>})
+                <span class="func">print</span>(<span class="string">f"   ⚠️ 未知工具"</span>)
+
+            messages.<span class="func">append</span>({
+                <span class="string">"role"</span>: <span class="string">"tool"</span>,
+                <span class="string">"content"</span>: result,
+                <span class="string">"tool_call_id"</span>: tc[<span class="string">"id"</span>]
+            })
+
+    <span class="keyword">return</span> <span class="string">"⚠️ 达到最大工具调用轮次，请简化问题"</span>
+
+<span class="comment"># ---- 测试：需要多轮调用的复杂问题 ----</span>
+answer = <span class="func">fc_loop</span>(
+    <span class="string">"查询所有可疑类贷款的金额，然后帮我算一下平均值"</span>,
+    tools=ALL_TOOLS,
+    tool_registry=TOOL_REGISTRY
+)
+<span class="func">print</span>(<span class="string">f"\n💬 最终回答: {answer}"</span>)
+<span class="comment"># 第1轮: 模型调用 query_amc_database 获取可疑贷款</span>
+<span class="comment"># 第2轮: 模型调用 calculate_stats 计算平均值</span>
+<span class="comment"># 第3轮: 模型生成自然语言总结</span></pre>
+</div>
+
+<!-- ===== Section 5: FC Agent ===== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🤖</span> LLM 实战：基于 FC 的 AMC 智能查询 Agent
+    <span class="time-tag">⏱ 20min</span>
+  </div>
+
+  <p>把 Day 36 的 SimpleAgent 升级为 <strong>FCAgent</strong>——用 Function Calling 替代正则解析，更可靠、更强大。</p>
+
+  <pre><span class="comment"># ====================</span>
+<span class="comment"># FCAgent：基于 Function Calling 的 AMC 智能查询 Agent</span>
+<span class="comment"># ====================</span>
+<span class="keyword">import</span> json
+<span class="keyword">import</span> requests
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> typing <span class="keyword">import</span> Callable, Optional
+<span class="keyword">from</span> datetime <span class="keyword">import</span> datetime
+
+API_KEY = <span class="string">"your_zhipu_api_key"</span>
+API_URL = <span class="string">"https://open.bigmodel.cn/api/paas/v4/chat/completions"</span>
+
+<span class="comment"># ---- 数据模型 ----</span>
+@dataclass
+<span class="keyword">class</span> <span class="type">ToolCall</span>:
+    <span class="string">"""记录一次工具调用"""</span>
+    call_id: <span class="type">str</span>
+    name: <span class="type">str</span>
+    args: <span class="type">dict</span>
+    result: <span class="type">str</span> = <span class="string">""</span>
+    error: Optional[<span class="type">str</span>] = None
+    timestamp: <span class="type">str</span> = field(default_factory=<span class="keyword">lambda</span>: datetime.now().<span class="func">isoformat</span>())
+
+@dataclass
+<span class="keyword">class</span> <span class="type">FCAgentConfig</span>:
+    <span class="string">"""Agent 配置"""</span>
+    model: <span class="type">str</span> = <span class="string">"glm-4-flash"</span>
+    system_prompt: <span class="type">str</span> = <span class="string">""</span>
+    max_tool_rounds: <span class="type">int</span> = 5
+    temperature: <span class="type">float</span> = 0.1  <span class="comment"># 工具调用用低温度，更精确</span>
+
+<span class="keyword">class</span> <span class="type">FCAgent</span>:
+    <span class="string">"""
+    基于 Function Calling 的 Agent
+    对比 Day 36 的 SimpleAgent：
+    - 不需要正则解析
+    - 参数有类型约束
+    - 支持多工具并行调用
+    - 工具调用记录完整可追溯
+    """</span>
+
+    <span class="keyword">def</span> <span class="func">__init</span>(
+        self,
+        config: FCAgentConfig = None,
+        tools: <span class="type">list</span> = None,
+        tool_registry: <span class="type">dict</span> = None
+    ):
+        self.config = config <span class="keyword">or</span> <span class="type">FCAgentConfig</span>()
+        self.tools = tools <span class="keyword">or</span> []
+        self.tool_registry = tool_registry <span class="keyword">or</span> {}
+        self.history: <span class="type">list</span>[<span class="type">dict</span>] = []
+        self.call_log: <span class="type">list</span>[<span class="type">ToolCall</span>] = []  <span class="comment"># 工具调用记录</span>
+
+    <span class="keyword">def</span> <span class="func">register_tool</span>(self, name: <span class="type">str</span>, schema: <span class="type">dict</span>, executor: <span class="type">Callable</span>):
+        <span class="string">"""注册一个工具（定义 + 执行函数）"""</span>
+        self.tools.<span class="func">append</span>({
+            <span class="string">"type"</span>: <span class="string">"function"</span>,
+            <span class="string">"function"</span>: schema
+        })
+        self.tool_registry[name] = executor
+
+    <span class="keyword">def</span> <span class="func">_call_llm</span>(self, messages: <span class="type">list</span>) -> <span class="type">dict</span>:
+        <span class="string">"""调用 LLM API"""</span>
+        resp = requests.<span class="func">post</span>(
+            API_URL,
+            headers={<span class="string">"Authorization"</span>: <span class="string">f"Bearer {API_KEY}"</span>},
+            json={
+                <span class="string">"model"</span>: self.config.model,
+                <span class="string">"messages"</span>: messages,
+                <span class="string">"tools"</span>: self.tools,
+                <span class="string">"temperature"</span>: self.config.temperature,
+            }
+        )
+        <span class="keyword">return</span> resp.<span class="func">json</span>()[<span class="string">"choices"</span>][0][<span class="string">"message"</span>]
+
+    <span class="keyword">def</span> <span class="func">_execute_tool</span>(self, call_id: <span class="type">str</span>, name: <span class="type">str</span>, raw_args: <span class="type">str</span>) -> <span class="type">str</span>:
+        <span class="string">"""执行单个工具调用，带完整日志"""</span>
+        <span class="keyword">try</span>:
+            args = json.<span class="func">loads</span>(raw_args)
+        <span class="keyword">except</span> json.JSONDecodeError <span class="keyword">as</span> e:
+            error_msg = <span class="string">f"参数 JSON 解析失败: {e.msg}"</span>
+            log = <span class="type">ToolCall</span>(call_id=call_id, name=name, args={}, error=error_msg)
+            self.call_log.<span class="func">append</span>(log)
+            <span class="keyword">return</span> json.<span class="func">dumps</span>({<span class="string">"error"</span>: error_msg})
+
+        <span class="keyword">if</span> name <span class="keyword">not in</span> self.tool_registry:
+            error_msg = <span class="string">f"未知工具: {name}"</span>
+            log = <span class="type">ToolCall</span>(call_id=call_id, name=name, args=args, error=error_msg)
+            self.call_log.<span class="func">append</span>(log)
+            <span class="keyword">return</span> json.<span class="func">dumps</span>({<span class="string">"error"</span>: error_msg})
+
+        <span class="keyword">try</span>:
+            result = self.tool_registry[name](args)
+            log = <span class="type">ToolCall</span>(call_id=call_id, name=name, args=args, result=result)
+            self.call_log.<span class="func">append</span>(log)
+            <span class="keyword">return</span> result
+        <span class="keyword">except</span> Exception <span class="keyword">as</span> e:
+            error_msg = <span class="func">str</span>(e)
+            log = <span class="type">ToolCall</span>(call_id=call_id, name=name, args=args, error=error_msg)
+            self.call_log.<span class="func">append</span>(log)
+            <span class="keyword">return</span> json.<span class="func">dumps</span>({<span class="string">"error"</span>: error_msg})
+
+    <span class="keyword">def</span> <span class="func">run</span>(self, user_msg: <span class="type">str</span>) -> <span class="type">str</span>:
+        <span class="string">"""执行一次完整的 FC Agent 对话"""</span>
+        self.call_log.<span class="func">clear</span>()
+
+        messages = [
+            {<span class="string">"role"</span>: <span class="string">"system"</span>, <span class="string">"content"</span>: self.config.system_prompt},
+            {<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: user_msg}
+        ]
+
+        <span class="keyword">for</span> round_num <span class="keyword">in</span> <span class="func">range</span>(1, self.config.max_tool_rounds + 1):
+            assistant_msg = self.<span class="func">_call_llm</span>(messages)
+            messages.<span class="func">append</span>(assistant_msg)
+
+            <span class="comment"># 不需要工具 → 直接返回</span>
+            <span class="keyword">if</span> <span class="string">"tool_calls"</span> <span class="keyword">not in</span> assistant_msg:
+                <span class="keyword">return</span> assistant_msg.<span class="func">get</span>(<span class="string">"content"</span>, <span class="string">""</span>)
+
+            <span class="comment"># 执行所有工具调用</span>
+            <span class="keyword">for</span> tc <span class="keyword">in</span> assistant_msg[<span class="string">"tool_calls"</span>]:
+                result = self.<span class="func">_execute_tool</span>(
+                    tc[<span class="string">"id"</span>],
+                    tc[<span class="string">"function"</span>][<span class="string">"name"</span>],
+                    tc[<span class="string">"function"</span>][<span class="string">"arguments"</span>]
+                )
+                messages.<span class="func">append</span>({
+                    <span class="string">"role"</span>: <span class="string">"tool"</span>,
+                    <span class="string">"content"</span>: result,
+                    <span class="string">"tool_call_id"</span>: tc[<span class="string">"id"</span>]
+                })
+
+        <span class="keyword">return</span> <span class="string">f"⚠️ 达到最大轮次 {self.config.max_tool_rounds}"</span>
+
+    <span class="keyword">def</span> <span class="func">show_log</span>(self):
+        <span class="string">"""打印工具调用日志"""</span>
+        <span class="keyword">for</span> i, log <span class="keyword">in</span> <span class="func">enumerate</span>(self.call_log, 1):
+            status = <span class="string">"❌"</span> <span class="keyword">if</span> log.error <span class="keyword">else</span> <span class="string">"✅"</span>
+            <span class="func">print</span>(<span class="string">f"  [{i}] {status} {log.name}({json.dumps(log.args, ensure_ascii=False)})"</span>)
+            <span class="keyword">if</span> log.error:
+                <span class="func">print</span>(<span class="string">f"      错误: {log.error}"</span>)
+
+<span class="comment"># ---- 使用示例 ----</span>
+agent = <span class="type">FCAgent</span>(
+    config=<span class="type">FCAgentConfig</span>(
+        system_prompt=<span class="string">"你是AMC不良资产数据分析助手。准确调用工具，给出专业回答。"</span>
+    ),
+    tools=ALL_TOOLS,
+    tool_registry=TOOL_REGISTRY
+)
+
+answer = agent.<span class="func">run</span>(<span class="string">"查一下损失类贷款有哪些？再统计一下总额"</span>)
+<span class="func">print</span>(<span class="string">f"\n💬 回答: {answer}"</span>)
+<span class="func">print</span>(<span class="string">"\n📋 工具调用链:"</span>)
+agent.<span class="func">show_log</span>()
+<span class="comment"># [1] ✅ query_amc_database({"table": "loan", "condition": "status='损失'"})</span>
+<span class="comment"># [2] ✅ calculate_stats({"values": [200], "metric": "sum"})</span></pre>
+
+  <div class="tip-box">
+    <strong>FCAgent vs SimpleAgent 对比：</strong><br>
+    <code>SimpleAgent</code>（Day 36）：正则解析 → 脆弱，参数只能传字符串<br>
+    <code>FCAgent</code>（今天）：模型原生 tool_calls → 结构化，参数有类型，多工具并行，错误可追溯<br>
+    <strong>核心升级点：</strong>解析方式从"文本匹配"变为"协议约定"，可靠性从 70% 提升到 95%+
+  </div>
+</div>
+
+<!-- ===== Section 6: Pydantic 自动生成工具 ===== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔧</span> 进阶技巧：用 Pydantic 自动生成工具 Schema
+    <span class="time-tag">⏱ 10min</span>
+  </div>
+
+  <p>手动写 JSON Schema 容易出错且重复。用 Pydantic 模型自动生成：</p>
+
+  <pre><span class="keyword">from</span> pydantic <span class="keyword">import</span> BaseModel, Field
+<span class="keyword">from</span> typing <span class="keyword">import</span> Optional
+
+<span class="comment"># ---- 用 Pydantic 定义参数模型 ----</span>
+<span class="keyword">class</span> <span class="type">QueryDBParams</span>(BaseModel):
+    <span class="string">"""查询AMC数据库的参数"""</span>
+    table: <span class="type">str</span> = Field(..., description=<span class="string">"表名: loan/collateral/debtor"</span>)
+    condition: Optional[<span class="type">str</span>] = Field(None, description=<span class="string">"WHERE条件"</span>)
+    columns: <span class="type">str</span> = Field(<span class="string">"*"</span>, description=<span class="string">"列名，逗号分隔"</span>)
+    limit: <span class="type">int</span> = Field(10, ge=1, le=100, description=<span class="string">"返回行数"</span>)
+
+<span class="keyword">class</span> <span class="type">StatsParams</span>(BaseModel):
+    <span class="string">"""统计分析参数"""</span>
+    values: <span class="type">list</span>[<span class="type">float</span>] = Field(..., description=<span class="string">"数值列表"</span>)
+    metric: <span class="type">str</span> = Field(
+        ...,
+        description=<span class="string">"统计方法"</span>,
+        pattern=<span class="string">r"^(sum|avg|count|max|min)$"</span>
+    )
+
+<span class="keyword">class</span> <span class="type">KBSearchParams</span>(BaseModel):
+    <span class="string">"""知识库搜索参数"""</span>
+    query: <span class="type">str</span> = Field(..., min_length=1, description=<span class="string">"搜索关键词"</span>)
+    top_k: <span class="type">int</span> = Field(3, ge=1, le=10, description=<span class="string">"返回结果数"</span>)
+
+<span class="comment"># ---- 自动转成 tools schema ----</span>
+<span class="keyword">def</span> <span class="func">pydantic_to_tool</span>(
+    name: <span class="type">str</span>,
+    description: <span class="type">str</span>,
+    param_model: <span class="type">type</span>[BaseModel]
+) -> <span class="type">dict</span>:
+    <span class="string">"""把 Pydantic 模型转换为 LLM tools 定义"""</span>
+    schema = param_model.model_json_schema()
+    <span class="keyword">return</span> {
+        <span class="string">"type"</span>: <span class="string">"function"</span>,
+        <span class="string">"function"</span>: {
+            <span class="string">"name"</span>: name,
+            <span class="string">"description"</span>: description,
+            <span class="string">"parameters"</span>: {
+                <span class="string">"type"</span>: schema[<span class="string">"type"</span>],
+                <span class="string">"properties"</span>: schema.get(<span class="string">"properties"</span>, {}),
+                <span class="string">"required"</span>: schema.get(<span class="string">"required"</span>, [])
+            }
+        }
+    }
+
+<span class="comment"># 一行生成工具定义！</span>
+auto_tools = [
+    <span class="func">pydantic_to_tool</span>(<span class="string">"query_amc_database"</span>, <span class="string">"查询AMC数据库"</span>, <span class="type">QueryDBParams</span>),
+    <span class="func">pydantic_to_tool</span>(<span class="string">"calculate_stats"</span>, <span class="string">"数值统计分析"</span>, <span class="type">StatsParams</span>),
+    <span class="func">pydantic_to_tool</span>(<span class="string">"search_knowledge"</span>, <span class="string">"搜索知识库"</span>, <span class="type">KBSearchParams</span>),
+]
+
+<span class="func">print</span>(json.<span class="func">dumps</span>(auto_tools, indent=2, ensure_ascii=<span class="keyword">False</span>))
+<span class="comment"># ✅ 完美生成标准 tools schema，含 type/enum/minimum/maximum 等约束</span></pre>
+
+  <div class="tip-box">
+    <strong>双层验证策略：</strong>Pydantic 模型做第一层（参数类型 + 约束），LLM 返回参数后用 Pydantic 实例化做第二层校验。这样即使 LLM 返回了不合规的参数，也能在代码层兜住。
+  </div>
+</div>
+
+<!-- ===== Section 7: 陷阱 ===== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚠️</span> 常见陷阱 Top 5
+    <span class="time-tag">⏱ 5min</span>
+  </div>
+
+  <table class="compare-table">
+    <tr>
+      <th style="width:50px">#</th>
+      <th>陷阱</th>
+      <th>症状</th>
+      <th>解决方案</th>
+    </tr>
+    <tr>
+      <td><strong>1</strong></td>
+      <td><strong>忘传 tool_call_id</strong></td>
+      <td>API 报错：tool message 缺少 tool_call_id</td>
+      <td>tool 消息的 role="tool"，必须绑定 assistant 消息中的 id</td>
+    </tr>
+    <tr>
+      <td><strong>2</strong></td>
+      <td><strong>参数 JSON 解析失败</strong></td>
+      <td>json.loads 抛异常</td>
+      <td>始终 try/except 包裹，给模型返回错误提示让它重试</td>
+    </tr>
+    <tr>
+      <td><strong>3</strong></td>
+      <td><strong>工具描述太简短</strong></td>
+      <td>模型选错工具或不用工具</td>
+      <td>描述包含：功能说明 + 使用场景 + 参数示例</td>
+    </tr>
+    <tr>
+      <td><strong>4</strong></td>
+      <td><strong>死循环调用</strong></td>
+      <td>模型反复调用同一工具</td>
+      <td>设 max_rounds（通常 5 轮足够）+ 检测重复调用</td>
+    </tr>
+    <tr>
+      <td><strong>5</strong></td>
+      <td><strong>工具结果太长</strong></td>
+      <td>Token 超限或模型丢失关键信息</td>
+      <td>结果截断到合理长度（如 2000 字），摘要后返回</td>
+    </tr>
+  </table>
+
+  <div class="warn-box">
+    <strong>安全红线：</strong>Function Calling 中模型只是"建议"调用工具，<strong>实际执行完全由你的代码控制</strong>。对于高风险操作（删除数据、执行 SQL），务必在 execute_tool 中加权限校验和确认机制！
+  </div>
+</div>
+
+<!-- ===== Section 8: 最佳实践 ===== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📋</span> Function Calling 最佳实践速查
+    <span class="time-tag">⏱ 5min</span>
+  </div>
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="card-title">📝 工具定义</div>
+      <div class="card-body">
+        • name 用动词+名词（query_db, calc_stats）<br>
+        • description 含场景和示例<br>
+        • 参数用 enum 限定枚举值<br>
+        • 用 Pydantic 自动生成 Schema
+      </div>
+    </div>
+    <div class="summary-card">
+      <div class="card-title">🔄 交互流程</div>
+      <div class="card-body">
+        • user → assistant(tool_calls) → tool → assistant(content)<br>
+        • tool 消息必须带 tool_call_id<br>
+        • 完整消息链传回（不要只传最新消息）
+      </div>
+    </div>
+    <div class="summary-card">
+      <div class="card-title">🛡️ 容错设计</div>
+      <div class="card-body">
+        • JSON 解析始终 try/except<br>
+        • 工具执行超时设置<br>
+        • 未知工具返回友好错误<br>
+        • max_rounds 防死循环
+      </div>
+    </div>
+    <div class="summary-card">
+      <div class="card-title">📊 调试技巧</div>
+      <div class="card-body">
+        • 打印每轮的完整 messages<br>
+        • 记录工具调用日志<br>
+        • temperature 设低（0.1-0.3）<br>
+        • 用 finish_reason 判断是否结束
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Section 9: 练习 ===== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">💪</span> 今日练习
+    <span class="time-tag">⏱ 15min</span>
+  </div>
+
+  <div class="quiz-box">
+    <div class="q">📌 练习1：添加新工具</div>
+    <p>给 FCAgent 添加一个 <code>export_report</code> 工具，参数包括 report_type（枚举：日报/周报/月报）和 date_range（字符串，如 "2024-01-01~2024-01-31"）。用 Pydantic 定义参数模型并自动生成 Schema。</p>
+    <div class="hint">提示：用 <code>pydantic_to_tool()</code> 一行搞定，不需要手写 JSON Schema。</div>
+  </div>
+
+  <div class="quiz-box">
+    <div class="q">📌 练习2：多轮对话 + 上下文记忆</div>
+    <p>扩展 FCAgent，支持多轮对话。用户可以说"上面查到的数据，帮我按金额排序"。需要维护 messages 历史并在每轮新请求时传入完整消息链。</p>
+    <div class="hint">提示：在 FCAgent 中添加 messages 属性，新问题追加到 messages 中而不是每次重建。</div>
+  </div>
+
+  <div class="quiz-box">
+    <div class="q">📌 练习3：LeetCode #49 字母异位词分组（关联 json 字典操作）</div>
+    <p>给你一个字符串数组，将字母异位词组合在一起。</p>
+    <pre><span class="comment"># 示例: strs = ["eat","tea","tan","ate","nat","bat"]</span>
+<span class="comment"># 输出: [["bat"],["nat","tan"],["ate","eat","tea"]]</span>
+
+<span class="keyword">def</span> <span class="func">group_anagrams</span>(strs: <span class="type">list</span>[<span class="type">str</span>]) -> <span class="type">list</span>[<span class="type">list</span>[<span class="type">str</span>]]:
+    <span class="comment"># 思路：sorted(s) 作为 key，用 dict 分组</span>
+    groups = {}
+    <span class="keyword">for</span> s <span class="keyword">in</span> strs:
+        key = <span class="func">tuple</span>(<span class="func">sorted</span>(s))  <span class="comment"># sorted 返回 list，要转 tuple 才能做 key</span>
+        groups.<span class="func">setdefault</span>(key, []).<span class="func">append</span>(s)
+    <span class="keyword">return</span> <span class="func">list</span>(groups.<span class="func">values</span>())</pre>
+    <div class="hint">提示：核心用 sorted + dict.setdefault 分组。和 Function Calling 中的 JSON 字典操作思路一致。</div>
+  </div>
+</div>
+
+<!-- ===== Section 10: 总结 ===== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📖</span> 今日总结 + 预告
+  </div>
+
+  <div class="sub-title"><span class="num">✅</span> 今天学到了什么</div>
+
+  <ul>
+    <li><strong>Function Calling 概念</strong>：LLM 原生结构化工具调用，替代脆弱的正则解析</li>
+    <li><strong>工具定义三要素</strong>：name（函数名）+ description（决策依据）+ parameters（JSON Schema）</li>
+    <li><strong>交互流程</strong>：user → assistant(tool_calls) → tool(result) → assistant(final answer)</li>
+    <li><strong>Python 工具</strong>：json 深度使用、Pydantic 自动生成 Schema、dict.get/setdefault 安全取值</li>
+    <li><strong>FCAgent</strong>：基于 FC 的完整 Agent 封装，支持多工具、多轮调用、错误追溯</li>
+    <li><strong>Pydantic → Schema</strong>：用 <code>model_json_schema()</code> 自动生成工具定义，消除手写 JSON Schema 的痛苦</li>
+  </ul>
+
+  <div class="sub-title"><span class="num">🔗</span> 在 RAG + Agent 大图中的位置</div>
+
+  <div class="flow-diagram">
+    <div class="flow-step" style="opacity:0.5">D29 分块</div>
+    <div class="flow-arrow" style="opacity:0.5">→</div>
+    <div class="flow-step" style="opacity:0.5">D30 Embedding</div>
+    <div class="flow-arrow" style="opacity:0.5">→</div>
+    <div class="flow-step" style="opacity:0.5">D31 向量库</div>
+    <div class="flow-arrow" style="opacity:0.5">→</div>
+    <div class="flow-step" style="opacity:0.5">D32 检索</div>
+    <div class="flow-arrow" style="opacity:0.5">→</div>
+    <div class="flow-step" style="opacity:0.5">D33 Reranker</div>
+    <div class="flow-arrow" style="opacity:0.5">→</div>
+    <div class="flow-step" style="opacity:0.5">D34 生成</div>
+    <div class="flow-arrow" style="opacity:0.5">→</div>
+    <div class="flow-step" style="opacity:0.5">D35 评估</div>
+    <div class="flow-arrow" style="opacity:0.5">→</div>
+    <div class="flow-step" style="opacity:0.5">D36 Agent基础</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step active">D37 FC</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">D38 Agent进阶</div>
+  </div>
+
+  <div class="sub-title"><span class="num">🚀</span> 下一步：Day 38 Agent 进阶</div>
+
+  <p>明天进入 Agent 进阶——多 Agent 协作（规划 Agent + 执行 Agent）、LangChain 工具封装、Agent 记忆机制（短期/长期），以及将 RAG 与 Agent 融合为完整的智能系统。</p>
+
+  <div class="tag-list">
+    <span class="tag">Python 知识点：json / Pydantic / dict</span>
+    <span class="tag">LLM 实战：Function Calling / FCAgent</span>
+    <span class="tag">难度：⭐⭐⭐</span>
+  </div>
+</div>
+
+</body>
+</html>

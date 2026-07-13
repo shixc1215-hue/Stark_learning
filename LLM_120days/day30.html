@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 30 - Embedding 向量化：把文本变成机器能算的数字</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#eff6ff,#eef2ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #bfdbfe; }
+  .header .badge { display:inline-block;background:#dbeafe;color:var(--accent);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .milestone-box { background:linear-gradient(135deg,#fef3c7,#fff7ed);border:2px solid #fbbf24;border-radius:var(--radius);padding:20px 24px;margin:14px 0;font-size:14px;color:var(--text); }
+  .milestone-box h4 { color:var(--orange);margin-bottom:8px; }
+  pre { background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;overflow-x:auto;font-size:13.5px;line-height:1.65;margin:12px 0;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--text); }
+  code { background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace; }
+  pre code { background:none;padding:0;border-radius:0;font-size:inherit; }
+  .hl { color:var(--accent);font-weight:600; }
+  .hl2 { color:var(--accent2);font-weight:600; }
+  .hlg { color:var(--green);font-weight:600; }
+  .hlo { color:var(--orange);font-weight:600; }
+  .hlr { color:var(--red);font-weight:600; }
+  h3 { font-size:16px;font-weight:700;margin:20px 0 10px;color:var(--text); }
+  h4 { font-size:15px;font-weight:600;margin:16px 0 8px;color:var(--text2); }
+  p { margin:8px 0;font-size:14.5px; }
+  ul,ol { margin:8px 0 8px 20px;font-size:14.5px; }
+  li { margin:4px 0; }
+  .table-wrap { overflow-x:auto;margin:12px 0; }
+  table { width:100%;border-collapse:collapse;font-size:13.5px; }
+  th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border); }
+  td { padding:10px 14px;border:1px solid var(--border); }
+  .compare-grid { display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0; }
+  .compare-card { background:var(--surface2);border-radius:8px;padding:16px;border:1px solid var(--border); }
+  .compare-card h4 { margin-top:0;color:var(--accent); }
+  .formula-box { background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px 20px;margin:12px 0;text-align:center;font-family:'Cascadia Code',Consolas,monospace;font-size:14px; }
+  .nav-bar { background:var(--surface);border-radius:var(--radius);padding:14px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--text2); }
+  .nav-bar a { color:var(--accent);text-decoration:none;font-weight:600; }
+  .challenge { background:linear-gradient(135deg,#fef3c7,#fff7ed);border:2px solid #fbbf24;border-radius:var(--radius);padding:20px 24px;margin:14px 0; }
+  .challenge h4 { color:var(--orange);margin-bottom:10px; }
+  .tag { display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;margin-right:4px; }
+  .tag-new { background:#dbeafe;color:var(--accent); }
+  .tag-review { background:#fef3c7;color:var(--orange); }
+  .tag-llm { background:#f0fdf4;color:var(--green); }
+  .emoji-step { display:flex;align-items:flex-start;gap:12px;margin:12px 0; }
+  .emoji-step .step-icon { font-size:20px;flex-shrink:0;margin-top:2px; }
+  .emoji-step .step-content { flex:1; }
+  .summary-box { background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:2px solid #86efac;border-radius:var(--radius);padding:20px 24px;margin:14px 0; }
+  .summary-box h4 { color:var(--green);margin-bottom:10px; }
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <span>&#8592; <a href="day29.html">Day 29 文本分块</a></span>
+  <span>Phase 2: RAG + Agent &middot; Day 2/14</span>
+  <span><a href="day31.html">Day 31 向量库</a> &#8594;</span>
+</nav>
+
+<div class="header">
+  <div class="badge">Phase 2 &middot; RAG + Agent</div>
+  <h1>Day 30 &mdash; Embedding 向量化：把文本变成机器能算的数字</h1>
+  <p class="subtitle">从文本到向量，用余弦相似度量化"语义相近" &middot; Python numpy 基础 + 智谱 Embedding API 实战</p>
+</div>
+
+<div class="progress-bar">
+  <span class="label">Day 30 / 70</span>
+  <div class="track"><div class="fill" style="width:42.9%"></div></div>
+  <span class="percent">42.9%</span>
+</div>
+
+<!-- ==================== Section 1 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#x1F3AF;</span>
+    今日学习目标
+    <span class="time-tag">&#x23F1; ~60 min</span>
+  </div>
+  <ul>
+    <li><span class="tag tag-new">新知</span> 理解 Embedding 的本质：<strong>高维空间中的语义坐标</strong></li>
+    <li><span class="tag tag-new">新知</span> 掌握余弦相似度计算，理解"距离"与"方向"的区别</li>
+    <li><span class="tag tag-new">新知</span> 调用智谱 Embedding API，将真实文本转为向量</li>
+    <li><span class="tag tag-review">复习</span> Python <code>numpy</code> 数组基础：创建 / 运算 / 切片</li>
+    <li><span class="tag tag-llm">LLM</span> 构建语义搜索工具：输入问题，从候选句中找最相关的</li>
+  </ul>
+</div>
+
+<!-- ==================== Section 2 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#x1F4D6;</span>
+    一、为什么需要 Embedding？
+    <span class="time-tag">&#x23F1; 10 min</span>
+  </div>
+
+  <p>昨天我们学会了把长文档<strong>分块</strong>。分块后的问题是：用户提了一个问题，怎么从几十个 chunk 里找出最相关的？</p>
+
+  <div class="concept-box">
+    <strong>核心矛盾：</strong>计算机只能做数学运算（加减乘除），不理解"这句话和那句话意思差不多"。我们需要一个<strong>翻译层</strong>，把文本变成数字，然后用数学算"相似度"。这个翻译层就是 <strong>Embedding</strong>。
+  </div>
+
+  <h3>1.1 用你的经验类比</h3>
+  <p>作为数据开发工程师，你一定做过这类需求：给用户打标签，算用户相似度。传统做法：</p>
+  <ul>
+    <li><strong>关键词匹配：</strong>用户搜"不良资产"，文档必须包含"不良资产"这四个字 —— <span class="hlr">太死板</span></li>
+    <li><strong>TF-IDF + 余弦相似度：</strong>按词频建向量 —— <span class="hlo">不考虑词序和语义</span></li>
+    <li><strong>Embedding：</strong>AI 模型理解语义后输出向量 —— "不良资产" 和 "NPL" 会很近，"资产" 和 "负债" 会很远</li>
+  </ul>
+
+  <h3>1.2 Embedding 是什么</h3>
+  <p>Embedding 模型接收一段文本，输出一个<strong>浮点数数组</strong>（向量）。比如：</p>
+
+  <pre><code># 智谱 embedding-3 模型输出 2048 维向量
+"不良资产处置方案" → [0.0231, -0.0452, 0.0873, ..., 0.0112]  # 2048个数字
+"不良贷款清收流程" → [0.0228, -0.0431, 0.0856, ..., 0.0109]  # 很接近！
+"红烧肉做法大全"   → [-0.156, 0.0892, -0.031, ..., 0.0734]   # 差很远！</code></pre>
+
+  <div class="tip-box">
+    <strong>直觉理解：</strong>你可以把这 2048 个数字想象成 2048 个"语义维度"。每个维度衡量文本的某一方面特征。语义相近的文本，在这些维度上的值会很接近。
+  </div>
+
+  <h3>1.3 RAG 管线中的位置</h3>
+
+  <div class="emoji-step">
+    <span class="step-icon">&#x2460;</span>
+    <div class="step-content"><strong>离线阶段（建索引）：</strong>文档 → 分块（Day29）→ <span class="hl">每个 chunk 调 Embedding → 存向量</span>（Day30-31）</div>
+  </div>
+  <div class="emoji-step">
+    <span class="step-icon">&#x2461;</span>
+    <div class="step-content"><strong>在线阶段（检索）：</strong>用户问题 → <span class="hl">调 Embedding → 算相似度 → Top-K</span>（Day32）→ 拼上下文 → LLM 生成回答</div>
+  </div>
+
+  <p>今天我们聚焦 <strong>Embedding 本身</strong>：怎么调用、向量怎么算、相似度怎么衡量。</p>
+</div>
+
+<!-- ==================== Section 3 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#x1F4BB;</span>
+    二、Python 基础：numpy 数组入门
+    <span class="time-tag">&#x23F1; 12 min</span>
+  </div>
+
+  <p>Embedding 输出的就是 <code>numpy</code> 数组。先花几分钟掌握核心操作，后面算相似度会非常顺畅。</p>
+
+  <div class="concept-box">
+    <strong>为什么用 numpy 而不是 list？</strong>numpy 数组在底层用 C 实现，支持<strong>向量化运算</strong>（不用写 for 循环），处理千维向量时速度比纯 Python 快 100 倍以上。在数据开发领域，你可以把它理解为"Python 版的 SQL 聚合"——批量操作，一条语句搞定。
+  </div>
+
+  <h3>2.1 创建数组</h3>
+
+  <pre><code>import numpy as np
+
+# --- 从 list 创建 ---
+a = np.array([1, 2, 3])            # 一维数组，shape=(3,)
+b = np.array([[1, 2], [3, 4]])    # 二维数组，shape=(2, 2)
+
+# --- 特殊数组 ---
+zeros = np.zeros(5)                # [0. 0. 0. 0. 0.]
+ones  = np.ones((3, 4))            # 3行4列全1
+rand  = np.random.rand(4)          # 4个 [0,1) 随机数
+
+# --- 模拟一个小 embedding ---
+embedding = np.random.randn(8)     # 8维向量，标准正态分布
+print(embedding.shape)             # (8,)
+print(type(embedding))             # &lt;class 'numpy.ndarray'&gt;</code></pre>
+
+  <h3>2.2 数组运算（向量化）</h3>
+
+  <pre><code>a = np.array([1.0, 2.0, 3.0])
+b = np.array([4.0, 5.0, 6.0])
+
+# --- 逐元素运算（对应位相算，不用 for 循环！）---
+print(a + b)      # [5. 7. 9.]      加
+print(a * b)      # [4. 10. 18.]    逐元素乘（不是矩阵乘！）
+print(a ** 2)     # [1. 4. 9.]      平方
+print(np.sqrt(a)) # [1.     1.414  1.732]  开方
+
+# --- 常用聚合 ---
+print(a.sum())           # 6.0    总和
+print(a.mean())          # 2.0    均值
+print(np.dot(a, b))      # 32.0   点积（内积）= 1*4 + 2*5 + 3*6
+
+# --- 广播（broadcasting）---
+a = np.array([[1, 2, 3]])     # shape (1, 3)
+b = np.array([[10], [20]])    # shape (2, 1)
+print(a + b)
+# [[11 12 13]
+#  [21 22 23]]
+# 自动"拉伸"对齐，类似 SQL 的 CROSS JOIN + 计算</code></pre>
+
+  <div class="tip-box">
+    <strong>点积 <code>np.dot(a, b)</code> 是相似度计算的核心操作。</strong>点积越大，两个向量在方向上越一致。后面算余弦相似度会反复用到。
+  </div>
+
+  <h3>2.3 切片与形状</h3>
+
+  <pre><code>vec = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
+
+# --- 切片（和 list 几乎一样）---
+print(vec[:3])       # [0.1 0.2 0.3]  前3个
+print(vec[2:])       # [0.3 0.4 0.5]  第3个开始
+print(vec[-1])       # 0.5             最后一个
+
+# --- 形状操作 ---
+matrix = np.random.rand(5, 8)   # 5个样本，每个8维（模拟5个embedding）
+print(matrix.shape)             # (5, 8)
+print(matrix[0])                # 第1个向量
+print(matrix[0].shape)          # (8,)
+
+# --- 拼接 ---
+a = np.array([1, 2])
+b = np.array([3, 4])
+print(np.concatenate([a, b]))   # [1 2 3 4]
+print(np.stack([a, b]))         # [[1 2] [3 4]]  堆叠成2行</code></pre>
+
+  <h3>2.4 用 list comprehension 模拟向量化</h3>
+
+  <pre><code># 在没有 numpy 的场景下（比如面试），也可以用 list comprehension
+def manual_dot(a, b):
+    """手动实现点积 —— 理解底层原理"""
+    return sum(x * y for x, y in zip(a, b))
+
+a = [1.0, 2.0, 3.0]
+b = [4.0, 5.0, 6.0]
+print(manual_dot(a, b))  # 32.0
+
+# 但生产环境一律用 np.dot，快 100 倍+</code></pre>
+
+  <div class="warn-box">
+    <strong>安装 numpy（如果还没装）：</strong><code>pip install numpy</code>。推荐在虚拟环境中安装，避免污染全局。
+  </div>
+</div>
+
+<!-- ==================== Section 4 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#x1F527;</span>
+    三、相似度计算：余弦相似度
+    <span class="time-tag">&#x23F1; 10 min</span>
+  </div>
+
+  <p>拿到两个 embedding 向量后，怎么判断它们"像不像"？最常用的是<strong>余弦相似度（Cosine Similarity）</strong>。</p>
+
+  <h3>3.1 公式</h3>
+
+  <div class="formula-box">
+    cos(A, B) = (A &middot; B) / (|A| &times; |B|)
+  </div>
+
+  <p>其中：</p>
+  <ul>
+    <li><code>A &middot; B</code> = 点积 = <code>np.dot(A, B)</code></li>
+    <li><code>|A|</code> = 向量 A 的模（长度）= <code>np.linalg.norm(A)</code></li>
+    <li>结果范围 <strong>[-1, 1]</strong>，越接近 1 越相似</li>
+  </ul>
+
+  <h3>3.2 直觉理解</h3>
+
+  <div class="compare-grid">
+    <div class="compare-card">
+      <h4>&#x2705; 余弦相似度</h4>
+      <p>只看<strong>方向</strong>，不看长度。</p>
+      <p>向量 [1,2] 和 [10,20] 方向相同 → 相似度 = 1.0</p>
+      <p><strong>Embedding 场景首选</strong>，因为不同长度的文本其 embedding 长度可能不同，但语义方向一致。</p>
+    </div>
+    <div class="compare-card">
+      <h4>&#x274C; 欧氏距离</h4>
+      <p>看<strong>绝对位置</strong>差异。</p>
+      <p>[1,2] 和 [10,20] 距离很大 → 认为不相似</p>
+      <p>在推荐系统、聚类中常用，但 Embedding 场景不如余弦。</p>
+    </div>
+  </div>
+
+  <div class="tip-box">
+    <strong>用 SQL 类比：</strong>余弦相似度就像 JOIN 条件上的<strong>模糊匹配</strong> —— 不要求完全相等，只要求"方向一致"。欧氏距离则是要求"位置完全相同"。
+  </div>
+
+  <h3>3.3 代码实现</h3>
+
+  <pre><code>import numpy as np
+
+def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
+    """
+    计算两个向量的余弦相似度
+    a, b: 一维 numpy 数组
+    返回: [0, 1] 之间的浮点数，1 表示完全相同
+    """
+    dot_product = np.dot(a, b)                     # 点积
+    norm_a = np.linalg.norm(a)                     # a 的模
+    norm_b = np.linalg.norm(b)                     # b 的模
+
+    if norm_a == 0 or norm_b == 0:                 # 防止除零
+        return 0.0
+
+    return dot_product / (norm_a * norm_b)
+
+
+# --- 测试 ---
+v1 = np.array([1.0, 2.0, 3.0])
+v2 = np.array([1.0, 2.0, 3.0])         # 完全相同
+v3 = np.array([2.0, 4.0, 6.0])         # 方向相同（2倍缩放）
+v4 = np.array([-1.0, -2.0, -3.0])      # 方向相反
+v5 = np.array([3.0, 2.0, 1.0])         # 不同方向
+
+print(f"v1 vs v2（相同）: {cosine_similarity(v1, v2):.4f}")   # 1.0000
+print(f"v1 vs v3（同向）: {cosine_similarity(v1, v3):.4f}")   # 1.0000
+print(f"v1 vs v4（反向）: {cosine_similarity(v1, v4):.4f}")   # -1.0000
+print(f"v1 vs v5（不同）: {cosine_similarity(v1, v5):.4f}")   # 0.7143</code></pre>
+
+  <h3>3.4 批量计算：一个查询 vs 多个文档</h3>
+
+  <pre><code>def batch_cosine_similarity(query: np.ndarray, docs: np.ndarray) -> list[float]:
+    """
+    一个查询向量 vs 多个文档向量，返回相似度列表
+    query: shape (dim,)
+    docs:   shape (n_docs, dim)
+    """
+    # docs @ query 等价于对每个 doc 做 np.dot(doc, query)
+    dot_products = docs @ query
+
+    # 归一化
+    query_norm = np.linalg.norm(query)
+    doc_norms = np.linalg.norm(docs, axis=1)       # 每行的模
+
+    # 防除零
+    doc_norms = np.where(doc_norms == 0, 1e-10, doc_norms)
+    if query_norm == 0:
+        return [0.0] * len(docs)
+
+    return (dot_products / (doc_norms * query_norm)).tolist()
+
+
+# --- 测试：从 5 个候选中找最相似的 ---
+query_vec = np.array([0.8, 0.5, 0.3])          # 查询向量
+
+doc_vectors = np.array([
+    [0.9, 0.4, 0.2],     # 候选1：和查询很接近
+    [0.1, 0.9, 0.3],     # 候选2：不同方向
+    [0.7, 0.6, 0.4],     # 候选3：也比较接近
+    [0.2, 0.1, 0.9],     # 候选4：完全不同
+    [0.8, 0.5, 0.3],     # 候选5：和查询一模一样
+])
+
+similarities = batch_cosine_similarity(query_vec, doc_vectors)
+
+# 找到 Top-3
+indexed = list(enumerate(similarities))
+indexed.sort(key=lambda x: x[1], reverse=True)   # 按相似度降序
+
+print("Top-3 最相似的文档：")
+for rank, (idx, sim) in enumerate(indexed[:3], 1):
+    print(f"  #{rank}  文档{idx}  相似度={sim:.4f}")
+
+# 输出：
+# Top-3 最相似的文档：
+#   #1  文档4  相似度=1.0000
+#   #2  文档0  相似度=0.9979
+#   #3  文档2  相似度=0.9868</code></pre>
+
+  <div class="concept-box">
+    <strong>关键点：</strong><code>docs @ query</code> 用<strong>矩阵乘法</strong>一次算出所有点积，这就是 numpy 向量化的威力 —— 没有循环，底层用 BLAS 库并行计算。类比 SQL：<code>SELECT doc_id, dot_product FROM docs ORDER BY dot_product DESC LIMIT 3</code>。
+  </div>
+</div>
+
+<!-- ==================== Section 5 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#x1F916;</span>
+    四、LLM 实战：调用智谱 Embedding API
+    <span class="time-tag">&#x23F1; 15 min</span>
+  </div>
+
+  <p>理论够多了，直接上真实 API。我们用智谱的 <code>embedding-3</code> 模型，它输出 2048 维向量。</p>
+
+  <h3>4.1 最简调用</h3>
+
+  <pre><code>import os
+import requests
+import numpy as np
+
+# ============================================================
+# 智谱 Embedding API 调用
+# ============================================================
+ZHIPU_API_KEY = os.getenv("ZHIPU_API_KEY", "your-api-key-here")
+EMBEDDING_URL = "https://open.bigmodel.cn/api/paas/v4/embeddings"
+
+def get_embedding(text: str, model: str = "embedding-3") -> np.ndarray:
+    """
+    调用智谱 Embedding API，返回 numpy 向量
+
+    Args:
+        text:  要嵌入的文本
+        model: 模型名，embedding-3 输出 2048 维
+
+    Returns:
+        np.ndarray: shape=(2048,) 的浮点向量
+    """
+    resp = requests.post(
+        EMBEDDING_URL,
+        headers={"Authorization": f"Bearer {ZHIPU_API_KEY}"},
+        json={
+            "model": model,
+            "input": text,          # 直接传字符串即可（也支持 list 批量）
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+
+    # 响应结构：{"data": [{"embedding": [0.023, -0.045, ...], "index": 0}]}
+    vector = data["data"][0]["embedding"]
+    return np.array(vector, dtype=np.float32)
+
+
+# --- 测试 ---
+vec = get_embedding("不良资产处置方案")
+print(f"维度: {vec.shape}")         # (2048,)
+print(f"类型: {vec.dtype}")         # float32
+print(f"前5个值: {vec[:5]}")        # 看看长什么样
+print(f"模长: {np.linalg.norm(vec):.4f}")  # embedding-3 输出已归一化，模≈1</code></pre>
+
+  <div class="tip-box">
+    <strong>embedding-3 模型的特点：</strong>输出向量已经<strong>归一化</strong>（模长 ≈ 1.0），所以计算余弦相似度时，分母的模可以省略，<strong>点积 ≈ 余弦相似度</strong>。这大大简化了计算！
+  </div>
+
+  <h3>4.2 批量调用（一次传多段文本）</h3>
+
+  <pre><code>def get_embeddings_batch(texts: list[str], model: str = "embedding-3") -> np.ndarray:
+    """
+    批量调用 Embedding API（一次请求最多 2048 条）
+
+    Args:
+        texts: 文本列表
+        model: 模型名
+
+    Returns:
+        np.ndarray: shape=(n, 2048) 的二维数组
+    """
+    resp = requests.post(
+        EMBEDDING_URL,
+        headers={"Authorization": f"Bearer {ZHIPU_API_KEY}"},
+        json={
+            "model": model,
+            "input": texts,          # 传列表！
+        },
+        timeout=60,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+
+    # 按原始顺序排列（API 返回的 index 可能乱序）
+    results = sorted(data["data"], key=lambda x: x["index"])
+    vectors = [item["embedding"] for item in results]
+    return np.array(vectors, dtype=np.float32)
+
+
+# --- 一次获取 4 个文本的 embedding ---
+texts = [
+    "不良资产处置方案",
+    "不良贷款清收流程",
+    "资产管理公司年度报告",
+    "红烧肉做法大全",
+]
+
+vectors = get_embeddings_batch(texts)
+print(f"批量结果 shape: {vectors.shape}")   # (4, 2048)</code></pre>
+
+  <h3>4.3 完整示例：语义搜索</h3>
+
+  <pre><code>def semantic_search(
+    query: str,
+    documents: list[str],
+    top_k: int = 3,
+) -> list[dict]:
+    """
+    语义搜索：给一个查询，从文档列表中找到最相似的 Top-K
+
+    Args:
+        query:     用户查询
+        documents: 候选文档列表
+        top_k:     返回前几个
+
+    Returns:
+        [{"index": int, "text": str, "score": float}, ...]
+    """
+    # 1. 获取查询向量和文档向量
+    query_vec = get_embedding(query)                  # (2048,)
+    doc_vecs  = get_embeddings_batch(documents)        # (n, 2048)
+
+    # 2. 因为 embedding-3 已归一化，点积 = 余弦相似度
+    scores = doc_vecs @ query_vec                      # (n,)
+
+    # 3. 排序取 Top-K
+    ranked = sorted(
+        range(len(documents)),
+        key=lambda i: scores[i],
+        reverse=True,
+    )[:top_k]
+
+    return [
+        {
+            "rank":   rank + 1,
+            "index":  idx,
+            "text":   documents[idx],
+            "score":  float(scores[idx]),
+        }
+        for rank, idx in enumerate(ranked)
+    ]
+
+
+# ====== 运行 ======
+docs = [
+    "不良资产包批量收购流程及风险控制要点",
+    "2024年一季度AMC行业不良资产处置情况统计",
+    "债务人资产保全与诉讼执行操作指南",
+    "金融不良资产评估定价方法与实务",
+    "公司食堂菜单更新通知",
+    "年度员工体检安排",
+]
+
+results = semantic_search("怎么评估不良资产的价值？", docs, top_k=3)
+
+print("&#x1F50D; 语义搜索结果：\n")
+for r in results:
+    print(f"  #{r['rank']}  相似度={r['score']:.4f}")
+    print(f"       {r['text']}")
+    print()
+
+# 预期输出：第1名应该是"金融不良资产评估定价方法与实务"
+#          第2名可能是"不良资产包批量收购流程"或"AMC行业统计"</code></pre>
+
+  <div class="milestone-box">
+    <h4>&#x1F3C1; 里程碑：你刚刚手动实现了一个迷你 RAG 检索器！</h4>
+    <p>虽然还没用向量数据库，但核心逻辑已经完整：<strong>文档 → Embedding → 存向量 → 查询 → Embedding → 算相似度 → Top-K</strong>。Day 31 我们会把这些向量存入正式的向量数据库。
+  </div>
+</div>
+
+<!-- ==================== Section 6 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#x1F4CA;</span>
+    五、Embedding 模型选择与对比
+    <span class="time-tag">&#x23F1; 5 min</span>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <tr>
+        <th>模型</th>
+        <th>维度</th>
+        <th>特点</th>
+        <th>适用场景</th>
+      </tr>
+      <tr>
+        <td><strong>智谱 embedding-3</strong></td>
+        <td>2048</td>
+        <td>中文能力强，已归一化</td>
+        <td>中文 RAG 首选</td>
+      </tr>
+      <tr>
+        <td><strong>OpenAI text-embedding-3-small</strong></td>
+        <td>1536（可裁剪）</td>
+        <td>英文强，支持维度裁剪</td>
+        <td>英文/多语言场景</td>
+      </tr>
+      <tr>
+        <td><strong>OpenAI text-embedding-3-large</strong></td>
+        <td>3072（可裁剪）</td>
+        <td>精度最高，速度较慢</td>
+        <td>对精度要求极高</td>
+      </tr>
+      <tr>
+        <td><strong>BAAI bge-large-zh-v1.5</strong></td>
+        <td>1024</td>
+        <td>开源，可本地部署</td>
+        <td>数据安全要求高</td>
+      </tr>
+      <tr>
+        <td><strong>BAAI bge-m3</strong></td>
+        <td>1024</td>
+        <td>多语言 + 多粒度</td>
+        <td>中英混合文档</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="concept-box">
+    <strong>选择原则：</strong>
+    <ul>
+      <li><strong>中文为主</strong> → 智谱 embedding-3 或 bge-large-zh</li>
+      <li><strong>需要本地部署</strong>（数据不能出内网）→ bge 系列开源模型</li>
+      <li><strong>多语言</strong> → bge-m3 或 OpenAI</li>
+      <li><strong>快速原型</strong> → 用你已有 API Key 的那个</li>
+    </ul>
+  </div>
+
+  <h3>5.1 维度与性能的 Trade-off</h3>
+
+  <pre><code># 维度越高 → 表达能力越强 → 占用存储越大 → 计算越慢
+# 智谱 embedding-3 的维度裁剪（不推荐，但了解原理）
+
+# 假设你想降低存储，可以把 2048 维截断到 1024 维
+full_vec = get_embedding("测试文本")          # 2048 维
+truncated = full_vec[:1024]                   # 截取前 1024 维
+
+# 但这会损失信息！更好的方式是用支持维度裁剪的模型
+# OpenAI text-embedding-3-small 支持在 API 参数中指定 dimensions：
+# {"model": "text-embedding-3-small", "input": "text", "dimensions": 512}</code></pre>
+
+  <div class="warn-box">
+    <strong>成本估算：</strong>智谱 embedding-3 的定价是 0.5 元 / 百万 token。1000 条 200 字的 chunk ≈ 20 万字 ≈ 40 万 token ≈ 0.2 元。对数仓开发来说，embedding 成本几乎可以忽略。主要成本在 LLM 生成阶段。
+  </div>
+</div>
+
+<!-- ==================== Section 7 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#x26A1;</span>
+    六、LLM 实战进阶：Embedding 缓存 + 可视化
+    <span class="time-tag">&#x23F1; 10 min</span>
+  </div>
+
+  <h3>6.1 用字典做简易 Embedding 缓存</h3>
+  <p>开发调试时，同一段文本会被反复 embed。加缓存可以<strong>省 API 调用 + 省钱 + 加速</strong>。</p>
+
+  <pre><code>from functools import lru_cache
+
+# --- 方案1：lru_cache（最简单，进程内缓存）---
+@lru_cache(maxsize=1024)
+def get_embedding_cached(text: str) -> tuple:
+    """
+    带缓存的 Embedding 调用
+    注意：lru_cache 要求参数可 hash，返回值也要可 hash
+    所以返回 tuple 而不是 np.ndarray
+    """
+    resp = requests.post(
+        EMBEDDING_URL,
+        headers={"Authorization": f"Bearer {ZHIPU_API_KEY}"},
+        json={"model": "embedding-3", "input": text},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    vec = resp.json()["data"][0]["embedding"]
+    return tuple(vec)     # 转 tuple 才能 cache
+
+# 使用时转回 numpy
+vec = np.array(get_embedding_cached("不良资产处置"))
+
+# 第二次调用同一文本 → 直接命中缓存，不发请求！
+vec2 = np.array(get_embedding_cached("不良资产处置"))
+
+print(f"缓存命中: {get_embedding_cached.cache_info()}")</code></pre>
+
+  <div class="tip-box">
+    <strong>生产环境进阶：</strong>进程重启后 lru_cache 会丢失。生产中通常用 <strong>Redis</strong> 或 <strong>SQLite</strong> 持久化缓存。你的数仓经验在这里直接复用 —— 把 embedding 结果存一张表 <code>embedding_cache(text_hash, vector_bytes, model, created_at)</code>，查之前先 SELECT。
+  </div>
+
+  <h3>6.2 相似度矩阵可视化（纯文本版）</h3>
+
+  <pre><code>def similarity_matrix(texts: list[str]) -> np.ndarray:
+    """计算 N 个文本两两之间的相似度矩阵"""
+    vecs = get_embeddings_batch(texts)          # (n, 2048)
+    # 矩阵乘法：每对文档的点积（因为已归一化 = 余弦相似度）
+    sim_matrix = vecs @ vecs.T                  # (n, n)
+    return sim_matrix
+
+
+def print_similarity_matrix(texts: list[str], matrix: np.ndarray):
+    """打印美化的相似度矩阵"""
+    n = len(texts)
+    # 表头
+    header = f"{'':>20}" + "".join(f"  {texts[i][:6]:>6}" for i in range(n))
+    print(header)
+
+    for i in range(n):
+        row = f"{texts[i][:20]:>20}"
+        for j in range(n):
+            row += f"  {matrix[i][j]:6.3f}"
+        print(row)
+
+
+# --- 运行 ---
+texts = [
+    "不良资产处置",
+    "不良贷款清收",
+    "AMC行业报告",
+    "红烧肉做法",
+]
+
+matrix = similarity_matrix(texts)
+print_similarity_matrix(texts, matrix)
+
+# 预期输出类似：
+#                       不良资  不良贷  AMC行业  红烧肉
+#         不良资产处置    1.000   0.892   0.756   0.123
+#         不良贷款清收    0.892   1.000   0.698   0.098
+#         AMC行业报告     0.756   0.698   1.000   0.105
+#         红烧肉做法      0.123   0.098   0.105   1.000</code></pre>
+
+  <div class="concept-box">
+    <strong>观察矩阵的对角线：</strong>永远是 1.0（自己和自己 100% 相似）。<strong>观察非对角线：</strong>同领域的文本（前3个）互相关联度高，跨领域的（红烧肉）和谁都不沾边。这就是 Embedding 的"语义聚类"能力。
+  </div>
+</div>
+
+<!-- ==================== Section 8 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#x1F9E0;</span>
+    七、常见陷阱与最佳实践
+    <span class="time-tag">&#x23F1; 5 min</span>
+  </div>
+
+  <h3>7.1 陷阱 Top 5</h3>
+
+  <table>
+    <tr><th style="width:30px">#</th><th>陷阱</th><th>后果</th><th>解法</th></tr>
+    <tr>
+      <td>1</td>
+      <td>每次查询都重新 embed 所有文档</td>
+      <td>慢到不可用（1000 文档 × 0.5s = 8 分钟）</td>
+      <td><strong>离线预计算</strong>，文档变动时才重新 embed</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>不分块直接 embed 整篇长文档</td>
+      <td>超过 token 限制 + 语义被稀释</td>
+      <td>先分块（Day29），再逐块 embed</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>用欧氏距离代替余弦相似度</td>
+      <td>结果偏差大（向量长度干扰）</td>
+      <td>Embedding 场景一律用余弦相似度</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>忽略中文分词对短文本的影响</td>
+      <td>短文本信息少，embedding 质量差</td>
+      <td>短查询加<strong>前缀提示</strong>（见下方）</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>混合不同模型的 embedding</td>
+      <td>向量空间不一致，相似度无意义</td>
+      <td>同一系统只用一个 embedding 模型</td>
+    </tr>
+  </table>
+
+  <h3>7.2 短查询优化：前缀提示</h3>
+
+  <pre><code># 短查询（如搜索词）信息量少，embedding 质量不如长文本
+# 技巧：给短查询加上领域前缀，帮助模型理解意图
+
+def embed_query(query: str) -> np.ndarray:
+    """对用户查询做 Embedding，加前缀提升质量"""
+    # 智谱 embedding-3 支持前缀提示
+    prefixed = f"为这个句子生成表示以用于检索相关文章：{query}"
+    return get_embedding(prefixed)
+
+# 文档侧不需要加前缀
+def embed_document(doc: str) -> np.ndarray:
+    return get_embedding(doc)</code></pre>
+
+  <div class="tip-box">
+    <strong>不是所有模型都需要前缀。</strong>OpenAI 的模型文档会明确说明是否需要。智谱 embedding-3 对中文短查询加提示有一定帮助，但效果因场景而异，建议 A/B 测试。
+  </div>
+</div>
+
+<!-- ==================== Section 9 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#x1F4DD;</span>
+    八、今日知识速查表
+    <span class="time-tag">&#x23F1; 3 min</span>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <tr><th>操作</th><th>代码</th><th>说明</th></tr>
+      <tr>
+        <td>创建数组</td>
+        <td><code>np.array([1,2,3])</code></td>
+        <td>从 list 创建</td>
+      </tr>
+      <tr>
+        <td>点积</td>
+        <td><code>np.dot(a, b)</code> 或 <code>a @ b</code></td>
+        <td>相似度计算核心</td>
+      </tr>
+      <tr>
+        <td>模长</td>
+        <td><code>np.linalg.norm(v)</code></td>
+        <td>向量长度</td>
+      </tr>
+      <tr>
+        <td>余弦相似度</td>
+        <td><code>np.dot(a,b) / (norm(a)*norm(b))</code></td>
+        <td>[−1, 1]，越大越相似</td>
+      </tr>
+      <tr>
+        <td>批量点积</td>
+        <td><code>matrix @ vector</code></td>
+        <td>矩阵×向量，一次算出所有</td>
+      </tr>
+      <tr>
+        <td>调用 Embedding</td>
+        <td><code>requests.post(url, json={"model":"embedding-3","input":text})</code></td>
+        <td>单条/批量都支持</td>
+      </tr>
+      <tr>
+        <td>Embedding 缓存</td>
+        <td><code>@lru_cache(maxsize=1024)</code></td>
+        <td>避免重复调用</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="summary-box">
+    <h4>&#x1F4DD; 今日核心收获</h4>
+    <ul>
+      <li><strong>Embedding = 语义翻译器</strong>：文本 → 高维浮点数组，语义相近 → 向量接近</li>
+      <li><strong>余弦相似度 = 语义距离</strong>：只看方向不看长度，Embedding 场景首选</li>
+      <li><strong>numpy 向量化</strong>：矩阵乘法一次算出所有相似度，不用写循环</li>
+      <li><strong>智谱 embedding-3</strong>：2048 维、已归一化、中文能力强、点积 ≈ 余弦相似度</li>
+      <li><strong>生产要点</strong>：文档离线预计算、加缓存、短查询加前缀、同一系统用同一模型</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ==================== Section 10 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">&#x1F3AC;</span>
+    九、课后练习
+    <span class="time-tag">&#x23F1; 15 min</span>
+  </div>
+
+  <div class="challenge">
+    <h4>&#x1F4A1; 练习 1：手写欧氏距离 + 对比</h4>
+    <p>实现欧氏距离函数 <code>euclidean_distance(a, b)</code>，然后对同一组文本分别用余弦相似度和欧氏距离排序，观察结果差异。思考：为什么 Embedding 场景余弦更好？</p>
+  </div>
+
+  <pre><code># 提示
+def euclidean_distance(a: np.ndarray, b: np.ndarray) -> float:
+    """欧氏距离：sqrt(sum((a_i - b_i)^2))"""
+    return np.sqrt(np.sum((a - b) ** 2))
+
+# 欧氏距离越小越相似，余弦相似度越大越相似
+# 注意排序方向相反！</code></pre>
+
+  <div class="challenge">
+    <h4>&#x1F4A1; 练习 2：构建 AMC 术语语义搜索</h4>
+    <p>准备 10 条 AMC 相关的文档片段（可以是你工作中的真实内容），实现一个命令行交互工具：</p>
+    <pre><code># 伪代码框架
+def amc_search():
+    docs = ["...", "...", ...]  # 10 条 AMC 文档
+    doc_vecs = get_embeddings_batch(docs)   # 离线预计算！
+
+    while True:
+        q = input("&#x1F50D; 请输入问题（q退出）: ")
+        if q == "q":
+            break
+        q_vec = get_embedding(q)
+        scores = doc_vecs @ q_vec
+        top3 = np.argsort(scores)[::-1][:3]
+        for idx in top3:
+            print(f"  [{scores[idx]:.4f}] {docs[idx]}")</code></pre>
+  </div>
+
+  <div class="challenge">
+    <h4>&#x1F4A1; 练习 3：LeetCode #268 重复 &mdash; 两个数组的交集 II</h4>
+    <p>给定两个数组 <code>nums1</code> 和 <code>nums2</code>，返回它们的交集（每个元素出现次数等于在两个数组中出现的最小次数）。</p>
+    <pre><code># 提示：用 collections.Counter
+from collections import Counter
+
+def intersect(nums1, nums2):
+    c1, c2 = Counter(nums1), Counter(nums2)
+    result = []
+    for num, count in c1.items():
+        result.extend([num] * min(count, c2.get(num, 0)))
+    return result
+
+# 这道题训练的是：哈希计数思维 → 和 Embedding 的"词袋模型"底层逻辑相通</code></pre>
+  </div>
+</div>
+
+<!-- ==================== Footer ==================== -->
+<div class="section" style="background:linear-gradient(135deg,#eff6ff,#eef2ff);border-color:#bfdbfe;">
+  <div class="section-title" style="border-bottom-color:#bfdbfe;">
+    <span class="icon">&#x1F680;</span>
+    明天预告：Day 31 — 向量数据库（Vector Store）
+  </div>
+  <p>今天我们把向量存在了 numpy 数组里，但生产环境需要：<strong>持久化存储 + 高效检索 + 增删改查</strong>。明天我们将学习向量数据库，用 <strong>Chroma</strong>（最轻量的本地向量库）存储和检索 embedding，完成 RAG 管线的关键一环。</p>
+  <p style="margin-top:8px;"><strong>前置准备：</strong><code>pip install chromadb</code></p>
+</div>
+
+</body>
+</html>
