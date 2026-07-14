@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 41 - Prompt Engineering 高级技巧（输出约束/长上下文/多轮优化）</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#eff6ff,#eef2ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #bfdbfe; }
+  .header .badge { display:inline-block;background:#dbeafe;color:var(--accent);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--green); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  pre { background:#1e293b;color:#e2e8f0;padding:18px 20px;border-radius:8px;overflow-x:auto;margin:14px 0;font-size:13.5px;line-height:1.6;font-family:'Cascadia Code','Fira Code','Consolas',monospace; }
+  code { font-family:'Cascadia Code','Fira Code','Consolas',monospace; }
+  .inline-code { background:#f1f5f9;color:#6366f1;padding:2px 7px;border-radius:4px;font-size:13px; }
+  h3 { font-size:16px;font-weight:700;margin:18px 0 10px;color:var(--text); }
+  p { font-size:14px;color:var(--text2);margin:8px 0; }
+  ul,ol { padding-left:20px;margin:8px 0; }
+  li { font-size:14px;color:var(--text2);margin:4px 0; }
+  .table-wrap { overflow-x:auto;margin:14px 0; }
+  table { width:100%;border-collapse:collapse;font-size:13px; }
+  th { background:var(--surface2);color:var(--text);padding:10px 14px;text-align:left;font-weight:600;border-bottom:2px solid var(--border); }
+  td { padding:9px 14px;border-bottom:1px solid var(--surface3);color:var(--text2); }
+  tr:hover td { background:#f8fafc; }
+  .challenge { background:linear-gradient(135deg,#faf5ff,#f5f3ff);border:1px solid #e9d5ff;border-radius:8px;padding:16px 20px;margin:14px 0; }
+  .challenge-title { font-weight:700;color:#7c3aed;font-size:15px;margin-bottom:8px; }
+  .summary { background:var(--surface2);border-radius:var(--radius);padding:20px 24px;margin-top:24px;border:1px solid var(--border); }
+  .summary h3 { color:var(--accent);margin-bottom:10px; }
+  .next-preview { background:linear-gradient(135deg,#fef3c7,#fffbeb);border:1px solid #fde68a;border-radius:8px;padding:16px 20px;margin-top:20px; }
+  .next-preview h3 { color:var(--orange);margin-bottom:6px; }
+  .two-col { display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0; }
+  .col-card { background:var(--surface2);border-radius:8px;padding:16px;border:1px solid var(--border); }
+  .col-card h4 { font-size:14px;font-weight:700;margin-bottom:6px; }
+  .col-card p { font-size:13px;margin:4px 0; }
+  .flow-diagram { background:#f8fafc;border:1px dashed var(--border);border-radius:8px;padding:16px;margin:14px 0;text-align:center;font-size:14px;color:var(--text2);line-height:2.2; }
+  .flow-diagram .step { display:inline-block;background:#dbeafe;color:var(--accent);padding:4px 12px;border-radius:6px;font-weight:600;font-size:13px; }
+  .flow-diagram .arrow { color:var(--text3);margin:0 6px; }
+  .prompt-block { background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:16px 18px;margin:14px 0; }
+  .prompt-block .prompt-label { font-size:12px;font-weight:700;color:var(--orange);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px; }
+  .prompt-block pre { margin:0;background:transparent;color:var(--text);padding:0;font-size:13.5px;line-height:1.7; }
+  .diff-good { background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px 18px;margin:10px 0; }
+  .diff-good::before { content:"✓ 推荐";color:var(--green);font-weight:700;font-size:13px;display:block;margin-bottom:6px; }
+  .diff-bad { background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px 18px;margin:10px 0; }
+  .diff-bad::before { content:"✗ 避免";color:var(--red);font-weight:700;font-size:13px;display:block;margin-bottom:6px; }
+</style>
+</head>
+<body>
+
+<!-- 头部 -->
+<div class="header">
+  <div class="badge">Phase 2 · Day 12 · RAG + Agent</div>
+  <h1>Prompt Engineering 高级技巧</h1>
+  <div class="subtitle">输出约束 · 长上下文管理 · 多轮对话优化 · System Prompt 工程</div>
+</div>
+
+<!-- 进度条 -->
+<div class="progress-bar">
+  <span class="label">Day 6 → 41</span>
+  <div class="track"><div class="fill" style="width:60.6%"></div></div>
+  <span class="percent">41/70</span>
+</div>
+
+<!-- ============ Section 1: 课程定位 ============ -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🎯</span> 课程定位与学习目标
+    <span class="time-tag">⏱ 5 min</span>
+  </div>
+  <p>Day 40 我们学了 Prompt 的基础模式（JSON Mode、Few-Shot、CoT）。今天深入三个高级主题，这些是让 LLM 从"能用"变成"稳定可靠"的关键：</p>
+  <ul>
+    <li><strong>输出约束</strong> — 控制 LLM 输出的格式、长度、内容边界，防止"幻觉乱飞"</li>
+    <li><strong>长上下文管理</strong> — 当上下文超过几万 Token 时，如何让 LLM 仍然精准</li>
+    <li><strong>多轮对话优化</strong> — 让对话系统保持记忆、风格一致、不出角色</li>
+  </ul>
+  <div class="concept-box">
+    <strong>数仓类比：</strong>输出约束 ≈ 数据质量约束（NOT NULL / CHECK / 约束条件）；<br>
+    长上下文管理 ≈ 大表扫描优化（分区裁剪 / 索引定位 / 只查必要字段）；<br>
+    多轮优化 ≈ 增量 ETL（每次只处理增量数据，不重复全量）。
+  </div>
+</div>
+
+<!-- ============ Section 2: Python 知识 ============ -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span> Python 知识：字符串处理 + 正则进阶 + JSON Schema 校验
+    <span class="time-tag">⏱ 15 min</span>
+  </div>
+
+  <h3>2.1 字符串裁剪与 Token 估算</h3>
+  <p>处理长上下文时，最常用的操作就是裁剪字符串。Python 提供了几种方式：</p>
+  <pre>
+# === 方法1: 按字符数裁剪 ===
+text = "这是一段很长的文本..." * 100
+truncated = text[:2000]  # 直接截取前2000字符
+print(f"原始长度: {len(text)}, 裁剪后: {len(truncated)}")
+
+# === 方法2: textwrap.shorten 按词/字边界裁剪 ===
+import textwrap
+short = textwrap.shorten(text, width=500, placeholder="...[已截断]")
+print(f"缩短后: {len(short)} 字符")
+
+# === 方法3: 按句子边界裁剪（不切断句子） ===
+import re
+
+def truncate_by_sentence(text: str, max_chars: int) -> str:
+    """按句子边界裁剪，确保不切断完整句子"""
+    if len(text) <= max_chars:
+        return text
+    # 在限制范围内找最后一个句号/感叹号/问号
+    boundary = max_chars
+    for marker in ('。', '！', '？', '.', '!', '?', '\n'):
+        last_pos = text.rfind(marker, 0, max_chars)
+        if last_pos > boundary * 0.5:  # 至少保留一半以上
+            boundary = max(boundary, last_pos + 1)
+    return text[:boundary] + "...[已截断]"
+
+result = truncate_by_sentence("第一句话。第二句话。第三句话。第四句话。", 20)
+print(result)  # 输出: 第一句话。第二句话。...[已截断]
+  </pre>
+
+  <h3>2.2 正则进阶：结构化文本提取</h3>
+  <p>从 LLM 输出中提取结构化数据时，正则是瑞士军刀：</p>
+  <pre>
+import re
+from typing import Optional
+
+# === 1. 提取 JSON 块（即使 LLM 输出了多余文字） ===
+llm_output = """
+当然可以！这是你要的分析结果：
+```json
+{"risk_level": "高", "amount": 5000000, "reason": "不良率超标"}
+```
+希望对你有帮助。
+"""
+
+# 正则: 匹配 ```json ... ``` 或直接匹配 {...}
+json_patterns = [
+    r'```json\s*(.*?)\s*```',  # markdown 代码块包裹
+    r'\{[^{}]*\}',             # 简单 JSON 对象（单层）
+]
+
+for pattern in json_patterns:
+    match = re.search(pattern, llm_output, re.DOTALL)
+    if match:
+        print(f"提取到: {match.group(1)}")
+        break
+
+# === 2. 提取编号列表项 ===
+response = """
+分析结论如下：
+1. 不良贷款率为 2.3%，较上月上升 0.5%
+2. 重点关注行业：制造业和房地产
+3. 建议增加拨备覆盖率至 180%
+4. 风险预警：某客户集中度超过 15%
+"""
+
+items = re.findall(r'\d+\.\s*(.+)', response)
+for i, item in enumerate(items, 1):
+    print(f"[{i}] {item}")
+
+# === 3. 提取 key: value 对（灵活格式） ===
+kv_text = "风险等级：高；金额：500万；客户：XX有限公司"
+# 匹配 "中文/英文key" + 分隔符 + value
+pairs = re.findall(r'([\u4e00-\u9fa5A-Za-z_]+)[：:]\s*(.+?)(?:[；;]|$)', kv_text)
+result_dict = {k.strip(): v.strip() for k, v in pairs}
+print(result_dict)  # {'风险等级': '高', '金额': '500万', '客户': 'XX有限公司'}
+
+# === 4. 命名捕获组 + re.finditer 逐项处理 ===
+log_text = """
+[2026-07-14 09:30:01] [INFO] 用户张三查询了不良资产报表
+[2026-07-14 09:30:05] [ERROR] 数据库连接超时
+[2026-07-14 09:30:10] [INFO] 用户李四导出了Excel文件
+"""
+
+log_pattern = r'\[(?P&lt;time&gt;\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]\s*\[(?P&lt;level&gt;\w+)\]\s*(?P&lt;msg&gt;.+)'
+for m in re.finditer(log_pattern, log_text):
+    print(f"{m.group('level'):6} | {m.group('time')} | {m.group('msg')}")
+  </pre>
+
+  <h3>2.3 JSON Schema 校验 + Pydantic 自动验证</h3>
+  <p>对 LLM 输出做严格校验，比正则更可靠：</p>
+  <pre>
+from pydantic import BaseModel, Field, field_validator
+from typing import Literal
+from enum import Enum
+
+class RiskLevel(str, Enum):
+    LOW = "低"
+    MEDIUM = "中"
+    HIGH = "高"
+    CRITICAL = "极高"
+
+class RiskAnalysis(BaseModel):
+    """LLM 输出的风险分析结果 —— 用 Pydantic 强约束"""
+    risk_level: RiskLevel = Field(..., description="风险等级")
+    risk_score: float = Field(
+        ..., ge=0, le=100,
+        description="风险分数 0-100"
+    )
+    key_factors: list[str] = Field(
+        ..., min_length=1, max_length=5,
+        description="关键风险因素，最多5个"
+    )
+    amount: float = Field(
+        ..., gt=0,
+        description="涉及金额（元），必须大于0"
+    )
+    recommendation: str = Field(
+        ..., min_length=10, max_length=500,
+        description="处置建议，10-500字"
+    )
+
+    @field_validator('risk_score')
+    @classmethod
+    def validate_score_consistency(cls, v, info):
+        """风险分数必须与风险等级一致"""
+        data = info.data
+        if 'risk_level' in data:
+            level_ranges = {
+                RiskLevel.LOW: (0, 30),
+                RiskLevel.MEDIUM: (30, 60),
+                RiskLevel.HIGH: (60, 80),
+                RiskLevel.CRITICAL: (80, 100),
+            }
+            low, high = level_ranges[data['risk_level']]
+            if not (low <= v <= high):
+                raise ValueError(
+                    f"风险等级={data['risk_level'].value} 对应分数范围 [{low},{high}]，"
+                    f"但实际分数={v}"
+                )
+        return v
+
+# === 测试校验 ===
+good_data = {
+    "risk_level": "高",
+    "risk_score": 72,
+    "key_factors": ["不良率上升", "集中度超标"],
+    "amount": 5000000,
+    "recommendation": "建议立即增加拨备，并对重点客户进行压力测试。"
+}
+result = RiskAnalysis(**good_data)
+print(f"校验通过: {result.risk_level}, 分数={result.risk_score}")
+
+# 错误数据 —— 分数与等级不匹配
+try:
+    RiskAnalysis(**{**good_data, "risk_score": 20})  # "高"等级却只有20分
+except Exception as e:
+    print(f"校验失败: {e}")
+
+# === 自动从 JSON 字符串解析 + 校验 ===
+import json
+
+def parse_llm_output(raw: str) -> Optional[RiskAnalysis]:
+    """从 LLM 原始输出中解析并校验"""
+    # 步骤1: 尝试提取 JSON
+    for pattern in [r'```json\s*(.*?)\s*```', r'\{[\s\S]*\}']:
+        match = re.search(pattern, raw, re.DOTALL)
+        if match:
+            try:
+                data = json.loads(match.group(1))
+                return RiskAnalysis(**data)  # 步骤2: Pydantic 校验
+            except (json.JSONDecodeError, Exception) as e:
+                print(f"解析/校验失败: {e}")
+                return None
+    return None
+  </pre>
+  <div class="tip-box">
+    <strong>Pydantic vs 正则：</strong>正则适合从自由文本中<strong>提取</strong>片段；Pydantic 适合对提取后的数据做<strong>结构化校验</strong>。
+    实战中通常是正则提取 → json.loads → Pydantic 校验，三层防御。
+  </div>
+</div>
+
+<!-- ============ Section 3: 输出约束 ============ -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔒</span> 核心主题一：输出约束 — 让 LLM 按规矩来
+    <span class="time-tag">⏱ 20 min</span>
+  </div>
+
+  <h3>3.1 为什么要约束输出？</h3>
+  <p>LLM 本质是"概率性文本生成器"，没有内置的"类型系统"。你不约束它，它就可能：</p>
+  <ul>
+    <li>该返回数字时返回文字："风险等级约为七成"</li>
+    <li>该返回 JSON 时加上一堆废话："好的，这是您要的JSON："</li>
+    <li>该返回 3 项时返回 20 项，或返回 0 项</li>
+    <li>该返回专业术语时用口语化表达</li>
+  </ul>
+
+  <div class="concept-box">
+    <strong>输出约束的三个层次：</strong><br>
+    ① <strong>格式约束</strong> — 输出是什么格式？（JSON / 纯文本 / Markdown 表格 / SQL）<br>
+    ② <strong>内容约束</strong> — 输出必须/不能包含什么？（必填字段 / 禁止词汇 / 值域范围）<br>
+    ③ <strong>行为约束</strong> — 输出该遵循什么行为？（只基于给定信息 / 不编造数据 / 遇到不确定要说明）
+  </div>
+
+  <h3>3.2 格式约束实战</h3>
+  <p>格式约束的核心技巧：<strong>用示例 + 模板 + 反面说明</strong>三管齐下。</p>
+
+  <div class="prompt-block">
+    <div class="prompt-label">Prompt 模板：严格 JSON 格式约束</div>
+    <pre>
+你是一个金融风险分析助手。根据提供的不良资产数据，输出风险分析结果。
+
+## 输出格式要求（严格遵守）
+1. 只输出一个 JSON 对象，不要输出任何其他文字
+2. 不要使用 markdown 代码块标记（不要 ```json）
+3. JSON 结构如下：
+
+{
+  "risk_level": "低|中|高|极高",    // 枚举值，只能是这4个之一
+  "risk_score": 72.5,                // 浮点数，范围 0-100
+  "key_factors": ["因素1", "因素2"], // 数组，1-5个元素
+  "amount": 5000000,                // 数值，单位：元
+  "recommendation": "具体建议文字"   // 字符串，50-300字
+}
+
+## 反面约束
+- 不要输出 JSON 之外的任何解释文字
+- 不要添加注释
+- 不要在值中换行
+
+## 输入数据
+{context}
+  </pre>
+  </div>
+
+  <h3>3.3 内容约束 + Pydantic 双重校验</h3>
+  <p>最佳实践是 Prompt 里写约束 + 代码里做校验，形成双保险：</p>
+  <pre>
+import json
+from pydantic import BaseModel, Field, field_validator
+from typing import Optional
+
+class ConstrainedOutput(BaseModel):
+    """带严格约束的 LLM 输出模型"""
+    # 格式约束: 枚举值
+    category: str = Field(..., pattern=r"^(高|中|低)$")
+
+    # 内容约束: 范围
+    score: int = Field(..., ge=0, le=100)
+
+    # 内容约束: 长度
+    summary: str = Field(..., min_length=20, max_length=500)
+
+    # 内容约束: 正则
+    report_id: str = Field(..., pattern=r"^RPT-\d{8}-\d{4}$")
+
+    # 可选字段
+    notes: Optional[str] = None
+
+    @field_validator('summary')
+    @classmethod
+    def no_forbidden_words(cls, v):
+        forbidden = ['幻觉', '猜测', '不确定', '大概']
+        for word in forbidden:
+            if word in v:
+                raise ValueError(f"摘要中不允许包含'{word}'")
+        return v
+
+
+def call_llm_with_constraint(prompt: str, context: str) -> dict:
+    """
+    带 Prompt 约束 + Pydantic 校验 的 LLM 调用
+    如果校验失败，自动重试（最多3次）
+    """
+    max_retries = 3
+    for attempt in range(max_retries):
+        # 1. 调用 LLM
+        raw_response = call_llm(prompt, context)  # 假设的 LLM 调用
+
+        # 2. 提取 JSON
+        try:
+            json_str = extract_json(raw_response)
+            data = json.loads(json_str)
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"第{attempt+1}次: JSON解析失败 - {e}")
+            # 自动追加约束提示，引导 LLM 纠正
+            prompt += f"\n\n上次输出格式错误，请严格只输出JSON，不要任何其他文字。错误: {e}"
+            continue
+
+        # 3. Pydantic 校验
+        try:
+            validated = ConstrainedOutput(**data)
+            return validated.model_dump()
+        except Exception as e:
+            print(f"第{attempt+1}次: 校验失败 - {e}")
+            prompt += f"\n\n上次输出内容不符合要求。错误: {e}。请按格式重新输出。"
+            continue
+
+    raise RuntimeError(f"经过{max_retries}次尝试仍无法获得合规输出")
+
+
+def extract_json(text: str) -> str:
+    """从 LLM 输出中提取 JSON 字符串（支持多种格式）"""
+    import re
+    # 尝试: markdown代码块
+    m = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)
+    if m:
+        return m.group(1)
+    # 尝试: 直接匹配最外层 {}
+    m = re.search(r'\{.*\}', text, re.DOTALL)
+    if m:
+        return m.group(0)
+    raise ValueError("未找到有效JSON内容")
+  </pre>
+
+  <h3>3.4 输出约束策略速查表</h3>
+  <div class="table-wrap">
+  <table>
+    <tr>
+      <th>约束类型</th><th>Prompt 技法</th><th>代码校验</th><th>典型场景</th>
+    </tr>
+    <tr>
+      <td>格式约束</td><td>给出示例 + 反面说明</td><td>json.loads + 正则提取</td><td>API 返回值</td>
+    </tr>
+    <tr>
+      <td>枚举约束</td><td>列出所有可选值</td><td>Literal / pattern 正则</td><td>分类/状态</td>
+    </tr>
+    <tr>
+      <td>范围约束</td><td>说明最小/最大值</td><td>ge / le / gt / lt</td><td>分数/金额/百分比</td>
+    </tr>
+    <tr>
+      <td>长度约束</td><td>说明字符数/条目数</td><td>min_length / max_length</td><td>摘要/列表</td>
+    </tr>
+    <tr>
+      <td>行为约束</td><td>"只基于提供的信息"</td><td>关键词检测</td><td>事实问答</td>
+    </tr>
+    <tr>
+      <td>风格约束</td><td>给出风格示例</td><td>正则/规则检测</td><td>报告生成</td>
+    </tr>
+  </table>
+  </div>
+</div>
+
+<!-- ============ Section 4: 长上下文管理 ============ -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📚</span> 核心主题二：长上下文管理 — 信息太多怎么办
+    <span class="time-tag">⏱ 20 min</span>
+  </div>
+
+  <h3>4.1 长上下文的问题</h3>
+  <p>现代 LLM 支持 128K 甚至 1M Token 的上下文窗口，但"支持"≠"效果好"。现实问题：</p>
+  <ul>
+    <li><strong>Lost in the Middle</strong> — 中间的信息容易被忽略，首尾的信息更容易被关注</li>
+    <li><strong>注意力稀释</strong> — 上下文越长，每个信息被"关注"的权重越低</li>
+    <li><strong>Token 成本</strong> — 长上下文 = 高 API 费用 + 高延迟</li>
+    <li><strong>关键信息淹没</strong> — 100 页报告里的一句话关键条款，可能被完全忽略</li>
+  </ul>
+
+  <div class="concept-box">
+    <strong>核心原则：不是把所有信息塞给 LLM，而是只给最相关的信息。</strong><br>
+    这和数仓的分区裁剪一样 —— 你不会 SELECT * 全表扫描，而是 WHERE 条件精确过滤。
+  </div>
+
+  <h3>4.2 四种长上下文管理策略</h3>
+
+  <div class="flow-diagram">
+    <span class="step">原始文档</span>
+    <span class="arrow">→</span>
+    <span class="step">预处理</span>
+    <span class="arrow">→</span>
+    <span class="step">智能选择</span>
+    <span class="arrow">→</span>
+    <span class="step">结构化组织</span>
+    <span class="arrow">→</span>
+    <span class="step">精简Prompt</span>
+  </div>
+
+  <pre>
+from dataclasses import dataclass, field
+from typing import Optional
+import re
+
+# ============================================================
+# 策略1: 摘要压缩（Summarization）
+# 将长文档先压缩成摘要，再给 LLM 做二次分析
+# ============================================================
+
+def summarize_document(text: str, max_chars: int = 4000) -> str:
+    """
+    分段摘要策略：把长文档分成多段，每段生成摘要，再合并
+    适用于: 超长报告、批量文档分析
+    """
+    chunk_size = max_chars // 3  # 留余量给合并摘要
+    chunks = [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
+
+    summaries = []
+    for i, chunk in enumerate(chunks, 1):
+        prompt = f"请用不超过200字概括以下内容的要点：\n\n{chunk}"
+        summary = call_llm(prompt)  # 模拟调用
+        summaries.append(f"【第{i}部分摘要】{summary}")
+
+    # 用摘要再做一次合并摘要
+    combined = "\n".join(summaries)
+    final_prompt = f"请根据以下各部分摘要，生成一份综合摘要（不超过300字）：\n\n{combined}"
+    return call_llm(final_prompt)
+
+
+# ============================================================
+# 策略2: 关键段落提取（Keyword / Section Extraction）
+# 按关键词或段落标题定位相关部分，跳过无关内容
+# ============================================================
+
+def extract_relevant_sections(text: str, query: str, max_chars: int = 6000) -> str:
+    """
+    基于段落标题和关键词的相关性提取
+    适用于: 结构化文档（有标题/章节的）
+    """
+    # 1. 提取关键词
+    keywords = extract_keywords_from_query(query)
+
+    # 2. 按段落分割
+    sections = re.split(r'\n(?=#{1,3}\s)', text)  # 按 Markdown 标题分割
+
+    # 3. 给每个段落打分
+    scored_sections = []
+    for section in sections:
+        if not section.strip():
+            continue
+        score = sum(1 for kw in keywords if kw in section)
+        # 标题匹配加分
+        title_match = re.match(r'#{1,3}\s*(.+)', section)
+        if title_match and any(kw in title_match.group(1) for kw in keywords):
+            score += 3  # 标题匹配权重更高
+        scored_sections.append((score, section))
+
+    # 4. 按分数排序，截取
+    scored_sections.sort(key=lambda x: x[0], reverse=True)
+
+    result = []
+    total_chars = 0
+    for score, section in scored_sections:
+        if score > 0 and total_chars + len(section) <= max_chars:
+            result.append(section)
+            total_chars += len(section)
+
+    return "\n".join(result)
+
+
+# ============================================================
+# 策略3: Lost-in-the-Middle 缓解（信息重排）
+# 把最重要的信息放在开头和结尾，不重要的放中间
+# ============================================================
+
+def reorder_for_attention(
+    items: list[dict],
+    key_field: str = "relevance_score",
+) -> list[dict]:
+    """
+    将检索结果重排，高相关的放首尾，低相关的放中间
+    缓解 "Lost in the Middle" 效应
+    """
+    if len(items) <= 2:
+        return items
+
+    # 按相关性排序
+    sorted_items = sorted(items, key=lambda x: x[key_field], reverse=True)
+
+    # 交替放入首尾
+    reordered = []
+    left, right = 0, len(sorted_items) - 1
+    put_left = True  # 标记当前该放左边还是右边
+
+    while left <= right:
+        if put_left:
+            reordered.append(sorted_items[left])
+            left += 1
+        else:
+            reordered.insert(0, sorted_items[right])
+            right -= 1
+        put_left = not put_left
+
+    return reordered
+
+
+# ============================================================
+# 策略4: 结构化 Prompt 组织（Section-Based Prompting）
+# 用清晰的标记和分隔符组织长上下文
+# ============================================================
+
+@dataclass
+class PromptBuilder:
+    """结构化 Prompt 构建器 —— 管理长上下文"""
+    system_prompt: str = ""
+    context_sections: list[tuple[str, str]] = field(default_factory=list)  # (标题, 内容)
+    question: str = ""
+    max_context_chars: int = 8000  # 上下文总预算
+
+    def add_section(self, title: str, content: str):
+        """添加一个上下文段落"""
+        self.context_sections.append((title, content))
+
+    def build(self) -> str:
+        """构建完整 Prompt（自动裁剪超长内容）"""
+        parts = [f"# 系统指令\n{self.system_prompt}\n"]
+
+        # 预算分配：每个段落平均分配额度
+        n = len(self.context_sections)
+        if n == 0:
+            budget_per_section = self.max_context_chars
+        else:
+            budget_per_section = self.max_context_chars // n
+
+        for i, (title, content) in enumerate(self.context_sections, 1):
+            # 裁剪过长的段落
+            if len(content) > budget_per_section:
+                content = content[:budget_per_section] + "\n...[段落过长已截断]"
+            parts.append(f"## 参考资料 {i}: {title}\n{content}\n")
+
+        parts.append(f"# 问题\n{self.question}")
+        return "\n---\n".join(parts)
+
+    def char_count(self) -> int:
+        """统计当前 Prompt 字符数（近似 Token 数）"""
+        full_prompt = self.build()
+        return len(full_prompt)
+
+
+# === 使用示例 ===
+builder = PromptBuilder(
+    system_prompt="你是一个AMC不良资产分析专家，根据参考资料回答问题。",
+    max_context_chars=6000,
+)
+builder.add_section("不良资产概览", overview_text)
+builder.add_section("近期风险预警", warning_text)
+builder.add_section("行业对比数据", industry_data)
+builder.question = "本月不良资产的主要风险因素是什么？请给出处置建议。"
+
+prompt = builder.build()
+print(f"Prompt 长度: {len(prompt)} 字符")
+  </pre>
+
+  <h3>4.3 长上下文最佳实践</h3>
+  <div class="two-col">
+    <div class="col-card">
+      <h4>✓ 推荐做法</h4>
+      <p>• 先摘要再分析（两阶段）</p>
+      <p>• 关键信息放首尾</p>
+      <p>• 用分隔符标记不同段落</p>
+      <p>• 压缩无关的填充词</p>
+      <p>• 监控 Token 用量</p>
+    </div>
+    <div class="col-card">
+      <h4>✗ 常见错误</h4>
+      <p>• 原文直接塞进 Prompt</p>
+      <p>• 所有检索结果平铺罗列</p>
+      <p>• 不标注信息来源</p>
+      <p>• 忽略 Token 成本</p>
+      <p>• 假设"窗口够大就够用"</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Section 5: 多轮对话优化 ============ -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔄</span> 核心主题三：多轮对话优化 — 保持记忆与一致性
+    <span class="time-tag">⏱ 15 min</span>
+  </div>
+
+  <h3>5.1 多轮对话的挑战</h3>
+  <p>单轮问答很简单，但多轮对话会引入一系列问题：</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>问题</th><th>表现</th><th>SQL 类比</th></tr>
+    <tr><td>上下文膨胀</td><td>对话越长，Prompt 越大，成本越高</td><td>每次全表扫描而非增量</td></tr>
+    <tr><td>角色漂移</td><td>聊着聊着，AI 忘了自己的人设</td><td>ETL 字段含义变更未同步</td></tr>
+    <tr><td>指代消解失败</td><td>用户说"那个"或"它"，AI 不知道指什么</td><td>JOIN 条件不明确导致笛卡尔积</td></tr>
+    <tr><td>信息遗忘</td><td>早期对话中的重要信息被忽略</td><td>历史数据被覆盖</td></tr>
+    <tr><td>重复/矛盾</td><td>AI 在不同轮次给出矛盾的答案</td><td>数据版本不一致</td></tr>
+  </table>
+  </div>
+
+  <h3>5.2 对话管理器：Memory + Context Window + Persona Guard</h3>
+  <pre>
+from collections import deque
+from dataclasses import dataclass, field
+from typing import Optional
+import hashlib
+
+@dataclass
+class Message:
+    """单条对话消息"""
+    role: str           # "system" | "user" | "assistant"
+    content: str
+    timestamp: float = 0.0
+    token_count: int = 0
+
+@dataclass
+class ConversationManager:
+    """
+    多轮对话管理器 — 三大核心能力：
+    1. 滑动窗口：控制上下文长度（类似增量 ETL 只加载必要数据）
+    2. 关键记忆：重要信息永不遗忘
+    3. 角色守护：防止 AI 角色漂移
+    """
+    system_prompt: str = ""
+    # 对话历史：deque 滑动窗口
+    history: deque = field(default_factory=lambda: deque(maxlen=50))
+    # 关键记忆：主动提取并持久化
+    key_memories: list[str] = field(default_factory=list)
+    # 角色设定
+    persona: str = ""
+    # Token 预算
+    max_context_tokens: int = 4000
+    # 约每 1.5 个中文字 ≈ 1 Token 的粗略估算
+    chars_per_token: float = 1.5
+
+    def __post_init__(self):
+        if self.system_prompt:
+            self._add_msg("system", self.system_prompt)
+
+    def _add_msg(self, role: str, content: str):
+        msg = Message(
+            role=role,
+            content=content,
+            token_count=int(len(content) / self.chars_per_token),
+        )
+        self.history.append(msg)
+
+    def add_user_message(self, content: str):
+        self._add_msg("user", content)
+
+    def add_assistant_message(self, content: str):
+        self._add_msg("assistant", content)
+
+    def build_context(self) -> list[dict]:
+        """
+        构建给 LLM 的上下文（自动裁剪）
+        策略: system + 关键记忆 + 最近对话
+        """
+        messages = []
+        total_tokens = 0
+
+        # 1. System Prompt（始终保留）
+        if self.system_prompt:
+            sys_tokens = int(len(self.system_prompt) / self.chars_per_token)
+            messages.append({"role": "system", "content": self.system_prompt})
+            total_tokens += sys_tokens
+
+        # 2. 关键记忆摘要（压缩版，始终保留）
+        if self.key_memories:
+            memory_text = "## 已知关键信息\n" + "\n".join(
+                f"- {m}" for m in self.key_memories
+            )
+            memory_tokens = int(len(memory_text) / self.chars_per_token)
+            messages.append({"role": "system", "content": memory_text})
+            total_tokens += memory_tokens
+
+        # 3. 最近对话（从后往前添加，直到预算用完）
+        budget_left = self.max_context_tokens - total_tokens
+        recent_msgs = list(self.history)
+
+        # 跳过 system 消息（已添加）
+        non_system = [m for m in recent_msgs if m.role != "system"]
+
+        selected = []
+        used = 0
+        for msg in reversed(non_system):
+            if used + msg.token_count <= budget_left:
+                selected.append(msg)
+                used += msg.token_count
+
+        selected.reverse()  # 恢复时间顺序
+        for msg in selected:
+            messages.append({"role": msg.role, "content": msg.content})
+
+        return messages
+
+    def extract_key_info(self, text: str) -> Optional[str]:
+        """
+        从对话中提取需要长期记忆的关键信息
+        例如: 用户姓名、偏好、重要决定
+        """
+        prompt = f"""从以下对话中提取需要长期记住的关键信息（用户偏好、重要决定、核心数据）。
+如果没有关键信息，返回"无"。
+
+对话: {text}
+
+请用简洁的要点列出（每条不超过50字）:"""
+
+        result = call_llm(prompt)  # 模拟调用
+        if result.strip() != "无" and len(result) < 200:
+            return result.strip()
+        return None
+
+    def update_memory(self, user_msg: str, assistant_msg: str):
+        """每轮对话后更新关键记忆"""
+        # 每 5 轮检查一次是否有新的关键信息
+        if len(self.history) % 5 == 0:
+            recent_text = "\n".join(
+                m.content for m in list(self.history)[-6:]
+            )
+            key_info = self.extract_key_info(recent_text)
+            if key_info:
+                self.key_memories.append(key_info)
+                # 限制记忆数量
+                if len(self.key_memories) > 10:
+                    self.key_memories.pop(0)
+
+    def enforce_persona(self, prompt: str) -> str:
+        """
+        角色守护：在每轮 Prompt 中注入角色提醒
+        防止 AI 在多轮对话后"忘掉"自己的角色
+        """
+        if not self.persona:
+            return prompt
+        # 在 Prompt 末尾追加轻量角色提醒
+        reminder = f"\n\n[角色提醒: 你是{self.persona}。请保持专业、简洁的风格。]"
+        return prompt + reminder
+
+
+# === 使用示例 ===
+manager = ConversationManager(
+    system_prompt="你是AMC不良资产分析助手，擅长风险分析和处置建议。",
+    persona="AMC风险分析专家",
+    max_context_tokens=4000,
+)
+
+# 模拟多轮对话
+manager.add_user_message("我叫张明，负责AMC华东区域的不良资产处置。")
+# 提取关键记忆
+manager.update_memory("我叫张明", "你好张明！")
+print(f"关键记忆: {manager.key_memories}")
+# → ["用户姓名：张明，华东区域AMC不良资产负责人"]
+
+manager.add_user_message("帮我分析一下华东区域3月份的不良率趋势")
+# ... LLM 处理 ...
+manager.add_assistant_message("根据数据，3月份华东区域不良率为2.8%...")
+
+# 后续对话中 manager 能记住"张明"和"华东区域"的上下文
+context = manager.build_context()
+print(f"上下文消息数: {len(context)}")
+  </pre>
+
+  <h3>5.3 System Prompt 工程公式</h3>
+  <p>一个高质量 System Prompt 通常遵循这个结构：</p>
+  <div class="prompt-block">
+    <div class="prompt-label">System Prompt 黄金模板</div>
+    <pre>
+## 角色（你是谁）
+你是一个 {领域} {专业} 助手，服务于 {目标用户}。
+
+## 核心任务（你做什么）
+- 任务1: {具体描述}
+- 任务2: {具体描述}
+- 任务3: {具体描述}
+
+## 知识边界（你知道什么、不知道什么）
+- 你熟悉: {领域范围}
+- 你不负责: {排除范围}
+
+## 输出规范（你怎么输出）
+- 格式: {JSON/Markdown/纯文本}
+- 风格: {专业简洁/详细通俗/学术严谨}
+- 长度: {简短/中等/详细}
+- 语言: {中文/英文/双语}
+
+## 约束条件（你不能做什么）
+- 禁止编造数据，不知道就说不知道
+- 禁止给出投资建议
+- 只基于用户提供的上下文回答
+
+## 特殊规则（例外情况处理）
+- 如果用户问题超出你的能力范围，请回复: "这个问题我无法回答，建议您咨询XXX。"
+- 如果信息不足以回答，请明确列出缺失的信息
+  </pre>
+  </div>
+</div>
+
+<!-- ============ Section 6: LLM 实战 ============ -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🤖</span> LLM 实战：AMC 风险报告生成器（完整约束链路）
+    <span class="time-tag">⏱ 15 min</span>
+  </div>
+  <p>把今天学的三个主题整合成完整的实战项目：一个受严格约束的 AMC 风险报告生成器。</p>
+  <pre>
+import json
+import re
+from pydantic import BaseModel, Field, field_validator
+from typing import Optional, Literal
+from collections import deque
+
+# ============================================================
+# 1. 输出模型 —— Pydantic 强约束
+# ============================================================
+
+class RiskFactor(BaseModel):
+    """单个风险因素"""
+    name: str = Field(..., min_length=2, max_length=50)
+    severity: Literal["低", "中", "高", "极高"]
+    description: str = Field(..., min_length=10, max_length=200)
+
+class RiskReport(BaseModel):
+    """完整风险报告 —— LLM 输出目标"""
+    report_id: str = Field(..., pattern=r"^RPT-\d{8}-\d{4}$")
+    region: str = Field(..., min_length=2)
+    period: str = Field(..., pattern=r"^\d{4}年\d{1,2}月$")
+    overall_risk: Literal["低", "中", "高", "极高"]
+    overall_score: float = Field(..., ge=0, le=100)
+    total_amount: float = Field(..., gt=0, description="总涉及金额（元）")
+    factors: list[RiskFactor] = Field(..., min_length=1, max_length=8)
+    trend: Literal["上升", "持平", "下降"]
+    recommendations: list[str] = Field(..., min_length=1, max_length=5)
+    summary: str = Field(..., min_length=50, max_length=500)
+
+    @field_validator('overall_score')
+    @classmethod
+    def score_matches_level(cls, v, info):
+        mapping = {"低": (0,30), "中": (30,60), "高": (60,80), "极高": (80,100)}
+        level = info.data.get('overall_risk', '')
+        if level in mapping:
+            lo, hi = mapping[level]
+            if not (lo <= v <= hi):
+                raise ValueError(f"{level}风险对应分数{lo}-{hi}，实际{v}")
+        return v
+
+
+# ============================================================
+# 2. Prompt 构建器 —— 结构化长上下文管理
+# ============================================================
+
+class ReportPromptBuilder:
+    """风险报告 Prompt 构建器"""
+
+    TEMPLATE = """你是一个AMC（资产管理公司）风险分析专家。
+请根据提供的参考数据，生成一份结构化的风险分析报告。
+
+## 输出要求
+- 只输出一个 JSON 对象，不要输出任何其他文字
+- 不要使用 markdown 代码块（不要 ```json）
+- 严格遵循以下 JSON 结构：
+
+{schema_example}
+
+## 生成规则
+1. overall_score 必须与 overall_risk 匹配（低:0-30, 中:30-60, 高:60-80, 极高:80-100）
+2. factors 数量 1-8 个，按严重程度降序排列
+3. recommendations 必须具体可执行，不能是空话
+4. summary 必须基于参考数据，不能编造数据
+
+## 参考数据
+{context}
+
+{persona_reminder}"""
+
+    def __init__(self, schema_example: str = ""):
+        if not schema_example:
+            # 从 Pydantic 模型自动生成示例
+            schema_example = json.dumps({
+                "report_id": "RPT-20260714-0001",
+                "region": "华东",
+                "period": "2026年7月",
+                "overall_risk": "中",
+                "overall_score": 45.5,
+                "total_amount": 12000000,
+                "factors": [
+                    {"name": "制造业不良率上升", "severity": "高",
+                     "description": "制造业不良贷款率环比上升0.8个百分点"}
+                ],
+                "trend": "上升",
+                "recommendations": ["加强制造业客户贷后管理"],
+                "summary": "华东区域7月整体风险中等偏上..."
+            }, ensure_ascii=False, indent=2)
+        self.schema_example = schema_example
+
+    def build(self, context: str, persona_reminder: str = "") -> str:
+        return self.TEMPLATE.format(
+            schema_example=self.schema_example,
+            context=context,
+            persona_reminder=persona_reminder,
+        )
+
+
+# ============================================================
+# 3. 安全输出提取器 —— 正则 + JSON 双保险
+# ============================================================
+
+def safe_extract_json(text: str) -> Optional[dict]:
+    """多层容错的 JSON 提取"""
+    # 第1层: 尝试直接解析
+    text = text.strip()
+    if text.startswith('{'):
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+    # 第2层: 提取 markdown 代码块
+    m = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL | re.IGNORECASE)
+    if m:
+        try:
+            return json.loads(m.group(1))
+        except json.JSONDecodeError:
+            pass
+
+    # 第3层: 找到第一个 { 到最后一个 }
+    first_brace = text.find('{')
+    last_brace = text.rfind('}')
+    if first_brace != -1 and last_brace > first_brace:
+        try:
+            return json.loads(text[first_brace:last_brace+1])
+        except json.JSONDecodeError:
+            pass
+
+    return None
+
+
+# ============================================================
+# 4. 带重试 + 记忆的完整生成器
+# ============================================================
+
+class ConstrainedReportGenerator:
+    """
+    带严格约束的 LLM 报告生成器
+    整合: 输出约束 + 长上下文管理 + 多轮优化
+    """
+    def __init__(self, max_retries: int = 3):
+        self.max_retries = max_retries
+        self.prompt_builder = ReportPromptBuilder()
+        self.conversation = deque(maxlen=6)  # 保留最近3轮（每轮2条消息）
+        self.reports_generated = 0
+
+    def _trim_context(self, context: str, max_chars: int = 4000) -> str:
+        """裁剪过长的上下文"""
+        if len(context) <= max_chars:
+            return context
+        # 保留开头和结尾各40%，中间20%
+        head = int(max_chars * 0.4)
+        tail = int(max_chars * 0.4)
+        mid = max_chars - head - tail
+        return (
+            context[:head]
+            + f"\n...[省略{len(context) - head - tail}字符]...\n"
+            + context[-tail:]
+        )
+
+    def _persona_reminder(self) -> str:
+        """角色守护提醒"""
+        self.reports_generated += 1
+        return f"[提醒: 你是AMC风险分析专家，已生成{self.reports_generated}份报告。保持一致性。]"
+
+    def generate(
+        self,
+        context: str,
+        region: str,
+        period: str,
+    ) -> Optional[RiskReport]:
+        """生成风险报告（自动重试 + 自动纠正）"""
+        context = self._trim_context(context)
+        base_prompt = self.prompt_builder.build(
+            context=context,
+            persona_reminder=self._persona_reminder(),
+        )
+
+        for attempt in range(self.max_retries):
+            raw_output = call_llm(base_prompt)  # 模拟 LLM 调用
+
+            # 记录对话
+            self.conversation.append(("user", base_prompt))
+            self.conversation.append(("assistant", raw_output))
+
+            # 提取 JSON
+            data = safe_extract_json(raw_output)
+            if data is None:
+                base_prompt += (
+                    f"\n\n[自动纠正 第{attempt+1}次] "
+                    "输出未包含有效JSON。请严格只输出JSON对象，不要任何其他文字。"
+                )
+                continue
+
+            # Pydantic 校验
+            try:
+                report = RiskReport(**data)
+                print(f"报告生成成功: {report.report_id}, 风险={report.overall_risk}")
+                return report
+            except Exception as e:
+                base_prompt += (
+                    f"\n\n[自动纠正 第{attempt+1}次] "
+                    f"校验失败: {e}。请修正后重新输出JSON。"
+                )
+                continue
+
+        print(f"经过 {self.max_retries} 次尝试仍无法生成合规报告")
+        return None
+
+
+# === 模拟 LLM 调用（实际替换为真实 API） ===
+def call_llm(prompt: str) -> str:
+    """模拟 LLM 调用 —— 返回一个结构化 JSON"""
+    return json.dumps({
+        "report_id": "RPT-20260714-0001",
+        "region": "华东",
+        "period": "2026年7月",
+        "overall_risk": "高",
+        "overall_score": 72.3,
+        "total_amount": 15600000,
+        "factors": [
+            {"name": "制造业不良率上升", "severity": "高",
+             "description": "制造业不良贷款率环比上升0.8个百分点至3.2%"},
+            {"name": "房地产集中度超标", "severity": "高",
+             "description": "前10大客户中4家为房地产企业，集中度达18%"},
+            {"name": "拨备覆盖率下降", "severity": "中",
+             "description": "拨备覆盖率从185%降至178%，低于监管红线"}
+        ],
+        "trend": "上升",
+        "recommendations": [
+            "立即对制造业客户进行逐户风险排查",
+            "压降房地产行业新增授信，分散行业集中度",
+            "增加拨备计提至180%以上",
+        ],
+        "summary": "华东区域2026年7月整体风险偏高，主要受制造业不良率上升和房地产集中度超标影响。不良贷款余额较上月增加1.2亿元，建议立即启动风险处置预案。"
+    }, ensure_ascii=False)
+
+# === 运行 ===
+generator = ConstrainedReportGenerator(max_retries=3)
+report = generator.generate(
+    context="华东区域7月不良贷款数据...（此处省略详细数据）",
+    region="华东",
+    period="2026年7月",
+)
+if report:
+    print(json.dumps(report.model_dump(), ensure_ascii=False, indent=2))
+  </pre>
+</div>
+
+<!-- ============ Section 7: 常见陷阱 ============ -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚠️</span> 常见陷阱 Top 5
+  </div>
+  <ol>
+    <li>
+      <strong>只靠 Prompt 不做代码校验</strong><br>
+      <span class="inline-code">Prompt 约束是"软约束"</span>，LLM 不保证遵守。关键场景必须 Pydantic 校验兜底。
+    </li>
+    <li>
+      <strong>长上下文不管 Token 成本</strong><br>
+      把 10 页文档塞进 Prompt 调用 API，一次就烧掉几万 Token。先摘要/先分块/先检索再调用。
+    </li>
+    <li>
+      <strong>Lost in the Middle 不做重排</strong><br>
+      10 条检索结果平铺罗列，中间的关键信息被忽略。高相关的放首尾。
+    </li>
+    <li>
+      <strong>多轮对话不设滑动窗口</strong><br>
+      聊了 50 轮还不裁剪历史，Token 膨胀 + 成本爆炸 + 早期信息失效。
+    </li>
+    <li>
+      <strong>System Prompt 太长太模糊</strong><br>
+      System Prompt 里写了 2000 字的角色设定，反而挤占了有效上下文。精简 + 结构化 + 分层。
+    </li>
+  </ol>
+</div>
+
+<!-- ============ Section 8: 最佳实践速查 ============ -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📋</span> 最佳实践速查表
+  </div>
+  <div class="table-wrap">
+  <table>
+    <tr><th>场景</th><th>推荐策略</th><th>工具</th></tr>
+    <tr><td>API 返回值必须严格</td><td>JSON Schema + Pydantic</td><td>field_validator / pattern</td></tr>
+    <tr><td>长文档分析</td><td>分段摘要 → 合并摘要</td><td>textwrap / 分块</td></tr>
+    <tr><td>多文档检索</td><td>先检索相关段落再分析</td><td>RAG + 重排</td></tr>
+    <tr><td>10+ 段参考资料</td><td>Lost-in-Middle 重排</td><td>交替首尾放置</td></tr>
+    <tr><td>多轮客服对话</td><td>滑动窗口 + 关键记忆</td><td>deque + 定期提取</td></tr>
+    <tr><td>角色扮演对话</td><td>System Prompt + 角色守护</td><td>每轮追加轻量提醒</td></tr>
+    <tr><td>LLM 输出不稳定</td><td>重试 + 自动纠正提示</td><td>max_retries + 错误回传</td></tr>
+  </table>
+  </div>
+</div>
+
+<!-- ============ Section 9: 练习 ============ -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">💪</span> 课后练习
+  </div>
+
+  <div class="challenge">
+    <div class="challenge-title">练习 1: 增强 safe_extract_json</div>
+    <p>当前的 JSON 提取器只处理单层对象。增强它，使其能正确处理：</p>
+    <ul>
+      <li>嵌套 JSON（对象中包含对象/数组）</li>
+      <li>JSON 中包含转义字符（引号、换行）</li>
+      <li>LLM 返回多个 JSON 对象时，合并或选择第一个</li>
+    </ul>
+  </div>
+
+  <div class="challenge">
+    <div class="challenge-title">练习 2: 实现关键词提取器</div>
+    <p>实现 <span class="inline-code">extract_keywords_from_query(query: str) -> list[str]</span>，用以下策略组合：</p>
+    <ul>
+      <li>用 jieba 分词（如已安装）或简单的"去停用词"策略</li>
+      <li>提取名词短语（连续 2-4 个汉字的词）</li>
+      <li>返回频率 Top 5 的关键词</li>
+    </ul>
+  </div>
+
+  <div class="challenge">
+    <div class="challenge-title">练习 3: LeetCode #273 · 整数转英文单词</div>
+    <p>将非负整数转换为英文单词（如 12345 → "Twelve Thousand Three Hundred Forty Five"）。</p>
+    <p>提示：用 <span class="inline-code">dict</span> 建立数字→英文映射，分三段处理（billion / million / thousand / less thousand）。</p>
+  </div>
+</div>
+
+<!-- ============ Section 10: 总结 ============ -->
+<div class="summary">
+  <h3>📝 今日总结</h3>
+  <ul>
+    <li><strong>输出约束</strong>：Prompt 写约束 + Pydantic 做校验 = 双保险；自动重试 + 错误回传纠正</li>
+    <li><strong>长上下文</strong>：分段摘要、关键段落提取、Lost-in-Middle 重排、结构化 Prompt 组织</li>
+    <li><strong>多轮优化</strong>：滑动窗口控制长度、关键记忆长期保存、角色守护防止漂移</li>
+    <li><strong>Python 工具</strong>：正则提取（命名组/finditer）、Pydantic field_validator、deque 滑动窗口、textwrap 裁剪</li>
+    <li><strong>实战</strong>：ConstrainedReportGenerator 整合三大主题的完整约束链路</li>
+  </ul>
+</div>
+
+<!-- 下一天预告 -->
+<div class="next-preview">
+  <h3>🔜 Day 42 预告</h3>
+  <p><strong>Phase 2 收官：RAG + Agent 综合项目</strong></p>
+  <p>把 D29-D41 的所有知识串起来，构建一个完整的 AMC 智能分析系统：RAG 知识检索 + Agent 工具调用 + 约束化输出 + 多轮对话管理。这是进入微调部署阶段前的最终验收项目。</p>
+</div>
+
+</body>
+</html>
