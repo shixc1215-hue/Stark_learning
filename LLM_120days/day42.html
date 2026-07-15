@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 42 - Phase 2 收官：AMC 智能分析系统（RAG+Agent 全链路实战）</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#fef2f2,#eff6ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #fecaca; }
+  .header .badge { display:inline-block;background:#fee2e2;color:var(--red);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--red));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--red);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--green); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  pre { background:#1e293b;color:#e2e8f0;padding:16px 20px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.6;margin:12px 0;font-family:'Cascadia Code','Fira Code','Consolas',monospace; }
+  pre .comment { color:#94a3b8; }
+  pre .keyword { color:#c084fc; }
+  pre .string { color:#34d399; }
+  pre .func { color:#60a5fa; }
+  pre .decorator { color:#fbbf24; }
+  pre .number { color:#f97316; }
+  pre .cls { color:#f472b6; }
+  pre .param { color:#fb923c; }
+  code { background:var(--surface2);padding:2px 7px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--accent2); }
+  p { margin:10px 0;font-size:14.5px; }
+  ul,ol { padding-left:20px;margin:10px 0; }
+  li { margin:5px 0;font-size:14px; }
+  h3 { font-size:16px;font-weight:700;margin:18px 0 10px;color:var(--text); }
+  table { width:100%;border-collapse:collapse;margin:14px 0;font-size:13px; }
+  th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border); }
+  td { padding:10px 14px;border:1px solid var(--border); }
+  .compare-table td:first-child { font-weight:600;color:var(--accent);white-space:nowrap; }
+  .inline-code { font-family:'Cascadia Code','Fira Code','Consolas',monospace;background:var(--surface2);padding:1px 6px;border-radius:3px;font-size:13px;color:var(--accent2); }
+  .milestone { background:linear-gradient(135deg,#fef2f2,#fffbeb);border:2px solid #fca5a1;border-radius:var(--radius);padding:24px 28px;margin-bottom:24px; }
+  .milestone h2 { font-size:20px;color:var(--red);margin-bottom:10px; }
+  .milestone p { color:var(--text2);font-size:14px; }
+  .arch-diagram { background:var(--surface2);border-radius:8px;padding:20px;margin:14px 0;font-family:monospace;font-size:13px;line-height:1.5;overflow-x:auto;white-space:pre;color:var(--text); }
+  .phase-summary { display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0; }
+  .phase-card { background:var(--surface2);border-radius:8px;padding:14px 18px;border-left:4px solid var(--accent); }
+  .phase-card h4 { font-size:14px;font-weight:700;margin-bottom:6px; }
+  .phase-card p { font-size:13px;color:var(--text2);margin:4px 0; }
+  .practice { background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px 20px;margin:14px 0; }
+  .practice h3 { color:var(--green);margin-bottom:10px; }
+  .next-phase { background:linear-gradient(135deg,#eff6ff,#f0fdf4);border:2px solid #86efac;border-radius:var(--radius);padding:24px 28px;margin-top:24px; }
+  .next-phase h2 { font-size:20px;color:var(--green);margin-bottom:10px; }
+  .next-phase p { font-size:14px;color:var(--text2); }
+  a { color:var(--accent);text-decoration:none; }
+  a:hover { text-decoration:underline; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Phase 2 收官 · RAG + Agent</div>
+  <h1>Day 42 — AMC 智能分析系统（RAG+Agent 全链路实战）</h1>
+  <div class="subtitle">把 Day 29-41 的所有知识整合成一个完整可运行的系统 &nbsp;|&nbsp; 学习量 ≈ 1.5 小时</div>
+</div>
+
+<div class="progress-bar">
+  <div class="label">总进度 Phase 1 → Phase 2</div>
+  <div class="track"><div class="fill" style="width:84%"></div></div>
+  <div class="percent">42/50</div>
+</div>
+
+<div class="milestone">
+  <h2>Phase 2 收官里程碑</h2>
+  <p>今天是 Phase 2（RAG + Agent）的最后一天！我们将把过去 14 天学到的所有组件——分块、Embedding、向量库、检索、Reranker、生成、评估、Agent、Function Calling、Prompt Engineering——<strong>组装成一个完整的 AMC 智能分析系统</strong>。这不仅仅是一个练习，而是一个可以真实部署的产品原型。</p>
+</div>
+
+<!-- ==================== Section 1: 系统架构 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏗️</span> 系统架构总览
+    <span class="time-tag">25 分钟</span>
+  </div>
+
+  <p>在写任何代码之前，先看清全貌。我们的 AMC 智能分析系统包含两大子系统：</p>
+
+  <div class="arch-diagram">
+┌─────────────────────────────────────────────────────────────┐
+│                    AMC 智能分析系统                           │
+├──────────────────────┬──────────────────────────────────────┤
+│   离线索引管线       │       在线问答管线                     │
+│  (Indexing Pipeline)│    (Query Pipeline)                   │
+├──────────────────────┼──────────────────────────────────────┤
+│ 文档 → 分块          │ 用户问题 → Agent 路由                  │
+│   → Embedding        │   ├→ 知识检索 (RAG)                  │
+│   → 向量库写入       │   │   ├→ 向量检索                     │
+│   → 质量评估         │   │   ├→ Reranker 重排                │
+│                      │   │   └→ 生成回答                     │
+│                      │   ├→ SQL 查询 (Agent+FC)             │
+│                      │   └→ 风险分析 (Agent+RAG)            │
+│                      │ 结果 → Prompt 约束生成 → 输出          │
+└──────────────────────┴──────────────────────────────────────┘
+  </div>
+
+  <h3>核心设计原则（数仓思维映射）</h3>
+  <table class="compare-table">
+    <tr><th>数仓概念</th><th>AMC 系统对应</th><th>代码层</th></tr>
+    <tr><td>ODS 原始层</td><td>原始文档</td><td>DocumentLoader</td></tr>
+    <tr><td>DWD 明细层</td><td>文本分块</td><td>DocumentChunker</td></tr>
+    <tr><td>DWS 汇总层</td><td>Embedding 向量化</td><td>EmbeddingService</td></tr>
+    <tr><td>ADS 应用层</td><td>向量库 + 检索</td><td>VectorStore + Retriever</td></tr>
+    <tr><td>调度系统</td><td>Agent 编排</td><td>ReActAgent + ToolChain</td></tr>
+    <tr><td>数据质量</td><td>RAG 评估</td><td>RAGEvaluator</td></tr>
+  </table>
+
+  <div class="tip-box">
+    <strong>为什么用"数仓思维"设计？</strong> 你已经是数据开发工程师了！RAG 的离线索引本质就是把非结构化文本 ETL 成结构化的向量数据，在线检索就是 ADS 层查询。理解了这个类比，RAG 架构就不再陌生。
+  </div>
+</div>
+
+<!-- ==================== Section 2: Python知识 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span> Python 知识补充：typing.Protocol 与结构化子类型
+    <span class="time-tag">15 分钟</span>
+  </div>
+
+  <p>今天是综合实战日，我们学一个能极大提升代码架构质量的特性——<code>typing.Protocol</code>。它比抽象基类（ABC）更灵活，是实现"面向接口编程"的利器。</p>
+
+  <h3>Protocol vs ABC：什么时候用什么？</h3>
+  <pre><span class="comment"># ============ ABC（抽象基类）—— 需要显式继承 ============</span>
+<span class="keyword">from</span> abc <span class="keyword">import</span> ABC, abstractmethod
+
+<span class="keyword">class</span> <span class="cls">Retriever</span>(ABC):
+    <span class="decorator">@abstractmethod</span>
+    <span class="keyword">def</span> <span class="func">retrieve</span>(<span class="param">self</span>, query: <span class="cls">str</span>, top_k: <span class="cls">int</span> = <span class="number">5</span>) -> list:
+        <span class="string">"""检索相关文档"""</span>
+
+<span class="comment"># 子类必须显式继承</span>
+<span class="keyword">class</span> <span class="cls">VectorRetriever</span>(<span class="cls">Retriever</span>):  <span class="comment"># ← 必须写 (Retriever)</span>
+    <span class="keyword">def</span> <span class="func">retrieve</span>(<span class="param">self</span>, query: <span class="cls">str</span>, top_k: <span class="cls">int</span> = <span class="number">5</span>) -> list:
+        <span class="keyword">return</span> []  <span class="comment"># 实际实现</span>
+
+<span class="comment"># ============ Protocol —— 隐式满足（结构化子类型）============</span>
+<span class="keyword">from</span> typing <span class="keyword">import</span> Protocol
+
+<span class="keyword">class</span> <span class="cls">Retriever</span>(Protocol):
+    <span class="keyword">def</span> <span class="func">retrieve</span>(<span class="param">self</span>, query: <span class="cls">str</span>, top_k: <span class="cls">int</span> = <span class="number">5</span>) -> list: ...
+
+<span class="comment"># 任何有 retrieve(query, top_k) 方法的类自动满足协议！</span>
+<span class="keyword">class</span> <span class="cls">ChromaRetriever</span>:  <span class="comment"># ← 不需要继承！</span>
+    <span class="keyword">def</span> <span class="func">retrieve</span>(<span class="param">self</span>, query: <span class="cls">str</span>, top_k: <span class="cls">int</span> = <span class="number">5</span>) -> list:
+        <span class="keyword">return</span> []  <span class="comment"># 自动被视为 Retriever</span>
+
+<span class="comment"># 类型检查器知道 ChromaRetriever 满足 Retriever 协议</span>
+<span class="keyword">def</span> <span class="func">search</span>(retriever: <span class="cls">Retriever</span>, q: <span class="cls">str</span>) -> list:
+    <span class="keyword">return</span> retriever.retrieve(q)</pre>
+
+  <div class="concept-box">
+    <strong>核心区别：</strong>ABC 是"名义子类型"（必须显式声明继承），Protocol 是"结构化子类型"（只要有相同的方法签名就满足）。在我们的 AMC 系统中，用 Protocol 定义 <code>Embedder</code>、<code>Retriever</code>、<code>Reranker</code>、<code>Generator</code> 四大协议，任何实现都自动兼容。
+  </div>
+
+  <h3>runtime_checkable：让 Protocol 可以 isinstance 检查</h3>
+  <pre><span class="keyword">from</span> typing <span class="keyword">import</span> Protocol, runtime_checkable
+
+<span class="decorator">@runtime_checkable</span>
+<span class="keyword">class</span> <span class="cls">Tool</span>(Protocol):
+    <span class="keyword">def</span> <span class="func">execute</span>(<span class="param">self</span>, <span class="param">**kwargs</span>) -> <span class="cls">str</span>: ...
+
+<span class="comment"># 现在可以用 isinstance 做运行时检查</span>
+<span class="keyword">class</span> <span class="cls">SQLQueryTool</span>:
+    <span class="keyword">def</span> <span class="func">execute</span>(<span class="param">self</span>, <span class="param">**kwargs</span>) -> <span class="cls">str</span>:
+        <span class="keyword">return</span> <span class="string">"SELECT * FROM amc_report"</span>
+
+tool = <span class="cls">SQLQueryTool</span>()
+<span class="keyword">assert</span> <span class="func">isinstance</span>(tool, <span class="cls">Tool</span>)  <span class="comment"># ✓ 通过</span></pre>
+
+  <h3>综合运用：Protocol + TypeAlias + Callable 定义管道接口</h3>
+  <pre><span class="keyword">from</span> typing <span class="keyword">import</span> Protocol, TypeAlias, Callable
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass
+
+<span class="comment"># 类型别名让代码更易读</span>
+<span class="cls">Text</span>: <span class="cls">TypeAlias</span> = <span class="cls">str</span>
+<span class="cls">Chunks</span>: <span class="cls">TypeAlias</span> = list[<span class="cls">str</span>]
+<span class="cls">Scores</span>: <span class="cls">TypeAlias</span> = list[<span class="cls">float</span>]
+<span class="cls">ToolResult</span>: <span class="cls">TypeAlias</span> = <span class="cls">str</span>
+
+<span class="comment"># 管道节点的协议：接收输入，输出输出</span>
+<span class="keyword">class</span> <span class="cls">PipeNode</span>(Protocol):
+    <span class="keyword">def</span> <span class="func">process</span>(<span class="param">self</span>, data: <span class="cls">dict</span>) -> <span class="cls">dict</span>: ...
+
+<span class="comment"># 回调函数类型</span>
+<span class="cls">OnComplete</span>: <span class="cls">TypeAlias</span> = <span class="cls">Callable</span>[[<span class="cls">dict</span>], <span class="cls">None</span>]
+<span class="cls">OnError</span>: <span class="cls">TypeAlias</span> = <span class="cls">Callable</span>[[<span class="cls">Exception</span>], <span class="cls">None</span>]</pre>
+
+  <div class="tip-box">
+    <strong>实战建议：</strong>在 AMC 系统中，我们为每个核心组件定义 Protocol（Embedder / Retriever / Reranker / Generator / Tool），这样后续换模型（比如从智谱换成 DeepSeek）只需实现新类，不需要改任何上层代码。这就是 SOLID 中的"依赖倒置原则"。
+  </div>
+</div>
+
+<!-- ==================== Section 3: 项目结构 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📁</span> 项目结构与配置
+    <span class="time-tag">10 分钟</span>
+  </div>
+
+  <pre><span class="comment"># AMC 智能分析系统 - 项目结构</span>
+amc_analyzer/
+├── config.py          <span class="comment"># pydantic-settings 配置管理</span>
+├── models.py          <span class="comment"># 数据模型（Protocol + dataclass）</span>
+├── <span class="comment"># --- 离线索引管线 ---</span>
+├── indexer/
+│   ├── __init__.py
+│   ├── chunker.py     <span class="comment"># 文本分块（递归分块 + overlap）</span>
+│   ├── embedder.py    <span class="comment"># Embedding 服务（智谱 API）</span>
+│   └── vectorstore.py <span class="comment"># 向量库（ChromaDB）</span>
+├── <span class="comment"># --- 在线问答管线 ---</span>
+├── query/
+│   ├── __init__.py
+│   ├── retriever.py   <span class="comment"># 检索器（向量检索 + 关键词）</span>
+│   ├── reranker.py    <span class="comment"># 重排序（Jina Reranker）</span>
+│   └── generator.py   <span class="comment"># 生成器（Prompt 模板 + LLM）</span>
+├── <span class="comment"># --- Agent 层 ---</span>
+├── agent/
+│   ├── __init__.py
+│   ├── tools.py       <span class="comment"># Agent 可调用的工具集</span>
+│   ├── core.py        <span class="comment"># Agent 核心循环（ReAct + FC）</span>
+│   └── memory.py      <span class="comment"># 对话记忆管理</span>
+├── <span class="comment"># --- 评估层 ---</span>
+├── eval/
+│   ├── __init__.py
+│   └── evaluator.py   <span class="comment"># RAG 评估指标</span>
+├── main.py            <span class="comment"># 主入口</span>
+├── requirements.txt
+└── .env</pre>
+
+  <h3>config.py — 集中配置</h3>
+  <pre><span class="keyword">from</span> pydantic_settings <span class="keyword">import</span> BaseSettings
+<span class="keyword">from</span> pydantic <span class="keyword">import</span> Field
+
+<span class="keyword">class</span> <span class="cls">Config</span>(BaseSettings):
+    <span class="string">"""AMC 系统配置 —— 所有参数集中管理"""</span>
+
+    <span class="comment"># LLM 配置</span>
+    zhipu_api_key: <span class="cls">str</span> = Field(..., description=<span class="string">"智谱 API Key"</span>)
+    zhipu_model: <span class="cls">str</span> = <span class="string">"glm-4-flash"</span>
+    embedding_model: <span class="cls">str</span> = <span class="string">"embedding-3"</span>
+
+    <span class="comment"># RAG 配置</span>
+    chunk_size: <span class="cls">int</span> = <span class="number">512</span>
+    chunk_overlap: <span class="cls">int</span> = <span class="number">50</span>
+    retriever_top_k: <span class="cls">int</span> = <span class="number">10</span>    <span class="comment"># 召回数量</span>
+    reranker_top_k: <span class="cls">int</span> = <span class="number">5</span>      <span class="comment"># 精排后保留数量</span>
+    similarity_threshold: <span class="cls">float</span> = <span class="number">0.7</span>  <span class="comment"># 相似度阈值</span>
+
+    <span class="comment"># Agent 配置</span>
+    agent_max_steps: <span class="cls">int</span> = <span class="number">8</span>
+    agent_temperature: <span class="cls">float</span> = <span class="number">0.1</span>
+
+    <span class="comment"># 向量库</span>
+    chroma_dir: <span class="cls">str</span> = <span class="string">"./chroma_db"</span>
+    collection_name: <span class="cls">str</span> = <span class="string">"amc_knowledge"</span>
+
+    model_config = {<span class="string">"env_file"</span>: <span class="string">".env"</span>, <span class="string">"env_prefix"</span>: <span class="string">"AMC_"</span>}
+
+<span class="comment"># 全局单例</span>
+config = <span class="cls">Config</span>()  <span class="comment"># 从 .env 文件自动加载 AMC_ 前缀的环境变量</span></pre>
+</div>
+
+<!-- ==================== Section 4: 核心模型 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🧩</span> 核心数据模型（Protocol + dataclass）
+    <span class="time-tag">15 分钟</span>
+  </div>
+
+  <pre><span class="comment"># models.py — 所有数据模型和协议定义</span>
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> typing <span class="keyword">import</span> Protocol, runtime_checkable
+<span class="keyword">from</span> enum <span class="keyword">import</span> Enum
+
+<span class="comment"># ========== 枚举 ==========</span>
+<span class="keyword">class</span> <span class="cls">AgentStatus</span>(Enum):
+    THINKING = <span class="string">"thinking"</span>   <span class="comment"># Agent 正在思考下一步</span>
+    TOOL_CALL = <span class="string">"tool_call"</span>   <span class="comment"># Agent 调用工具</span>
+    GENERATING = <span class="string">"generating"</span> <span class="comment"># Agent 生成最终回答</span>
+    FINISHED = <span class="string">"finished"</span>     <span class="comment"># Agent 完成任务</span>
+
+<span class="keyword">class</span> <span class="cls">ToolStatus</span>(Enum):
+    SUCCESS = <span class="string">"success"</span>
+    SKIPPED = <span class="string">"skipped"</span>
+    ERROR = <span class="string">"error"</span>
+
+<span class="comment"># ========== 数据类 ==========</span>
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="cls">Document</span>:
+    <span class="string">"""原始文档"""</span>
+    doc_id: <span class="cls">str</span>
+    content: <span class="cls">str</span>
+    metadata: <span class="cls">dict</span> = field(default_factory=<span class="cls">dict</span>)
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="cls">Chunk</span>:
+    <span class="string">"""分块结果"""</span>
+    chunk_id: <span class="cls">str</span>
+    content: <span class="cls">str</span>
+    doc_id: <span class="cls">str</span>
+    chunk_index: <span class="cls">int</span>       <span class="comment"># 在原文中的位置</span>
+    metadata: <span class="cls">dict</span> = field(default_factory=<span class="cls">dict</span>)
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="cls">SearchResult</span>:
+    <span class="string">"""检索/重排结果"""</span>
+    chunk_id: <span class="cls">str</span>
+    content: <span class="cls">str</span>
+    score: <span class="cls">float</span>          <span class="comment"># 相似度分数</span>
+    source: <span class="cls">str</span>          <span class="comment"># 来源文档</span>
+    metadata: <span class="cls">dict</span> = field(default_factory=<span class="cls">dict</span>)
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="cls">AgentStep</span>:
+    <span class="string">"""Agent 单步执行记录"""</span>
+    step_num: <span class="cls">int</span>
+    status: <span class="cls">AgentStatus</span>
+    thought: <span class="cls">str</span>          <span class="comment"># Agent 的思考</span>
+    tool_name: <span class="cls">str</span> | <span class="cls">None</span> = <span class="cls">None</span>
+    tool_input: <span class="cls">dict</span> | <span class="cls">None</span> = <span class="cls">None</span>
+    tool_output: <span class="cls">str</span> | <span class="cls">None</span> = <span class="cls">None</span>
+    token_count: <span class="cls">int</span> = <span class="number">0</span>
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="cls">QueryResult</span>:
+    <span class="string">"""最终查询结果"""</span>
+    answer: <span class="cls">str</span>
+    sources: list[<span class="cls">SearchResult</span>]
+    agent_trace: list[<span class="cls">AgentStep</span>] = field(default_factory=list)
+    evaluation: <span class="cls">dict</span> | <span class="cls">None</span> = <span class="cls">None</span>
+
+<span class="comment"># ========== 协议（核心接口）==========</span>
+<span class="decorator">@runtime_checkable</span>
+<span class="keyword">class</span> <span class="cls">Embedder</span>(Protocol):
+    <span class="string">"""Embedding 协议 —— 任何能 embed 的都满足"""</span>
+    <span class="keyword">def</span> <span class="func">embed</span>(<span class="param">self</span>, text: <span class="cls">str</span>) -> list[<span class="cls">float</span>]: ...
+    <span class="keyword">def</span> <span class="func">embed_batch</span>(<span class="param">self</span>, texts: list[<span class="cls">str</span>]) -> list[list[<span class="cls">float</span>]]: ...
+
+<span class="decorator">@runtime_checkable</span>
+<span class="keyword">class</span> <span class="cls">Retriever</span>(Protocol):
+    <span class="string">"""检索器协议"""</span>
+    <span class="keyword">def</span> <span class="func">retrieve</span>(<span class="param">self</span>, query: <span class="cls">str</span>, top_k: <span class="cls">int</span> = <span class="number">5</span>) -> list[<span class="cls">SearchResult</span>]: ...
+
+<span class="decorator">@runtime_checkable</span>
+<span class="keyword">class</span> <span class="cls">Reranker</span>(Protocol):
+    <span class="string">"""重排序器协议"""</span>
+    <span class="keyword">def</span> <span class="func">rerank</span>(<span class="param">self</span>, query: <span class="cls">str</span>, results: list[<span class="cls">SearchResult</span>],
+              top_k: <span class="cls">int</span> = <span class="number">5</span>) -> list[<span class="cls">SearchResult</span>]: ...
+
+<span class="decorator">@runtime_checkable</span>
+<span class="keyword">class</span> <span class="cls">Generator</span>(Protocol):
+    <span class="string">"""生成器协议"""</span>
+    <span class="keyword">def</span> <span class="func">generate</span>(<span class="param">self</span>, question: <span class="cls">str</span>,
+                 context: list[<span class="cls">SearchResult</span>]) -> <span class="cls">str</span>: ...</pre>
+
+  <div class="concept-box">
+    <strong>Protocol 优势体现：</strong>注意 <code>ZhipuEmbedder</code>、<code>OpenAIEmbedder</code> 都不需要写 <code>class ZhipuEmbedder(Embedder)</code>，只要实现了 <code>embed()</code> 和 <code>embed_batch()</code> 方法，类型检查器就认为它满足 <code>Embedder</code> 协议。上层代码只依赖协议，不依赖具体实现。
+  </div>
+</div>
+
+<!-- ==================== Section 5: 离线索引管线 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📦</span> 离线索引管线（Indexing Pipeline）
+    <span class="time-tag">20 分钟</span>
+  </div>
+
+  <p>离线索引是"ETL"过程：原始文档 → 分块 → Embedding → 写入向量库。我们用管道模式串联。</p>
+
+  <h3>chunker.py — 递归文本分块</h3>
+  <pre><span class="comment"># indexer/chunker.py</span>
+<span class="keyword">import</span> re
+<span class="keyword">from</span> models <span class="keyword">import</span> Document, Chunk
+
+<span class="keyword">class</span> <span class="cls">RecursiveChunker</span>:
+    <span class="string">"""
+    递归分块器 —— 按层级分隔符切分文本
+    类比数仓: 按 partition → sub-partition 逐级细分
+    """</span>
+
+    <span class="comment"># 分隔符优先级：先按大标题分，再按小标题，最后按段落</span>
+    SEPARATORS = [
+        <span class="string">r"\n(?=#{1,3}\s)"</span>,   <span class="comment"># Markdown 标题 (#/##/###)</span>
+        <span class="string">r"\n(?=\d+\.)"</span>,       <span class="comment"># 编号列表 (1. 2. 3.)</span>
+        <span class="string">r"\n{2,}"</span>,             <span class="comment"># 段落（连续换行）</span>
+        <span class="string">r"\n"</span>,                 <span class="comment"># 单行换行</span>
+        <span class="string">r"[。！？；]"</span>,         <span class="comment"># 中文句末标点</span>
+    ]
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(<span class="param">self</span>, chunk_size: <span class="cls">int</span> = <span class="number">512</span>, overlap: <span class="cls">int</span> = <span class="number">50</span>):
+        <span class="param">self</span>.chunk_size = chunk_size
+        <span class="param">self</span>.overlap = overlap
+
+    <span class="keyword">def</span> <span class="func">split_text</span>(<span class="param">self</span>, text: <span class="cls">str</span>,
+                   separators: list[<span class="cls">str</span>] | <span class="cls">None</span> = <span class="cls">None</span>) -> list[<span class="cls">str</span>]:
+        <span class="string">"""递归分块：用当前分隔符切，太大就换更细的分隔符"""</span>
+        if separators <span class="keyword">is</span> <span class="cls">None</span>:
+            separators = <span class="param">self</span>.SEPARATORS
+
+        <span class="comment"># 基础情况：文本足够小，直接返回</span>
+        <span class="keyword">if</span> len(text) <= <span class="param">self</span>.chunk_size:
+            <span class="keyword">return</span> [text] <span class="keyword">if</span> text.strip() <span class="keyword">else</span> []
+
+        <span class="comment"># 尝试当前最粗的分隔符</span>
+        sep = separators[<span class="number">0</span>]
+        parts = re.split(sep, text)
+        parts = [p.strip() <span class="keyword">for</span> p <span class="keyword">in</span> parts <span class="keyword">if</span> p.strip()]
+
+        <span class="comment"># 如果所有块都 <= chunk_size，成功</span>
+        <span class="keyword">if</span> all(len(p) <= <span class="param">self</span>.chunk_size <span class="keyword">for</span> p <span class="keyword">in</span> parts):
+            <span class="keyword">return</span> parts
+
+        <span class="comment"># 有大块？递归用更细的分隔符</span>
+        result = []
+        <span class="keyword">for</span> part <span class="keyword">in</span> parts:
+            <span class="keyword">if</span> len(part) <= <span class="param">self</span>.chunk_size:
+                result.append(part)
+            <span class="keyword">elif</span> len(separators) > <span class="number">1</span>:
+                result.extend(
+                    <span class="param">self</span>.split_text(part, separators[<span class="number">1</span>:])
+                )
+            <span class="keyword">else</span>:
+                <span class="comment"># 最细分隔符还是太大，硬切</span>
+                result.extend(<span class="param">self</span>._hard_split(part))
+        <span class="keyword">return</span> result
+
+    <span class="keyword">def</span> <span class="func">_hard_split</span>(<span class="param">self</span>, text: <span class="cls">str</span>) -> list[<span class="cls">str</span>]:
+        <span class="string">"""硬切 + overlap 保证不丢上下文"""</span>
+        chunks = []
+        start = <span class="number">0</span>
+        <span class="keyword">while</span> start < len(text):
+            end = start + <span class="param">self</span>.chunk_size
+            chunks.append(text[start:end])
+            start = end - <span class="param">self</span>.overlap  <span class="comment"># 重叠部分</span>
+        <span class="keyword">return</span> chunks
+
+    <span class="keyword">def</span> <span class="func">chunk_document</span>(<span class="param">self</span>, doc: Document) -> list[<span class="cls">Chunk</span>]:
+        <span class="string">"""完整文档分块，保留来源信息"""</span>
+        raw_chunks = <span class="param">self</span>.split_text(doc.content)
+        chunks = []
+        <span class="keyword">for</span> i, content <span class="keyword">in</span> enumerate(raw_chunks):
+            chunks.append(<span class="cls">Chunk</span>(
+                chunk_id=<span class="string">f"<span class="param">{doc.doc_id}</span>_<span class="param">{i:04d</span>}"</span>,
+                content=content,
+                doc_id=doc.doc_id,
+                chunk_index=i,
+                metadata={**doc.metadata, <span class="string">"chunk_size"</span>: len(content)}
+            ))
+        <span class="keyword">return</span> chunks</pre>
+
+  <h3>embedder.py — 智谱 Embedding 服务</h3>
+  <pre><span class="comment"># indexer/embedder.py</span>
+<span class="keyword">import</span> hashlib
+<span class="keyword">from</span> functools <span class="keyword">import</span> lru_cache
+
+<span class="keyword">class</span> <span class="cls">ZhipuEmbedder</span>:
+    <span class="string">"""
+    智谱 Embedding 服务
+    注意：它隐式满足 Embedder Protocol（有 embed + embed_batch）
+    """</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(<span class="param">self</span>, api_key: <span class="cls">str</span>, model: <span class="cls">str</span> = <span class="string">"embedding-3"</span>):
+        <span class="param">self</span>.api_key = api_key
+        <span class="param">self</span>.model = model
+        <span class="param">self</span>._cache: <span class="cls">dict</span>[<span class="cls">str</span>, list[<span class="cls">float</span>]] = {}
+
+    <span class="keyword">def</span> <span class="func">_call_api</span>(<span class="param">self</span>, texts: list[<span class="cls">str</span>]) -> list[list[<span class="cls">float</span>]]:
+        <span class="string">"""调用智谱 Embedding API（实际用 requests）"""</span>
+        <span class="keyword">import</span> requests
+        url = <span class="string">"https://open.bigmodel.cn/api/paas/v4/embeddings"</span>
+        headers = {<span class="string">"Authorization"</span>: <span class="string">f"Bearer <span class="param">{self</span>.api_key}</span>"</span>}
+        body = {<span class="string">"model"</span>: <span class="param">self</span>.model, <span class="string">"input"</span>: texts}
+        resp = requests.post(url, headers=headers, json=body)
+        resp.raise_for_status()
+        <span class="comment"># 按 index 排序后返回</span>
+        data = sorted(resp.json()[<span class="string">"data"</span>], key=<span class="keyword">lambda</span> x: x[<span class="string">"index"</span>])
+        <span class="keyword">return</span> [item[<span class="string">"embedding"</span>] <span class="keyword">for</span> item <span class="keyword">in</span> data]
+
+    <span class="keyword">def</span> <span class="func">embed</span>(<span class="param">self</span>, text: <span class="cls">str</span>) -> list[<span class="cls">float</span>]:
+        <span class="string">"""单条文本 Embedding（带缓存）"""</span>
+        key = hashlib.md5(text.encode()).hexdigest()[:<span class="number">16</span>]
+        <span class="keyword">if</span> key <span class="keyword">in</span> <span class="param">self</span>._cache:
+            <span class="keyword">return</span> <span class="param">self</span>._cache[key]
+        result = <span class="param">self</span>.embed_batch([text])
+        <span class="param">self</span>._cache[key] = result[<span class="number">0</span>]
+        <span class="keyword">return</span> result[<span class="number">0</span>]
+
+    <span class="keyword">def</span> <span class="func">embed_batch</span>(<span class="param">self</span>, texts: list[<span class="cls">str</span>]) -> list[list[<span class="cls">float</span>]]:
+        <span class="string">"""批量 Embedding（自动分批，每批最多 20 条）"""</span>
+        all_embeddings = []
+        batch_size = <span class="number">20</span>
+        <span class="keyword">for</span> i <span class="keyword">in</span> range(<span class="number">0</span>, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+            <span class="comment"># 先查缓存</span>
+            uncached = []
+            cache_indices = []
+            <span class="keyword">for</span> j, text <span class="keyword">in</span> enumerate(batch):
+                key = hashlib.md5(text.encode()).hexdigest()[:<span class="number">16</span>]
+                <span class="keyword">if</span> key <span class="keyword">in</span> <span class="param">self</span>._cache:
+                    cache_indices.append((j, <span class="param">self</span>._cache[key]))
+                <span class="keyword">else</span>:
+                    uncached.append(text)
+
+            <span class="comment"># 未缓存的调 API</span>
+            <span class="keyword">if</span> uncached:
+                new_embeddings = <span class="param">self</span>._call_api(uncached)
+                uncached_idx = <span class="number">0</span>
+                <span class="keyword">for</span> j, text <span class="keyword">in</span> enumerate(batch):
+                    key = hashlib.md5(text.encode()).hexdigest()[:<span class="number">16</span>]
+                    <span class="keyword">if</span> key <span class="keyword">not in</span> <span class="param">self</span>._cache:
+                        <span class="param">self</span>._cache[key] = new_embeddings[uncached_idx]
+                        uncached_idx += <span class="number">1</span>
+
+            all_embeddings.extend([
+                <span class="param">self</span>._cache[hashlib.md5(t.encode()).hexdigest()[:<span class="number">16</span>]]
+                <span class="keyword">for</span> t <span class="keyword">in</span> batch
+            ])
+        <span class="keyword">return</span> all_embeddings</pre>
+
+  <h3>vectorstore.py — ChromaDB 向量库</h3>
+  <pre><span class="comment"># indexer/vectorstore.py</span>
+<span class="keyword">import</span> chromadb
+
+<span class="keyword">class</span> <span class="cls">AMCVectorStore</span>:
+    <span class="string">"""AMC 知识库 —— 基于 ChromaDB 的向量存储"""</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(<span class="param">self</span>, persist_dir: <span class="cls">str</span>, collection_name: <span class="cls">str</span>):
+        <span class="param">self</span>.client = chromadb.PersistentClient(path=persist_dir)
+        <span class="param">self</span>.collection = <span class="param">self</span>.client.get_or_create_collection(
+            name=collection_name,
+            metadata={<span class="string">"hnsw:space"</span>: <span class="string">"cosine"</span>}  <span class="comment"># 余弦相似度</span>
+        )
+
+    <span class="keyword">def</span> <span class="func">add_chunks</span>(<span class="param">self</span>, chunks: list, embeddings: list):
+        <span class="string">"""批量写入分块 + 向量"""</span>
+        <span class="param">self</span>.collection.upsert(
+            ids=[c.chunk_id <span class="keyword">for</span> c <span class="keyword">in</span> chunks],
+            embeddings=embeddings,
+            documents=[c.content <span class="keyword">for</span> c <span class="keyword">in</span> chunks],
+            metadatas=[{
+                <span class="string">"doc_id"</span>: c.doc_id,
+                <span class="string">"chunk_index"</span>: c.chunk_index,
+                **c.metadata
+            } <span class="keyword">for</span> c <span class="keyword">in</span> chunks]
+        )
+
+    <span class="keyword">def</span> <span class="func">search</span>(<span class="param">self</span>, query_embedding: list, n_results: <span class="cls">int</span> = <span class="number">10</span>,
+             where: <span class="cls">dict</span> | <span class="cls">None</span> = <span class="cls">None</span>) -> list:
+        <span class="string">"""语义搜索（支持元数据过滤）"""</span>
+        kwargs = {
+            <span class="string">"query_embeddings"</span>: [query_embedding],
+            <span class="string">"n_results"</span>: n_results,
+        }
+        <span class="keyword">if</span> where:
+            kwargs[<span class="string">"where"</span>] = where
+
+        results = <span class="param">self</span>.collection.query(**kwargs)
+        <span class="keyword">return</span> results</pre>
+</div>
+
+<!-- ==================== Section 6: Agent 核心 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🤖</span> Agent 核心（ReAct 循环 + Function Calling）
+    <span class="time-tag">20 分钟</span>
+  </div>
+
+  <p>Agent 是系统的"大脑"，负责理解用户意图、选择工具、组合结果。我们综合 Day 36-40 的所有技巧。</p>
+
+  <h3>tools.py — Agent 工具集</h3>
+  <pre><span class="comment"># agent/tools.py</span>
+<span class="keyword">from</span> models <span class="keyword">import</span> SearchResult
+<span class="keyword">from</span> typing <span class="keyword">import</span> Callable
+
+<span class="keyword">class</span> <span class="cls">ToolRegistry</span>:
+    <span class="string">"""工具注册表 —— Agent 可调用的所有工具"""</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(<span class="param">self</span>):
+        <span class="param">self</span>._tools: <span class="cls">dict</span>[<span class="cls">str</span>, <span class="cls">dict</span>] = {}
+
+    <span class="keyword">def</span> <span class="func">register</span>(<span class="param">self</span>, name: <span class="cls">str</span>, description: <span class="cls">str</span>,
+                func: <span class="cls">Callable</span>, parameters: <span class="cls">dict</span>):
+        <span class="param">self</span>._tools[name] = {
+            <span class="string">"description"</span>: description,
+            <span class="string">"function"</span>: func,
+            <span class="string">"parameters"</span>: parameters,
+        }
+
+    <span class="keyword">def</span> <span class="func">get_tools_schema</span>(<span class="param">self</span>) -> list[<span class="cls">dict</span>]:
+        <span class="string">"""生成 Function Calling 的 tools 参数"""</span>
+        <span class="keyword">return</span> [
+            {
+                <span class="string">"type"</span>: <span class="string">"function"</span>,
+                <span class="string">"function"</span>: {
+                    <span class="string">"name"</span>: name,
+                    <span class="string">"description"</span>: info[<span class="string">"description"</span>],
+                    <span class="string">"parameters"</span>: info[<span class="string">"parameters"</span>],
+                }
+            }
+            <span class="keyword">for</span> name, info <span class="keyword">in</span> <span class="param">self</span>._tools.items()
+        ]
+
+    <span class="keyword">def</span> <span class="func">execute</span>(<span class="param">self</span>, name: <span class="cls">str</span>, <span class="param">**kwargs</span>) -> <span class="cls">str</span>:
+        <span class="keyword">if</span> name <span class="keyword">not in</span> <span class="param">self</span>._tools:
+            <span class="keyword">return</span> <span class="string">f"错误: 未知工具 '{name}'"</span>
+        <span class="keyword">return</span> <span class="param">self</span>._tools[name][<span class="string">"function"</span>](**kwargs)
+
+
+<span class="comment"># ===== 注册 AMC 专用工具 =====</span>
+<span class="keyword">def</span> <span class="func">build_amc_tools</span>(reranker, generator, retriever, embedder) -> <span class="cls">ToolRegistry</span>:
+    <span class="string">"""工厂函数：创建并注册所有工具"""</span>
+    registry = <span class="cls">ToolRegistry</span>()
+
+    <span class="comment"># 工具1: 知识库检索</span>
+    <span class="keyword">def</span> <span class="func">knowledge_search</span>(query: <span class="cls">str</span>, top_k: <span class="cls">int</span> = <span class="number">5</span>) -> <span class="cls">str</span>:
+        <span class="string">"""从 AMC 知识库检索相关内容"""</span>
+        emb = embedder.embed(query)
+        raw_results = retriever.search(emb, n_results=top_k)
+        <span class="comment"># 转换为 SearchResult 再重排</span>
+        results = [SearchResult(
+            chunk_id=r[<span class="string">"id"</span>],
+            content=r[<span class="string">"document"</span>],
+            score=r[<span class="string">"distance"</span>],
+            source=r[<span class="string">"metadata"</span>].get(<span class="string">"doc_id"</span>, <span class="string">"unknown"</span>)
+        ) <span class="keyword">for</span> r <span class="keyword">in</span> raw_results]
+        <span class="comment"># 重排序</span>
+        reranked = reranker.rerank(query, results, top_k=top_k)
+        <span class="comment"># 格式化输出</span>
+        output_parts = []
+        <span class="keyword">for</span> i, r <span class="keyword">in</span> enumerate(reranked):
+            output_parts.append(
+                <span class="string">f"[{i+1}] (分数:{r.score:.3f}) {r.content[:200]}"</span>
+            )
+        <span class="keyword">return</span> <span class="string">"\n"</span>.join(output_parts)
+
+    registry.register(
+        name=<span class="string">"knowledge_search"</span>,
+        description=<span class="string">"从 AMC 知识库检索相关政策、规范、业务规则。"</span>
+                    <span class="string">"输入: 检索查询字符串。输出: 相关知识片段列表。"</span>,
+        func=knowledge_search,
+        parameters={
+            <span class="string">"type"</span>: <span class="string">"object"</span>,
+            <span class="string">"properties"</span>: {
+                <span class="string">"query"</span>: {<span class="string">"type"</span>: <span class="string">"string"</span>, <span class="string">"description"</span>: <span class="string">"检索问题"</span>},
+                <span class="string">"top_k"</span>: {<span class="string">"type"</span>: <span class="string">"integer"</span>, <span class="string">"description"</span>: <span class="string">"返回条数"</span>},
+            },
+            <span class="string">"required"</span>: [<span class="string">"query"</span>]
+        }
+    )
+
+    <span class="comment"># 工具2: SQL 查询（模拟 AMC 数仓）</span>
+    <span class="keyword">def</span> <span class="func">sql_query</span>(sql: <span class="cls">str</span>) -> <span class="cls">str</span>:
+        <span class="string">"""执行 SQL 查询 AMC 数仓数据"""</span>
+        <span class="comment"># 实际项目用 SQLAlchemy 连接数据库</span>
+        <span class="comment"># 这里用模拟数据演示</span>
+        mock_results = {
+            <span class="string">"不良贷款余额"</span>: <span class="string">"不良贷款余额: 12.5 亿元, 环比增长 2.3%"</span>,
+            <span class="string">"拨备覆盖率"</span>: <span class="string">"拨备覆盖率: 186.7%, 达标"</span>,
+        }
+        <span class="keyword">for</span> key, val <span class="keyword">in</span> mock_results.items():
+            <span class="keyword">if</span> key <span class="keyword">in</span> sql:
+                <span class="keyword">return</span> val
+        <span class="keyword">return</span> <span class="string">f"SQL 执行成功，返回空结果。SQL: {sql}"</span>
+
+    registry.register(
+        name=<span class="string">"sql_query"</span>,
+        description=<span class="string">"查询 AMC 数仓中的不良资产数据。"</span>
+                    <span class="string">"输入: SQL 语句。输出: 查询结果。" </span>
+                    <span class="string">"注意: 仅查询，不要修改数据。"</span>,
+        func=sql_query,
+        parameters={
+            <span class="string">"type"</span>: <span class="string">"object"</span>,
+            <span class="string">"properties"</span>: {
+                <span class="string">"sql"</span>: {<span class="string">"type"</span>: <span class="string">"string"</span>, <span class="string">"description"</span>: <span class="string">"要执行的 SQL"</span>},
+            },
+            <span class="string">"required"</span>: [<span class="string">"sql"</span>]
+        }
+    )
+
+    <span class="comment"># 工具3: 风险分析报告生成</span>
+    <span class="keyword">def</span> <span class="func">generate_report</span>(topic: <span class="cls">str</span>, context: <span class="cls">str</span>) -> <span class="cls">str</span>:
+        <span class="string">"""基于上下文生成 AMC 风险分析报告"""</span>
+        <span class="keyword">from</span> agent.core <span class="keyword">import</span> call_llm
+        prompt = <span class="string">f"""你是AMC数据分析专家。请基于以下上下文，生成关于"{topic}"的分析报告。
+
+## 参考资料
+{context}
+
+## 要求
+1. 用 JSON 格式输出，包含字段：summary, risk_level(high/medium/low), key_findings, recommendations
+2. 风险等级必须基于事实
+3. 建议必须具体可执行"""</span>
+        <span class="keyword">return</span> call_llm(prompt)
+
+    registry.register(
+        name=<span class="string">"generate_report"</span>,
+        description=<span class="string">"基于检索到的知识和数据，生成 AMC 风险分析报告。"</span>
+                    <span class="string">"输入: 分析主题 + 上下文信息。输出: 结构化分析报告。"</span>,
+        func=generate_report,
+        parameters={
+            <span class="string">"type"</span>: <span class="string">"object"</span>,
+            <span class="string">"properties"</span>: {
+                <span class="string">"topic"</span>: {<span class="string">"type"</span>: <span class="string">"string"</span>, <span class="string">"description"</span>: <span class="string">"分析主题"</span>},
+                <span class="string">"context"</span>: {<span class="string">"type"</span>: <span class="string">"string"</span>, <span class="string">"description"</span>: <span class="string">"参考资料"</span>},
+            },
+            <span class="string">"required"</span>: [<span class="string">"topic"</span>, <span class="string">"context"</span>]
+        }
+    )
+
+    <span class="keyword">return</span> registry</pre>
+
+  <h3>core.py — Agent 核心循环</h3>
+  <pre><span class="comment"># agent/core.py</span>
+<span class="keyword">import</span> json, re
+<span class="keyword">from</span> models <span class="cls">import</span> AgentStatus, AgentStep, QueryResult
+
+<span class="keyword">def</span> <span class="func">call_llm</span>(messages: list[<span class="cls">dict</span>],
+            tools: list[<span class="cls">dict</span>] | <span class="cls">None</span> = <span class="cls">None</span>) -> <span class="cls">dict</span>:
+    <span class="string">"""调用 LLM API（智谱 GLM）"""</span>
+    <span class="keyword">import</span> requests
+    <span class="keyword">from</span> config <span class="keyword">import</span> config
+    url = <span class="string">"https://open.bigmodel.cn/api/paas/v4/chat/completions"</span>
+    headers = {<span class="string">"Authorization"</span>: <span class="string">f"Bearer <span class="param">{config.zhipu_api_key}</span>"</span>}
+    body = {
+        <span class="string">"model"</span>: config.zhipu_model,
+        <span class="string">"messages"</span>: messages,
+        <span class="string">"temperature"</span>: config.agent_temperature,
+    }
+    <span class="keyword">if</span> tools:
+        body[<span class="string">"tools"</span>] = tools
+    resp = requests.post(url, headers=headers, json=body, timeout=<span class="number">60</span>)
+    resp.raise_for_status()
+    <span class="keyword">return</span> resp.json()[<span class="string">"choices"</span>][<span class="number">0</span>][<span class="string">"message"</span>]
+
+
+<span class="keyword">class</span> <span class="cls">ReActAgent</span>:
+    <span class="string">"""
+    ReAct Agent —— 思考→行动→观察 循环
+    整合 Day 36-40 所有 Agent 技巧:
+    - ReAct 循环 (Day 36)
+    - Function Calling (Day 37)
+    - 记忆管理 (Day 38)
+    - 错误恢复 (Day 39)
+    - RAG+Agent 联合 (Day 40)
+    - Prompt 约束 (Day 41)
+    """</span>
+
+    SYSTEM_PROMPT = <span class="string">"""你是AMC（资产管理公司）智能分析助手。你的职责：
+1. 回答关于不良资产管理、监管报送、风险分析的问题
+2. 查询数仓数据并给出分析
+3. 生成风险分析报告
+
+可用工具:
+- knowledge_search: 检索 AMC 知识库（政策、规范、业务规则）
+- sql_query: 查询 AMC 数仓数据
+- generate_report: 生成风险分析报告
+
+工作流程（严格遵循）:
+Thought: 分析问题，决定下一步
+Action: 调用一个工具
+Observation: 查看工具结果
+... 重复直到有足够信息 ...
+Final Answer: 给出最终回答
+
+注意:
+- 优先使用 knowledge_search 查找知识
+- 需要数据时使用 sql_query
+- 需要报告时先收集信息再用 generate_report
+- 回答要专业、准确、基于事实
+- 不确定的数据要明确说明"""</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(<span class="param">self</span>, tool_registry, max_steps: <span class="cls">int</span> = <span class="number">8</span>):
+        <span class="param">self</span>.tools = tool_registry
+        <span class="param">self</span>.max_steps = max_steps
+        <span class="param">self</span>.trace: list[<span class="cls">AgentStep</span>] = []
+        <span class="param">self</span>.conversation: list[<span class="cls">dict</span>] = []
+
+    <span class="keyword">def</span> <span class="func">run</span>(<span class="param">self</span>, question: <span class="cls">str</span>) -> <span class="cls">QueryResult</span>:
+        <span class="string">"""运行 Agent —— ReAct + FC 混合模式"""</span>
+        <span class="param">self</span>.trace = []
+        <span class="param">self</span>.conversation = [
+            {<span class="string">"role"</span>: <span class="string">"system"</span>, <span class="string">"content"</span>: <span class="param">self</span>.SYSTEM_PROMPT},
+            {<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: question},
+        ]
+        tools_schema = <span class="param">self</span>.tools.get_tools_schema()
+
+        <span class="keyword">for</span> step <span class="keyword">in</span> range(<span class="param">self</span>.max_steps):
+            <span class="comment"># 第一步和后续都用 FC 模式</span>
+            msg = call_llm(<span class="param">self</span>.conversation, tools=tools_schema)
+
+            <span class="comment"># 如果没有工具调用 → 生成最终回答</span>
+            <span class="keyword">if</span> <span class="keyword">not</span> msg.get(<span class="string">"tool_calls"</span>):
+                agent_step = <span class="cls">AgentStep</span>(
+                    step_num=step,
+                    status=AgentStatus.FINISHED,
+                    thought=<span class="string">"Agent 给出最终回答"</span>,
+                )
+                <span class="param">self</span>.trace.append(agent_step)
+                <span class="keyword">return</span> <span class="cls">QueryResult</span>(
+                    answer=msg[<span class="string">"content"</span>],
+                    sources=[],
+                    agent_trace=<span class="param">self</span>.trace
+                )
+
+            <span class="comment"># 处理工具调用</span>
+            <span class="param">self</span>.conversation.append(msg)
+            <span class="keyword">for</span> tc <span class="keyword">in</span> msg[<span class="string">"tool_calls"</span>]:
+                tool_name = tc[<span class="string">"function"</span>][<span class="string">"name"</span>]
+                <span class="keyword">try</span>:
+                    args = json.loads(tc[<span class="string">"function"</span>][<span class="string">"arguments"</span>])
+                <span class="keyword">except</span> json.JSONDecodeError:
+                    args = {}
+
+                <span class="comment"># 执行工具</span>
+                <span class="keyword">try</span>:
+                    result = <span class="param">self</span>.tools.execute(tool_name, **args)
+                    status = AgentStatus.TOOL_CALL
+                <span class="keyword">except</span> Exception <span class="keyword">as</span> e:
+                    result = <span class="string">f"工具执行失败: {e}"</span>
+                    status = AgentStatus.TOOL_CALL
+
+                <span class="comment"># 记录步骤</span>
+                agent_step = <span class="cls">AgentStep</span>(
+                    step_num=step, status=status,
+                    thought=msg[<span class="string">"content"</span>][:<span class="number">200</span>],
+                    tool_name=tool_name,
+                    tool_input=args,
+                    tool_output=result[:<span class="number">500</span>],
+                )
+                <span class="param">self</span>.trace.append(agent_step)
+
+                <span class="comment"># 回传工具结果给 LLM</span>
+                <span class="param">self</span>.conversation.append({
+                    <span class="string">"role"</span>: <span class="string">"tool"</span>,
+                    <span class="string">"tool_call_id"</span>: tc[<span class="string">"id"</span>],
+                    <span class="string">"content"</span>: result,
+                })
+
+        <span class="comment"># 超过最大步数</span>
+        <span class="keyword">return</span> <span class="cls">QueryResult</span>(
+            answer=<span class="string">"抱歉，分析过程过于复杂，请简化问题后重试。"</span>,
+            sources=[], agent_trace=<span class="param">self</span>.trace
+        )
+
+    <span class="keyword">def</span> <span class="func">show_trace</span>(<span class="param">self</span>) -> <span class="cls">str</span>:
+        <span class="string">"""格式化输出 Agent 执行轨迹"""</span>
+        lines = [<span class="string">"=== Agent 执行轨迹 ==="</span>]
+        <span class="keyword">for</span> step <span class="keyword">in</span> <span class="param">self</span>.trace:
+            icon = {AgentStatus.THINKING: <span class="string">"💭"</span>,
+                   AgentStatus.TOOL_CALL: <span class="string">"🔧"</span>,
+                   AgentStatus.GENERATING: <span class="string">"✍️"</span>,
+                   AgentStatus.FINISHED: <span class="string">"✅"</span>}.get(step.status, <span class="string">"?"</span>)
+            lines.append(<span class="string">f"\n{icon} Step {step.step_num}: [{step.status.value}] "</span>)
+            <span class="keyword">if</span> step.tool_name:
+                lines.append(<span class="string">f"   工具: {step.tool_name}"</span>)
+                lines.append(<span class="string">f"   输入: {step.tool_input}"</span>)
+                lines.append(<span class="string">f"   输出: {step.tool_output[:100]}..."</span>)
+        <span class="keyword">return</span> <span class="string">"\n"</span>.join(lines)</pre>
+</div>
+
+<!-- ==================== Section 7: 主入口 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🚀</span> 主入口 —— 串联全链路
+    <span class="time-tag">15 分钟</span>
+  </div>
+
+  <pre><span class="comment"># main.py — AMC 智能分析系统主入口</span>
+<span class="keyword">from</span> config <span class="keyword">import</span> config
+<span class="keyword">from</span> indexer.chunker <span class="keyword">import</span> RecursiveChunker
+<span class="keyword">from</span> indexer.embedder <span class="keyword">import</span> ZhipuEmbedder
+<span class="keyword">from</span> indexer.vectorstore <span class="keyword">import</span> AMCVectorStore
+<span class="keyword">from</span> agent.tools <span class="keyword">import</span> build_amc_tools
+<span class="keyword">from</span> agent.core <span class="keyword">import</span> ReActAgent
+<span class="keyword">from</span> models <span class="keyword">import</span> Document
+
+<span class="comment"># ========== Phase 1: 离线索引 ==========</span>
+<span class="keyword">def</span> <span class="func">build_index</span>(documents: list[<span class="cls">Document</span>]):
+    <span class="string">"""
+    离线索引管线：文档 → 分块 → Embedding → 向量库
+    类比数仓: ODS → DWD → DWS → ADS
+    """</span>
+    print(<span class="string">"📦 [1/4] 文本分块..."</span>)
+    chunker = <span class="cls">RecursiveChunker</span>(
+        chunk_size=config.chunk_size,
+        overlap=config.chunk_overlap
+    )
+    all_chunks = []
+    <span class="keyword">for</span> doc <span class="keyword">in</span> documents:
+        chunks = chunker.chunk_document(doc)
+        all_chunks.extend(chunks)
+        print(<span class="string">f"   {doc.doc_id}: {len(chunks)} 个分块"</span>)
+    print(<span class="string">f"   总计: {len(all_chunks)} 个分块"</span>)
+
+    print(<span class="string">"\n🧮 [2/4] 生成 Embedding..."</span>)
+    embedder = <span class="cls">ZhipuEmbedder</span>(config.zhipu_api_key, config.embedding_model)
+    texts = [c.content <span class="keyword">for</span> c <span class="keyword">in</span> all_chunks]
+    embeddings = embedder.embed_batch(texts)
+    print(<span class="string">f"   完成: {len(embeddings)} 个向量"</span>)
+
+    print(<span class="string">"\n💾 [3/4] 写入向量库..."</span>)
+    store = <span class="cls">AMCVectorStore</span>(config.chroma_dir, config.collection_name)
+    store.add_chunks(all_chunks, embeddings)
+    print(<span class="string">f"   完成: {store.collection.count()} 条记录"</span>)
+
+    print(<span class="string">"\n✅ [4/4] 索引构建完成！"</span>)
+    <span class="keyword">return</span> chunker, embedder, store
+
+
+<span class="comment"># ========== Phase 2: 在线问答 ==========</span>
+<span class="keyword">def</span> <span class="func">start_agent</span>(embedder, store):
+    <span class="string">"""启动 Agent 问答系统"""</span>
+    <span class="comment"># 初始化各组件（reranker 用简单的重排模拟）</span>
+    <span class="keyword">from</span> query.reranker <span class="keyword">import</span> SimpleReranker
+    <span class="keyword">from</span> query.retriever <span class="keyword">import</span> ChromaRetriever
+    <span class="keyword">from</span> query.generator <span class="keyword">import</span> PromptGenerator
+
+    retriever = <span class="cls">ChromaRetriever</span>(store)
+    reranker = <span class="cls">SimpleReranker</span>()
+    generator = <span class="cls">PromptGenerator</span>()
+
+    <span class="comment"># 构建 Agent（注入所有工具）</span>
+    tool_registry = build_amc_tools(
+        reranker=reranker, generator=generator,
+        retriever=retriever, embedder=embedder
+    )
+    agent = <span class="cls">ReActAgent</span>(tool_registry, max_steps=config.agent_max_steps)
+
+    <span class="keyword">return</span> agent
+
+
+<span class="comment"># ========== 完整示例 ==========</span>
+<span class="keyword">if</span> __name__ == <span class="string">"__main__"</span>:
+    <span class="comment"># 1. 准备示例文档（实际项目从数据库/文件系统加载）</span>
+    sample_docs = [
+        Document(
+            doc_id=<span class="string">"policy_001"</span>,
+            content=<span class="string">"""
+## 不良资产分类标准
+### 一、正常类
+借款人能够履行合同，没有足够理由怀疑贷款本息不能按时足额偿还。
+### 二、关注类
+借款人目前有能力偿还贷款本息，但存在一些可能对偿还产生不利影响的因素。
+### 三、次级类
+借款人的还款能力出现明显问题，完全依靠其正常营业收入无法足额偿还贷款本息。
+### 四、可疑类
+借款人无法足额偿还贷款本息，即使执行担保，也肯定要造成较大损失。
+### 五、损失类
+在采取所有可能的措施和一切必要的法律程序之后，贷款本息仍然无法收回。
+"""</span>,
+            metadata={<span class="string">"source"</span>: <span class="string">"银监会"</span>, <span class="string">"type"</span>: <span class="string">"政策"</span>},
+        ),
+        Document(
+            doc_id=<span class="string">"amc_guide_001"</span>,
+            content=<span class="string">"""
+## AMC 不良资产处置流程
+### 1. 资产尽调
+对不良资产进行全面调查，包括债务人经营状况、抵押物评估、担保链分析。
+### 2. 方案设计
+根据尽调结果，设计最优处置方案：债务重组、资产证券化、批量转让、司法诉讼。
+### 3. 审批执行
+处置方案需经风控委员会审批，金额超过5000万的需报总部审批。
+### 4. 后续管理
+建立处置台账，定期跟踪回款进度，按季度更新资产估值。
+"""</span>,
+            metadata={<span class="string">"source"</span>: <span class="string">"AMC内部"</span>, <span class="string">"type"</span>: <span class="string">"规范"</span>},
+        ),
+    ]
+
+    <span class="comment"># 2. 构建索引</span>
+    chunker, embedder, store = build_index(sample_docs)
+
+    <span class="comment"># 3. 启动 Agent</span>
+    agent = start_agent(embedder, store)
+
+    <span class="comment"># 4. 测试问答</span>
+    questions = [
+        <span class="string">"不良资产五级分类标准是什么？"</span>,
+        <span class="string">"AMC 处置不良资产的流程是怎样的？"</span>,
+        <span class="string">"帮我生成一份不良资产处置的合规报告"</span>,
+    ]
+    <span class="keyword">for</span> q <span class="keyword">in</span> questions:
+        print(<span class="string">f"\n{'='*60}"</span>)
+        print(<span class="string">f"❓ 用户: {q}"</span>)
+        result = agent.run(q)
+        print(<span class="string">f"\n💬 回答: {result.answer}"</span>)
+        print(<span class="string">f"\n{agent.show_trace()}"</span>)</pre>
+
+  <div class="arch-diagram">
+ 一次查询的完整数据流：
+
+ 用户问题 "不良资产分类标准？"
+       │
+       ▼
+ ┌─────────────────┐
+ │  ReActAgent     │  ← Day 36-40: 思考→行动→观察循环
+ │  "需要查知识库"  │
+ └────────┬────────┘
+          │ FC: knowledge_search
+          ▼
+ ┌─────────────────┐
+ │  ZhipuEmbedder  │  ← Day 30: query → 向量
+ │  embed(query)   │
+ └────────┬────────┘
+          │
+          ▼
+ ┌─────────────────┐
+ │  AMCVectorStore │  ← Day 31: 向量检索
+ │  search(emb)    │
+ └────────┬────────┘
+          │ Top-10 候选
+          ▼
+ ┌─────────────────┐
+ │  SimpleReranker │  ← Day 33: 重排序
+ │  rerank()       │
+ └────────┬────────┘
+          │ Top-5 精排
+          ▼
+ ┌─────────────────┐
+ │  ReActAgent     │  ← 工具结果回传
+ │  "信息充分"      │
+ └────────┬────────┘
+          │ Prompt Engineering (Day 40-41)
+          ▼
+ ┌─────────────────┐
+ │  LLM 生成回答    │  ← Day 34: 上下文生成
+ │  (带来源引用)    │
+ └─────────────────┘
+          │
+          ▼
+    最终回答 + 来源
+  </div>
+</div>
+
+<!-- ==================== Section 8: Phase 2 总结 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📊</span> Phase 2 完结总结（Day 29-42）
+    <span class="time-tag">10 分钟</span>
+  </div>
+
+  <h3>RAG 全链路知识图谱</h3>
+  <table class="compare-table">
+    <tr><th>天数</th><th>主题</th><th>数仓类比</th><th>核心产出</th></tr>
+    <tr><td>D29</td><td>文本分块</td><td>ODS→DWD 明细拆分</td><td>RecursiveChunker</td></tr>
+    <tr><td>D30</td><td>Embedding</td><td>DWS 汇总向量化</td><td>ZhipuEmbedder + 余弦相似度</td></tr>
+    <tr><td>D31</td><td>向量数据库</td><td>ADS 应用存储层</td><td>ChromaDB 持久化</td></tr>
+    <tr><td>D32</td><td>检索</td><td>ADS 查询</td><td>向量检索 + Query变换</td></tr>
+    <tr><td>D33</td><td>Reranker</td><td>查询优化</td><td>Cross-Encoder 精排</td></tr>
+    <tr><td>D34</td><td>生成</td><td>报表渲染</td><td>Prompt 模板 + 三策略</td></tr>
+    <tr><td>D35</td><td>评估</td><td>数据质量监控</td><td>P@K / MRR / Faithfulness</td></tr>
+    <tr><td>D36</td><td>Agent 基础</td><td>调度系统</td><td>ReAct 循环 + 手写解析</td></tr>
+    <tr><td>D37</td><td>Function Calling</td><td>存储过程</td><td>FC 引擎 + 多工具多轮</td></tr>
+    <tr><td>D38</td><td>Agent 进阶</td><td>工作流编排</td><td>ToolChain + Memory + MultiAgent</td></tr>
+    <tr><td>D39</td><td>Agent 高级</td><td>容错+监控</td><td>缓存/状态机/审批/HITL</td></tr>
+    <tr><td>D40</td><td>RAG+Agent</td><td>OLAP+OLTP融合</td><td>联合架构 + Prompt进阶</td></tr>
+    <tr><td>D41</td><td>Prompt高级</td><td>报表模板约束</td><td>输出约束/长上下文/多轮优化</td></tr>
+    <tr><td><strong>D42</strong></td><td><strong>综合项目</strong></td><td><strong>全链路产品</strong></td><td><strong>AMC智能分析系统</strong></td></tr>
+  </table>
+
+  <h3>能力升级对照</h3>
+  <div class="phase-summary">
+    <div class="phase-card">
+      <h4>Phase 1 前（Day 1-28）</h4>
+      <p>✓ Python 核心 + OOP</p>
+      <p>✓ FastAPI 构建服务</p>
+      <p>✓ 工程化（日志/测试/部署）</p>
+      <p>✓ 能调用 LLM API</p>
+    </div>
+    <div class="phase-card" style="border-left-color: var(--red);">
+      <h4>Phase 2 后（Day 29-42）新增</h4>
+      <p>✓ RAG 全链路（索引→检索→生成→评估）</p>
+      <p>✓ Agent 系统（ReAct + FC + 记忆）</p>
+      <p>✓ Prompt Engineering 高级技巧</p>
+      <p>✓ 能构建完整 AI 产品原型</p>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== Section 9: 常见陷阱 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚠️</span> 综合项目常见陷阱 Top 5
+    <span class="time-tag">5 分钟</span>
+  </div>
+
+  <div class="error-box">
+    <strong>陷阱 1：全量加载 vs 懒加载</strong><br>
+    离线索引时不要一次性把所有文档 Embedding。用生成器逐文档处理，内存占用从 O(N) 降到 O(1)。分块时同理——<code>split_text</code> 返回 list，但 <code>chunk_document</code> 可以改成生成器。
+  </div>
+
+  <div class="error-box">
+    <strong>陷阱 2：Agent 死循环</strong><br>
+    Agent 可能在两个工具之间反复调用。解决方案：<code>max_steps</code> 硬限制 + 重复检测（如果连续 3 次调用同一工具，自动终止）+ Token 预算控制。
+  </div>
+
+  <div class="warn-box">
+    <strong>陷阱 3：工具描述太简短</strong><br>
+    FC 模式下，LLM 完全依赖工具描述来决定调用哪个工具。描述要包含：功能说明、适用场景、输入输出格式、注意事项。至少 3-5 句话。
+  </div>
+
+  <div class="warn-box">
+    <strong>陷阱 4：向量库和模型不匹配</strong><br>
+    如果 Embedding 模型更换（比如从 embedding-3 换成 bge-large），所有已存储的向量需要重新生成。解决方案：在向量库 metadata 中记录模型版本，启动时检查。
+  </div>
+
+  <div class="warn-box">
+    <strong>陷阱 5：缺少评估闭环</strong><br>
+    很多 RAG 系统上线后就不再评估。实际项目要定期跑评估（Day 35 学的），监控 P@K、MRR、Faithfulness 等指标的趋势。
+  </div>
+</div>
+
+<!-- ==================== Section 10: 练习 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">✏️</span> 今日练习
+    <span class="time-tag">15 分钟</span>
+  </div>
+
+  <div class="practice">
+    <h3>练习 1：添加新工具（扩展 Agent 能力）</h3>
+    <p>为 AMC 系统添加一个 <code>calculate_ratio</code> 工具，用于计算不良率、拨备覆盖率等比率。</p>
+    <pre><span class="comment"># 提示：在 tools.py 的 build_amc_tools 中添加</span>
+<span class="keyword">def</span> <span class="func">calculate_ratio</span>(numerator: <span class="cls">float</span>, denominator: <span class="cls">float</span>,
+                    ratio_name: <span class="cls">str</span>) -> <span class="cls">str</span>:
+    <span class="string">"""计算业务比率"""</span>
+    <span class="keyword">if</span> denominator == <span class="number">0</span>:
+        <span class="keyword">return</span> <span class="string">f"{ratio_name}: 无法计算（分母为0）"</span>
+    ratio = numerator / denominator * <span class="number">100</span>
+    <span class="keyword">return</span> <span class="string">f"{ratio_name}: {ratio:.2f}% (分子={numerator}, 分母={denominator})"</span></pre>
+  </div>
+
+  <div class="practice">
+    <h3>练习 2：Pipeline 模式重构离线索引</h3>
+    <p>用 <code>Protocol</code> 定义 <code>PipeNode</code> 协议，让分块器、Embedder、向量库写入器都实现 <code>process(data: dict) -> dict</code>，然后用链式调用串联：<code>data = chunker.process(data); data = embedder.process(data); data = store.process(data)</code></p>
+  </div>
+
+  <div class="practice">
+    <h3>练习 3：LeetCode #239 — 滑动窗口最大值</h3>
+    <p>用 <code>collections.deque</code>（Day 38 学过的）实现 O(n) 解法。这道题是单调队列的经典应用，也是理解 Agent 中滑动窗口记忆机制的底层基础。</p>
+    <pre><span class="keyword">from</span> collections <span class="keyword">import</span> deque
+
+<span class="keyword">def</span> <span class="func">maxSlidingWindow</span>(nums: list[<span class="cls">int</span>], k: <span class="cls">int</span>) -> list[<span class="cls">int</span>]:
+    <span class="string">"""单调递减队列：队首始终是当前窗口最大值"""</span>
+    result = []
+    dq = deque()  <span class="comment"># 存索引，值单调递减</span>
+
+    <span class="keyword">for</span> i, num <span class="keyword">in</span> enumerate(nums):
+        <span class="comment"># 移除超出窗口的元素</span>
+        <span class="keyword">while</span> dq <span class="keyword">and</span> dq[<span class="number">0</span>] <= i - k:
+            dq.popleft()
+
+        <span class="comment"># 移除比当前元素小的（它们不可能是最大值）</span>
+        <span class="keyword">while</span> dq <span class="keyword">and</span> nums[dq[-<span class="number">1</span>]] < num:
+            dq.pop()
+
+        dq.append(i)
+
+        <span class="comment"># 窗口形成后，记录最大值</span>
+        <span class="keyword">if</span> i >= k - <span class="number">1</span>:
+            result.append(nums[dq[<span class="number">0</span>]])
+
+    <span class="keyword">return</span> result
+
+<span class="comment"># 测试</span>
+print(maxSlidingWindow([<span class="number">1,3,-1</span>,-<span class="number">3</span>,<span class="number">5,3,6,7</span>], <span class="number">3</span>))
+<span class="comment"># 输出: [3, 3, 5, 5, 6, 7]</span></pre>
+  </div>
+</div>
+
+<!-- ==================== Phase 3 预告 ==================== -->
+<div class="next-phase">
+  <h2>Phase 3 预告：微调与部署（Day 43-49）</h2>
+  <p>恭喜你完成了 RAG + Agent 阶段！接下来的一周，我们将进入<strong>模型微调与部署</strong>：</p>
+  <ul>
+    <li><strong>Day 43</strong> — LoRA 微调入门（用小参数量让模型学会你的业务语言）</li>
+    <li><strong>Day 44</strong> — PEFT 高效微调（QLoRA + 指令微调数据集构建）</li>
+    <li><strong>Day 45</strong> — 微调数据集工程（数据质量决定微调效果）</li>
+    <li><strong>Day 46</strong> — Ollama 本地部署（把模型跑在自己的电脑上）</li>
+    <li><strong>Day 47</strong> — vLLM 高性能推理（生产级推理引擎）</li>
+    <li><strong>Day 48</strong> — Docker 容器化部署（打包、发布、一键运行）</li>
+    <li><strong>Day 49</strong> — Phase 3 综合实战（微调 + 部署 AMC 专属模型）</li>
+  </ul>
+  <p>Phase 3 完成后，你将拥有<strong>从 0 到 1 构建完整 AI 产品</strong>的能力：数据处理 → RAG → Agent → 微调 → 部署。</p>
+</div>
+
+</body>
+</html>
