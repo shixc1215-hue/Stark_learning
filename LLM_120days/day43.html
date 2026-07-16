@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 43 - LoRA 微调入门：让大模型学会你的业务语言</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#faf5ff,#eff6ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #e9d5ff; }
+  .header .badge { display:inline-block;background:#f3e8ff;color:#7c3aed;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent2);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--green); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  pre { background:#1e293b;color:#e2e8f0;padding:16px 20px;border-radius:8px;overflow-x:auto;font-size:13.5px;line-height:1.6;margin:12px 0; }
+  code { font-family:'Cascadia Code','Fira Code','JetBrains Mono',Consolas,monospace; }
+  .inline-code { background:var(--surface2);color:var(--accent);padding:2px 7px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace; }
+  .comment { color:#94a3b8; }
+  .keyword { color:#c084fc; }
+  .string { color:#86efac; }
+  .func { color:#93c5fd; }
+  .num { color:#fbbf24; }
+  .param { color:#fca5a5; }
+  .h3 { font-size:16px;font-weight:700;margin:20px 0 10px;color:var(--text); }
+  .h4 { font-size:14px;font-weight:600;margin:16px 0 8px;color:var(--accent2); }
+  ul,ol { padding-left:20px;margin:8px 0; }
+  li { margin:4px 0;font-size:14px; }
+  table { width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px; }
+  th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border); }
+  td { padding:10px 14px;border:1px solid var(--border); }
+  .tag { display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600; }
+  .tag-purple { background:#f3e8ff;color:#7c3aed; }
+  .tag-blue { background:#dbeafe;color:#2563eb; }
+  .tag-green { background:#dcfce7;color:#16a34a; }
+  .tag-orange { background:#ffedd5;color:#ea580c; }
+  .compare-card { display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0; }
+  .compare-card .card { border-radius:8px;padding:16px;border:1px solid var(--border); }
+  .compare-card .card h4 { font-size:14px;font-weight:700;margin-bottom:8px; }
+  .compare-card .card-bad { background:#fef2f2;border-color:#fecaca; }
+  .compare-card .card-bad h4 { color:var(--red); }
+  .compare-card .card-good { background:#f0fdf4;border-color:#bbf7d0; }
+  .compare-card .card-good h4 { color:var(--green); }
+  .flow-diagram { background:var(--surface2);border-radius:8px;padding:16px 20px;margin:12px 0;font-family:monospace;font-size:13px;overflow-x:auto;white-space:pre;line-height:1.5;color:var(--text2); }
+  .quiz-box { background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:16px 20px;margin:14px 0; }
+  .quiz-box h4 { color:#7c3aed;font-size:14px;margin-bottom:8px; }
+  .phase-nav { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap; }
+  .phase-nav .phase-item { padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600; }
+  .phase-nav .done { background:#dcfce7;color:#16a34a; }
+  .phase-nav .current { background:#f3e8ff;color:#7c3aed;animation:pulse 2s infinite; }
+  .phase-nav .future { background:var(--surface2);color:var(--text3); }
+  @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(124,58,237,0.3);} 50%{box-shadow:0 0 0 6px rgba(124,58,237,0);} }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Phase 3 · 微调部署 · Day 1/7</div>
+  <h1>LoRA 微调入门：让大模型学会你的业务语言</h1>
+  <div class="subtitle">从全量微调的困境 → LoRA 低秩分解原理 → PEFT 库实战 → AMC 金融术语微调</div>
+</div>
+
+<div class="progress-bar">
+  <span class="label">总进度</span>
+  <div class="track"><div class="fill" style="width:61.2%"></div></div>
+  <span class="percent">43/70</span>
+</div>
+
+<div class="phase-nav">
+  <span class="phase-item done">D1-7 Python核心+LLM API</span>
+  <span class="phase-item done">D8-14 编程思维+LLM拓展</span>
+  <span class="phase-item done">D15-28 工程进阶</span>
+  <span class="phase-item done">D29-42 RAG+Agent</span>
+  <span class="phase-item current">D43-49 微调部署</span>
+  <span class="phase-item future">D50-70 项目实战</span>
+</div>
+
+<!-- ==================== Section 1 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🧠</span> 为什么需要微调？
+    <span class="time-tag">⏱ 10 min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>核心问题：</strong>通用大模型（如 Qwen、ChatGLM）什么都懂一点，但在你的专业领域（AMC不良资产管理、招标数据）可能经常"瞎说"。微调就是让模型在你的业务数据上"专项训练"，学会你的行话、规范和推理方式。
+  </div>
+
+  <p>回忆一下我们之前的 RAG 系统——它通过检索外部知识来回答问题。但 RAG 有局限：</p>
+
+  <table>
+    <tr>
+      <th>场景</th><th>RAG 能力</th><th>微调 能力</th>
+    </tr>
+    <tr><td>查询外部知识库中的事实</td><td>✅ 擅长</td><td>⚠️ 不适合（无法记忆新事实）</td></tr>
+    <tr><td>学会特定领域的术语和表达</td><td>⚠️ 靠Prompt引导</td><td>✅ 擅长（内化到模型参数）</td></tr>
+    <tr><td>掌握特定格式输出（JSON/报表）</td><td>⚠️ 不稳定</td><td>✅ 擅长（形成稳定的输出模式）</td></tr>
+    <tr><td>理解特定推理逻辑（风控评估）</td><td>⚠️ 需要Few-Shot</td><td>✅ 擅长（学会推理链路）</td></tr>
+    <tr><td>降低API成本（小模型替代大模型）</td><td>❌ 无法</td><td>✅ 可以（微调小模型→性能接近大模型）</td></tr>
+  </table>
+
+  <div class="tip-box">
+    <strong>数仓类比：</strong>微调就像在数仓中建立 ADS 层——将 DWD/DWS 的原始数据聚合、沉淀为业务直接可用的指标。微调把通用的模型"原始参数"沉淀为"业务专用参数"，让你的领域知识直接内嵌到模型里。
+  </div>
+
+  <h3 class="h3">全量微调 vs LoRA</h3>
+
+  <div class="compare-card">
+    <div class="card card-bad">
+      <h4>❌ 全量微调 (Full Fine-Tuning)</h4>
+      <ul>
+        <li>更新模型<strong>所有</strong>参数</li>
+        <li>7B 模型 ≈ 140亿参数</li>
+        <li>显存需求：~28GB（FP32）</li>
+        <li>训练数据：数千到数万条</li>
+        <li>容易<strong>灾难性遗忘</strong>（忘了通用能力）</li>
+        <li>存储：每套数据一个完整模型副本</li>
+      </ul>
+    </div>
+    <div class="card card-good">
+      <h4>✅ LoRA (Low-Rank Adaptation)</h4>
+      <ul>
+        <li>只训练<strong>少量</strong>附加参数</li>
+        <li>7B 模型 LoRA ≈ 几百万参数</li>
+        <li>显存需求：~8-12GB（Consumer GPU）</li>
+        <li>训练数据：几百到几千条即可</li>
+        <li><strong>不易遗忘</strong>（原始参数冻结）</li>
+        <li>存储：几十MB 的 adapter 文件</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== Section 2 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📐</span> LoRA 原理：低秩分解
+    <span class="time-tag">⏱ 15 min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>直觉理解：</strong>一个 7B 模型有几十层，每层都有巨大的权重矩阵 W（比如 4096×4096）。LoRA 的核心洞察是：微调时权重的<strong>变化量</strong> ΔW 其实可以用一个低秩矩阵来近似——不需要满秩的 4096×4096 变化，rank=8 的 4096×8 + 8×4096 就够了。
+  </div>
+
+  <h3 class="h3">数学直觉（不需要推导，理解思想即可）</h3>
+
+  <div class="flow-diagram">
+原始权重矩阵 W：shape = (d_out, d_in) = (4096, 4096) = 1677万参数
+
+全量微调：直接修改 W → 需要更新 1677万个参数
+
+LoRA 微调：冻结 W，新增两个小矩阵
+  W_new = W + ΔW
+  ΔW = B × A        其中 A: (r, d_in), B: (d_out, r)
+
+  当 r(rank) = 8 时：
+  A = (8, 4096) = 32,768 参数
+  B = (4096, 8) = 32,768 参数
+  总计 = 65,536 参数（仅为原来的 0.39%！）
+
+前向传播：y = W·x + B·A·x
+           原始推理   LoRA适配
+
+训练时：W 冻结 ❄️，只更新 A 和 B ✏️
+推理时：可以合并 W' = W + B×A，零额外延迟
+  </div>
+
+  <h3 class="h3">Python 知识：矩阵运算回顾 (numpy)</h3>
+
+  <p>理解 LoRA 需要基本的矩阵运算。我们用 numpy 验证上面的思路：</p>
+
+  <pre><code><span class="keyword">import</span> numpy <span class="keyword">as</span> np
+
+<span class="comment"># 模拟一个"注意力权重矩阵"</span>
+<span class="comment"># 真实场景中 d_model=4096，这里用小维度演示</span>
+d_in, d_out = <span class="num">64</span>, <span class="num">64</span>
+rank = <span class="num">8</span>  <span class="comment"># LoRA rank</span>
+
+<span class="comment"># 原始权重（预训练好的，冻结不动）</span>
+W = np.random.randn(d_out, d_in).astype(np.float32)
+<span class="func">print</span>(<span class="string">f"原始权重 W: {W.shape}, 参数量: {W.size}"</span>)
+<span class="comment"># 原始权重 W: (64, 64), 参数量: 4096</span>
+
+<span class="comment"># LoRA 的两个低秩矩阵</span>
+<span class="comment"># A 用高斯初始化（很小的值），B 初始化为 0</span>
+A = np.random.randn(rank, d_in).astype(np.float32) * <span class="num">0.01</span>  <span class="comment"># (8, 64)</span>
+B = np.zeros((d_out, rank), dtype=np.float32)           <span class="comment"># (64, 8)</span>
+
+<span class="func">print</span>(<span class="string">f"LoRA A: {A.shape}, LoRA B: {B.shape}"</span>)
+<span class="func">print</span>(<span class="string">f"LoRA 总参数量: {A.size + B.size} (原始的 {(A.size+B.size)/W.size:.1%})"</span>)
+<span class="comment"># LoRA A: (8, 64), LoRA B: (64, 8)</span>
+<span class="comment"># LoRA 总参数量: 1024 (原始的 25.0%)</span>
+<span class="comment"># 注：真实 4096 维度下比例是 0.39%，这里维度小所以比例高</span>
+
+<span class="comment"># 模拟输入</span>
+x = np.random.randn(d_in, <span class="num">1</span>).astype(np.float32)
+
+<span class="comment"># 原始输出</span>
+y_original = W @ x
+
+<span class="comment"># LoRA 输出</span>
+y_lora = B @ (A @ x)
+
+<span class="comment"># 合并输出</span>
+y_new = W @ x + B @ (A @ x)
+
+<span class="func">print</span>(<span class="string">f"原始输出形状: {y_original.shape}"</span>)
+<span class="func">print</span>(<span class="string">f"LoRA 调整量幅度: {np.abs(y_lora).mean():.6f}"</span>)
+<span class="comment"># B 初始化为0，所以初期 LoRA 输出为0，训练后才有变化</span></code></pre>
+
+  <div class="tip-box">
+    <strong>关键初始化：</strong>B 初始化为全零矩阵，A 用小的随机值。这意味着训练开始时 LoRA 的贡献是 0，模型行为和原始预训练模型完全一样。随着训练推进，B 和 A 逐渐学到有用的变化量。
+  </div>
+
+  <h3 class="h3">Python 知识：dataclass 进阶 + type hint 复用</h3>
+
+  <pre><code><span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> typing <span class="keyword">import</span> Optional
+
+<span class="keyword">@dataclass</span>
+<span class="keyword">class</span> <span class="func">LoRAConfig</span>:
+    <span class="string">"""LoRA 超参数配置"""</span>
+    rank: <span class="keyword">int</span> = <span class="num">8</span>              <span class="comment"># 低秩维度，越大表达能力越强但参数越多</span>
+    alpha: <span class="keyword">float</span> = <span class="num">16.0</span>         <span class="comment"># 缩放因子，通常设为 rank 的 2 倍</span>
+    dropout: <span class="keyword">float</span> = <span class="num">0.05</span>        <span class="comment"># LoRA 层的 dropout，防止过拟合</span>
+    target_modules: <span class="keyword">list</span>[<span class="keyword">str</span>] = field(default_factory=<span class="keyword">list</span>)
+    <span class="comment"># 要应用 LoRA 的模块名，如 ["q_proj", "v_proj"]</span>
+    bias: <span class="keyword">str</span> = <span class="string">"none"</span>          <span class="comment"># "none"/"all"/"lora_only"</span>
+    task_type: Optional[<span class="keyword">str</span>] = <span class="keyword">None</span>  <span class="comment"># "CAUSAL_LM" 等</span>
+
+    <span class="comment"># 计算缩放因子（只读属性）</span>
+    <span class="keyword">@property</span>
+    <span class="keyword">def</span> <span class="func">scaling</span>(self) -> <span class="keyword">float</span>:
+        <span class="keyword">return</span> self.alpha / self.rank
+
+<span class="comment"># 使用</span>
+cfg = LoRAConfig(rank=<span class="num">8</span>, target_modules=[<span class="string">"q_proj"</span>, <span class="string">"v_proj"</span>])
+<span class="func">print</span>(<span class="string">f"LoRA 缩放因子: {cfg.scaling}"</span>)  <span class="comment"># 2.0</span></code></pre>
+
+  <div class="warn-box">
+    <strong>alpha 参数的含义：</strong>实际 LoRA 输出 = (alpha/rank) × B×A×x。alpha 控制微调的"力度"。当 alpha = rank 时，缩放因子 = 1；通常 alpha = 2×rank，缩放因子 = 2。这不是越大越好——太大会破坏原始模型的知识。
+  </div>
+</div>
+
+<!-- ==================== Section 3 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔧</span> PEFT 库实战：5 分钟上手 LoRA
+    <span class="time-tag">⏱ 15 min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>PEFT (Parameter-Efficient Fine-Tuning)</strong> 是 Hugging Face 的库，把 LoRA/QLoRA 等参数高效微调方法封装成了几行代码。核心思路：加载预训练模型 → 包装成 PEFT 模型 → 正常训练 → 只保存 LoRA 权重。
+  </div>
+
+  <h3 class="h3">Step 1: 安装依赖</h3>
+
+  <pre><code><span class="comment"># 安装核心库（注意版本兼容性）</span>
+pip install transformers>=4.36.0 peft>=0.7.0 datasets accelerate bitsandbytes
+
+<span class="comment"># transformers: 加载预训练模型</span>
+<span class="comment"># peft: LoRA 微调核心库</span>
+<span class="comment"># datasets: HuggingFace 数据集加载</span>
+<span class="comment"># accelerate: 分布式训练加速</span>
+<span class="comment"># bitsandbytes: 4bit/8bit 量化（QLoRA 需要）</span></code></pre>
+
+  <h3 class="h3">Step 2: 准备微调数据</h3>
+
+  <pre><code><span class="keyword">from</span> datasets <span class="keyword">import</span> Dataset
+
+<span class="comment"># === 构造 AMC 金融术语微调数据集 ===</span>
+<span class="comment"># 场景：让模型学会用 AMC 领域的标准术语回答问题</span>
+
+train_data = [
+    {
+        <span class="string">"instruction"</span>: <span class="string">"请解释以下AMC术语"</span>,
+        <span class="string">"input"</span>: <span class="string">"不良资产"</span>,
+        <span class="string">"output"</span>: <span class="string">"不良资产是指借款人未能按期偿还本息，银行依法采取催收、诉讼、以资抵债等手段后仍无法收回的资产。主要包括不良贷款（次级、可疑、损失三类）、不良债券和不良股权投资。根据五级分类标准，后三类（次级、可疑、损失）统称为不良资产。"</span>
+    },
+    {
+        <span class="string">"instruction"</span>: <span class="string">"请解释以下AMC术语"</span>,
+        <span class="string">"input"</span>: <span class="string">"DWS层"</span>,
+        <span class="string">"output"</span>: <span class="string">"DWS（Data Warehouse Summary）层是数据仓库中的汇总层，位于DWD层之上、ADS层之下。DWS层以业务主题为组织单位，对DWD层明细数据按维度进行轻度和中度聚合，生成宽表或汇总指标表。例如：按债务人维度汇总的总敞口、按行业维度统计的不良率趋势等。"</span>
+    },
+    {
+        <span class="string">"instruction"</span>: <span class="string">"请解释以下AMC术语"</span>,
+        <span class="string">"input"</span>: <span class="string">"风险敞口"</span>,
+        <span class="string">"output"</span>: <span class="string">"风险敞口（Risk Exposure）是指债务人尚未偿还的全部债权余额，包括本金、利息、罚息等。敞口大小直接决定了AMC收购和管理不良资产时的资金占用规模，是风险评估和定价的核心指标。计算公式：风险敞口 = 贷款本金 + 应收利息 + 罚息 - 已收回金额。"</span>
+    },
+    {
+        <span class="string">"instruction"</span>: <span class="string">"请解释以下AMC术语"</span>,
+        <span class="string">"input"</span>: <span class="string">"五级分类"</span>,
+        <span class="string">"output"</span>: <span class="string">"五级分类是商业银行对信贷资产质量的分类标准，将贷款分为五级：正常、关注、次级、可疑、损失。其中后三类（次级、可疑、损失）合称不良贷款（NPL）。该分类标准由中国银监会制定，是评估银行资产质量和计提拨备的依据。AMC在收购不良资产时，五级分类是定价的重要参考。"</span>
+    },
+    {
+        <span class="string">"instruction"</span>: <span class="string">"请解释以下AMC术语"</span>,
+        <span class="string">"input"</span>: <span class="string">"批量转让"</span>,
+        <span class="string">"output"</span>: <span class="string">"批量转让是指AMC将收购的不良资产包按一定规则打包后，批量出售给第三方投资者的处置方式。转让过程中需经过资产评估、公开竞价等程序，符合财政部和银监会的监管要求。批量转让的优势在于快速回笼资金、降低处置成本，是AMC资产处置的主要方式之一。"</span>
+    },
+    {
+        <span class="string">"instruction"</span>: <span class="string">"请将以下自然语言查询转换为SQL"</span>,
+        <span class="string">"input"</span>: <span class="string">"查询2024年各行业不良贷款余额排名"</span>,
+        <span class="string">"output"</span>: <span class="string">"SELECT industry_name, SUM(npl_balance) AS total_npl FROM dws_npl_summary WHERE year = 2024 GROUP BY industry_name ORDER BY total_npl DESC;"</span>
+    },
+    {
+        <span class="string">"instruction"</span>: <span class="string">"请将以下自然语言查询转换为SQL"</span>,
+        <span class="string">"input"</span>: <span class="string">"找出不良率超过5%的分支机构"</span>,
+        <span class="string">"output"</span>: <span class="string">"SELECT branch_name, npl_balance / total_balance * 100 AS npl_ratio FROM dws_branch_summary WHERE npl_balance / total_balance * 100 > 5 ORDER BY npl_ratio DESC;"</span>
+    },
+]
+
+<span class="comment"># 转为 HuggingFace Dataset 对象</span>
+dataset = Dataset.from_list(train_data)
+<span class="func">print</span>(<span class="string">f"训练样本数: {len(dataset)}"</span>)
+<span class="func">print</span>(dataset[<span class="num">0</span>])  <span class="comment"># 查看第一条</span></code></pre>
+
+  <h3 class="h3">Step 3: 数据预处理——构造 Prompt 模板</h3>
+
+  <pre><code><span class="keyword">def</span> <span class="func">format_prompt</span>(example):
+    <span class="string">"""将 instruction/input/output 拼接成模型的训练文本"""</span>
+    <span class="comment"># 不同模型的模板格式不同，这里以通用格式为例</span>
+    text = (
+        <span class="string">f"### Instruction:\n{example['instruction']}\n\n"</span>
+        <span class="string">f"### Input:\n{example['input']}\n\n"</span>
+        <span class="string">f"### Response:\n{example['output']}"</span>
+    )
+    <span class="keyword">return</span> {<span class="string">"text"</span>: text}
+
+<span class="comment"># 应用格式化</span>
+dataset = dataset.map(format_prompt)
+<span class="func">print</span>(dataset[<span class="num">0</span>][<span class="string">"text"</span>][:<span class="num">200</span>])
+<span class="comment"># ### Instruction:</n请解释以下AMC术语\n\n### Input:\n不良资产\n\n### Response:\n不良资产是指...</span></code></pre>
+
+  <h3 class="h3">Step 4: 加载模型 + 应用 LoRA</h3>
+
+  <pre><code><span class="keyword">import</span> torch
+<span class="keyword">from</span> transformers <span class="keyword">import</span> AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+<span class="keyword">from</span> peft <span class="keyword">import</span> LoraConfig, get_peft_model, TaskType
+
+<span class="comment"># === 1. 量化配置（QLoRA: 4bit 量化 + LoRA） ===</span>
+<span class="comment"># 普通笔记本显存有限，用 4bit 量化把模型压缩到原来的 1/4</span>
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=<span class="keyword">True</span>,            <span class="comment"># 4bit 量化加载</span>
+    bnb_4bit_quant_type=<span class="string">"nf4"</span>,     <span class="comment"># NF4 量化类型（正态分布数据最优）</span>
+    bnb_4bit_compute_dtype=torch.float16,  <span class="comment"># 计算时用 float16</span>
+    bnb_4bit_use_double_quant=<span class="keyword">True</span>, <span class="comment"># 二次量化进一步压缩</span>
+)
+
+<span class="comment"># === 2. 加载 tokenizer ===</span>
+model_name = <span class="string">"Qwen/Qwen2.5-1.5B"</span>  <span class="comment"># 1.5B 小模型，适合学习</span>
+tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=<span class="keyword">True</span>)
+tokenizer.pad_token = tokenizer.eos_token  <span class="comment"># 设置 padding token</span>
+
+<span class="comment"># === 3. 加载模型（4bit 量化） ===</span>
+model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    quantization_config=bnb_config,
+    device_map=<span class="string">"auto"</span>,             <span class="comment"># 自动分配设备</span>
+    trust_remote_code=<span class="keyword">True</span>,
+)
+
+<span class="comment"># === 4. LoRA 配置 ===</span>
+lora_config = LoraConfig(
+    task_type=TaskType.CAUSAL_LM,       <span class="comment"># 因果语言模型</span>
+    r=<span class="num">8</span>,                                <span class="comment"># LoRA rank</span>
+    lora_alpha=<span class="num">16</span>,                       <span class="comment"># 缩放因子</span>
+    lora_dropout=<span class="num">0.05</span>,                   <span class="comment"># Dropout</span>
+    target_modules=[<span class="string">"q_proj"</span>, <span class="string">"v_proj"</span>],  <span class="comment"># 只对注意力 Q/V 做 LoRA</span>
+    bias=<span class="string">"none"</span>,
+)
+
+<span class="comment"># === 5. 应用 LoRA（包装模型） ===</span>
+model = get_peft_model(model, lora_config)
+
+<span class="comment"># 查看可训练参数</span>
+model.print_trainable_parameters()
+<span class="comment"># trainable params: 1,572,864 || all params: 1,545,851,392</span>
+<span class="comment"># trainable%: 0.1017%</span>
+<span class="comment"># 仅仅 0.1% 的参数需要训练！</span></code></pre>
+
+  <div class="tip-box">
+    <strong>target_modules 怎么选？</strong>
+    <ul>
+      <li><code class="inline-code">q_proj, v_proj</code>：最经典、效果稳定，适合入门</li>
+      <li><code class="inline-code">q_proj, k_proj, v_proj, o_proj</code>：覆盖全部注意力层，效果更好</li>
+      <li><code class="inline-code">q_proj, v_proj, k_proj, o_proj, gate_proj, up_proj, down_proj</code>：覆盖 MLP 层，最强但显存需求增大</li>
+    </ul>
+    小数据量（&lt;1000条）建议只用 q_proj+v_proj，数据充足时再扩展。
+  </div>
+</div>
+
+<!-- ==================== Section 4 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚡</span> 训练 LoRA 模型
+    <span class="time-tag">⏱ 10 min</span>
+  </div>
+
+  <pre><code><span class="keyword">from</span> transformers <span class="keyword">import</span> TrainingArguments, Trainer, DataCollatorForSeq2Seq
+
+<span class="comment"># === 1. Tokenize 数据集 ===</span>
+<span class="keyword">def</span> <span class="func">tokenize_function</span>(examples):
+    <span class="string">"""将文本转为 token ID 序列"""</span>
+    <span class="keyword">return</span> tokenizer(
+        examples[<span class="string">"text"</span>],
+        truncation=<span class="keyword">True</span>,
+        max_length=<span class="num">512</span>,      <span class="comment"># 最长 512 tokens，足够术语解释</span>
+        padding=<span class="keyword">False</span>,     <span class="comment"># 动态 padding 由 collator 处理</span>
+    )
+
+tokenized_dataset = dataset.map(tokenize_function, batched=<span class="keyword">True</span>)
+
+<span class="comment"># === 2. 训练参数 ===</span>
+training_args = TrainingArguments(
+    output_dir=<span class="string">"./lora_output"</span>,
+    num_train_epochs=<span class="num">3</span>,            <span class="comment"># 训练 3 轮（小数据集可以多轮）</span>
+    per_device_train_batch_size=<span class="num">2</span>,  <span class="comment"># 每卡 batch size</span>
+    gradient_accumulation_steps=<span class="num">4</span>,  <span class="comment"># 梯度累积（等效 batch=8）</span>
+    learning_rate=<span class="num">2e-4</span>,            <span class="comment"># LoRA 推荐学习率：1e-4 到 5e-4</span>
+    lr_scheduler_type=<span class="string">"cosine"</span>,  <span class="comment"># 余弦退火学习率</span>
+    warmup_ratio=<span class="num">0.1</span>,             <span class="comment"># 10% 步数做 warmup</span>
+    logging_steps=<span class="num">10</span>,
+    save_strategy=<span class="string">"epoch"</span>,       <span class="comment"># 每轮保存</span>
+    fp16=<span class="keyword">True</span>,                 <span class="comment"># 半精度训练加速</span>
+    optim=<span class="string">"paged_adamw_8bit"</span>,   <span class="comment"># 8bit Adam 优化器省显存</span>
+    report_to=<span class="string">"none"</span>,            <span class="comment"># 不上传 wandb</span>
+)
+
+<span class="comment"># === 3. 数据整理器 ===</span>
+data_collator = DataCollatorForSeq2Seq(
+    tokenizer=tokenizer,
+    padding=<span class="keyword">True</span>,
+    return_tensors=<span class="string">"pt"</span>,
+)
+
+<span class="comment"># === 4. 创建 Trainer 并训练 ===</span>
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized_dataset,
+    data_collator=data_collator,
+)
+
+<span class="func">print</span>(<span class="string">"🚀 开始 LoRA 微调训练..."</span>)
+trainer.train()
+
+<span class="comment"># === 5. 保存 LoRA 权重（只有几十MB！） ===</span>
+model.save_pretrained(<span class="string">"./lora_amc_terminology"</span>)
+tokenizer.save_pretrained(<span class="string">"./lora_amc_terminology"</span>)
+<span class="func">print</span>(<span class="string">"✅ LoRA 权重已保存到 ./lora_amc_terminology"</span>)</code></pre>
+
+  <div class="flow-diagram">
+训练流程总览
+═══════════════════════════════════════════════════
+
+数据准备          模型加载           LoRA 包装          训练
+─────────        ─────────        ──────────        ────────
+instruction       预训练模型        get_peft_model    Trainer.train()
+input ──→ 拼接 ──→ tokenizer ──→ 包装(冻结W) ──→ 只更新A,B ──→ save
+output            4bit量化         打印可训练参数    loss 下降
+  7条样本          Qwen-1.5B       0.1% 可训练       3 epochs
+  512 max_len      ~3GB 显存        q_proj,v_proj    ~2分钟
+</div>
+</div>
+
+<!-- ==================== Section 5 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🧪</span> 推理测试：加载 LoRA 权重生成回答
+    <span class="time-tag">⏱ 8 min</span>
+  </div>
+
+  <pre><code><span class="keyword">from</span> peft <span class="keyword">import</span> PeftModel
+
+<span class="comment"># === 方式1：加载 LoRA 权重（推荐） ===</span>
+<span class="comment"># 先加载原始模型，再叠加 LoRA</span>
+base_model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    quantization_config=bnb_config,
+    device_map=<span class="string">"auto"</span>,
+    trust_remote_code=<span class="keyword">True</span>,
+)
+
+<span class="comment"># 叠加 LoRA adapter</span>
+model = PeftModel.from_pretrained(base_model, <span class="string">"./lora_amc_terminology"</span>)
+<span class="func">print</span>(<span class="string">"✅ LoRA 权重加载完成"</span>)
+
+<span class="comment"># === 测试生成 ===</span>
+<span class="keyword">def</span> <span class="func">generate_answer</span>(instruction, input_text, max_new_tokens=<span class="num">200</span>):
+    <span class="string">"""使用微调后的模型生成回答"""</span>
+    prompt = (
+        <span class="string">f"### Instruction:\n{instruction}\n\n"</span>
+        <span class="string">f"### Input:\n{input_text}\n\n"</span>
+        <span class="string">f"### Response:\n"</span>
+    )
+
+    inputs = tokenizer(prompt, return_tensors=<span class="string">"pt"</span>).to(model.device)
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=max_new_tokens,
+        temperature=<span class="num">0.3</span>,    <span class="comment"># 低温度，输出更确定性</span>
+        top_p=<span class="num">0.9</span>,
+        do_sample=<span class="keyword">True</span>,
+        pad_token_id=tokenizer.eos_token_id,
+    )
+
+    <span class="comment"># 只解码新生成的部分（去掉 prompt）</span>
+    new_tokens = outputs[<span class="num">0</span>][inputs[<span class="string">"input_ids"</span>].shape[<span class="num">1</span>]:]
+    <span class="keyword">return</span> tokenizer.decode(new_tokens, skip_special_tokens=<span class="keyword">True</span>)
+
+<span class="comment"># 测试 1：AMC 术语解释</span>
+answer = generate_answer(<span class="string">"请解释以下AMC术语"</span>, <span class="string">"风险敞口"</span>)
+<span class="func">print</span>(<span class="string">f"🤖 模型回答:\n{answer}"</span>)
+
+<span class="comment"># 测试 2：SQL 翻译</span>
+answer = generate_answer(
+    <span class="string">"请将以下自然语言查询转换为SQL"</span>,
+    <span class="string">"统计每个AMC分公司2024年处置不良资产的总金额"</span>
+)
+<span class="func">print</span>(<span class="string">f"🤖 SQL翻译结果:\n{answer}"</span>)
+
+<span class="comment"># === 方式2：合并 LoRA 到原始模型（部署时用） ===</span>
+merged_model = model.merge_and_unload()
+<span class="func">print</span>(<span class="string">"✅ LoRA 已合并，模型可直接部署（无额外开销）"</span>)</code></pre>
+
+  <div class="tip-box">
+    <strong>推理时的两个选择：</strong>
+    <ul>
+      <li><strong>不合并（推荐调试）</strong>：LoRA 权重独立加载，可以随时换不同的 adapter，方便 A/B 测试</li>
+      <li><strong>合并后部署</strong>：用 <code class="inline-code">merge_and_unload()</code> 把 LoRA 融入原始权重，推理时零额外延迟</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ==================== Section 6 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📊</span> LoRA 核心参数调优指南
+    <span class="time-tag">⏱ 5 min</span>
+  </div>
+
+  <table>
+    <tr>
+      <th>参数</th><th>推荐值</th><th>影响</th><th>调优建议</th>
+    </tr>
+    <tr>
+      <td><code class="inline-code">r</code> (rank)</td>
+      <td>8 ~ 64</td>
+      <td>表达能力 ↑ 显存 ↑</td>
+      <td>入门用8；数据多/任务复杂用16-32；极复杂任务用64</td>
+    </tr>
+    <tr>
+      <td><code class="inline-code">alpha</code></td>
+      <td>r × 2</td>
+      <td>微调力度 ↑</td>
+      <td>通常 = 2 × rank；太大→遗忘通用能力；太小→学不到新知识</td>
+    </tr>
+    <tr>
+      <td><code class="inline-code">lora_dropout</code></td>
+      <td>0.05 ~ 0.1</td>
+      <td>正则化</td>
+      <td>数据少(&lt;500)用0.1；数据多(&gt;1000)用0.05或0</td>
+    </tr>
+    <tr>
+      <td><code class="inline-code">target_modules</code></td>
+      <td>q,v → q,k,v,o → +mlp</td>
+      <td>覆盖面 ↑ 效果 ↑ 显存 ↑</td>
+      <td>从小到大逐步添加，每加一组观察效果</td>
+    </tr>
+    <tr>
+      <td><code class="inline-code">learning_rate</code></td>
+      <td>1e-4 ~ 5e-4</td>
+      <td>收敛速度</td>
+      <td>LoRA 用比全量微调更大的学习率（全量一般1e-5）</td>
+    </tr>
+    <tr>
+      <td><code class="inline-code">epochs</code></td>
+      <td>1 ~ 5</td>
+      <td>训练充分度</td>
+      <td>小数据多轮(3-5)；大数据少轮(1-3)；配合 early stopping</td>
+    </tr>
+  </table>
+
+  <div class="warn-box">
+    <strong>微调数据黄金法则：</strong>
+    <ul>
+      <li><strong>质量 > 数量</strong>：100条高质量数据 > 1000条噪声数据</li>
+      <li><strong>多样性</strong>：覆盖各种提问方式和边界情况</li>
+      <li><strong>一致性</strong>：output 格式、术语、风格保持统一</li>
+      <li><strong>最少数据</strong>：LoRA 通常 500-1000 条就能看到明显效果</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ==================== Section 7 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🚨</span> 常见陷阱 Top 5
+  </div>
+
+  <ol>
+    <li>
+      <strong>灾难性遗忘</strong> — LoRA alpha 太大或 rank 太高时，模型可能"忘了"通用能力
+      <br><span class="tag tag-green">对策：</span>alpha/rank 保持 1~2 之间；用原始模型测试通用问题是否退化
+    </li>
+    <li>
+      <strong>过拟合</strong> — 7条数据训练50轮，loss归零但输出无意义
+      <br><span class="tag tag-green">对策：</span>保留验证集监控；数据量 &lt; 100 时 epochs 不要超过 3
+    </li>
+    <li>
+      <strong>数据格式错乱</strong> — 微调数据的格式和推理时 prompt 格式不一致
+      <br><span class="tag tag-green">对策：</span>训练和推理用<strong>完全相同</strong>的 template
+    </li>
+    <li>
+      <strong>target_modules 漏选</strong> — 只对 q_proj 做 LoRA，效果很差
+      <br><span class="tag tag-green">对策：</span>至少选 q_proj + v_proj（这是最稳定的组合）
+    </li>
+    <li>
+      <strong>学习率过高</strong> — loss 震荡不收敛
+      <br><span class="tag tag-green">对策：</span>LoRA 用 2e-4 起步，配合 cosine scheduler + warmup
+    </li>
+  </ol>
+</div>
+
+<!-- ==================== Section 8 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📋</span> 最佳实践速查表
+  </div>
+
+  <div class="flow-diagram">
+LoRA 微调 Checklist
+═══════════════════════════════════════════════════
+
+□ 数据准备
+  □ 数据格式统一（instruction/input/output 三段式）
+  □ 去重、去噪、保证质量
+  □ 至少 100+ 条（推荐 500+）
+  □ 训练集:验证集 = 9:1 或 8:2
+
+□ 模型选择
+  □ 基础模型：Qwen2.5-1.5B/7B 或 ChatGLM4-9B
+  □ 显存不够 → QLoRA (4bit 量化)
+  □ 目标任务匹配模型能力（代码→Code模型）
+
+□ LoRA 配置
+  □ r=8, alpha=16, dropout=0.05
+  □ target_modules=["q_proj","v_proj"]
+  □ learning_rate=2e-4, cosine scheduler
+
+□ 训练监控
+  □ 观察 loss 曲线是否平稳下降
+  □ 定期在验证集上测试生成质量
+  □ 用原始模型对比，检查是否遗忘
+
+□ 保存与部署
+  □ 保存 LoRA adapter（几十MB）
+  □ 推理测试通过后再合并部署
+  □ 保留训练日志和配置文件
+  </div>
+</div>
+
+<!-- ==================== Section 9 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">💪</span> 今日练习
+  </div>
+
+  <div class="quiz-box">
+    <h4>练习 1：手动实现 LoRA 前向传播</h4>
+    <p>用 numpy 实现一个简化版的 LoRA 层。给定原始权重 W、LoRA 矩阵 A/B、输入 x，计算合并后的输出，并验证合并后结果一致。</p>
+  </div>
+
+  <div class="quiz-box">
+    <h4>练习 2：扩展 AMC 微调数据集</h4>
+    <p>为以下场景各添加 3 条微调样本：
+    <br>① AMC 术语解释 ② NL→SQL 翻译 ③ 风控评估报告生成
+    <br>注意 output 要专业、格式统一、长度适中（50-200字）。</p>
+  </div>
+
+  <div class="quiz-box">
+    <h4>练习 3：LeetCode #43 字符串相乘（大数乘法）</h4>
+    <p>给定两个以字符串表示的非负整数，返回它们的乘积（也用字符串表示）。不能用内置大数库。<br>
+    <strong>提示：</strong>模拟手工竖式乘法。num1[i] × num2[j] 的结果放在 result[i+j+1]。</p>
+  </div>
+</div>
+
+<!-- ==================== Footer ==================== -->
+<div class="section" style="text-align:center;color:var(--text3);font-size:13px;">
+  <p><strong>Day 43 完成</strong> · LoRA 微调入门 ✅</p>
+  <p>明日预告：<strong>Day 44 — PEFT 进阶：QLoRA 深度优化 + 数据集构建工程化</strong></p>
+  <p style="margin-top:8px;font-size:12px;">
+    <span class="tag tag-purple">Phase 3 微调部署</span>
+    <span class="tag tag-blue">参数高效微调</span>
+    <span class="tag tag-green">PEFT</span>
+  </p>
+</div>
+
+</body>
+</html>
