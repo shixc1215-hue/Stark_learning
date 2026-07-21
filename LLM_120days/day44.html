@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 44 - PEFT 进阶：QLoRA 深度优化 + 数据集构建工程化</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#faf5ff,#eff6ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #e9d5ff; }
+  .header .badge { display:inline-block;background:#f3e8ff;color:#7c3aed;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent2);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--green); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  pre { background:#1e293b;color:#e2e8f0;padding:16px 20px;border-radius:8px;overflow-x:auto;font-size:13.5px;line-height:1.6;margin:12px 0; }
+  code { font-family:'Cascadia Code','Fira Code','JetBrains Mono',Consolas,monospace; }
+  .inline-code { background:var(--surface2);color:var(--accent);padding:2px 7px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace; }
+  .comment { color:#94a3b8; }
+  .keyword { color:#c084fc; }
+  .string { color:#86efac; }
+  .func { color:#93c5fd; }
+  .num { color:#fbbf24; }
+  .param { color:#fca5a5; }
+  .h3 { font-size:16px;font-weight:700;margin:20px 0 10px;color:var(--text); }
+  .h4 { font-size:14px;font-weight:600;margin:16px 0 8px;color:var(--accent2); }
+  ul,ol { padding-left:20px;margin:8px 0; }
+  li { margin:4px 0;font-size:14px; }
+  table { width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px; }
+  th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border); }
+  td { padding:10px 14px;border:1px solid var(--border); }
+  .tag { display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600; }
+  .tag-purple { background:#f3e8ff;color:#7c3aed; }
+  .tag-blue { background:#dbeafe;color:#2563eb; }
+  .tag-green { background:#dcfce7;color:#16a34a; }
+  .tag-orange { background:#ffedd5;color:#ea580c; }
+  .compare-card { display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0; }
+  .compare-card .card { border-radius:8px;padding:16px;border:1px solid var(--border); }
+  .compare-card .card h4 { font-size:14px;font-weight:700;margin-bottom:8px; }
+  .compare-card .card-bad { background:#fef2f2;border-color:#fecaca; }
+  .compare-card .card-bad h4 { color:var(--red); }
+  .compare-card .card-good { background:#f0fdf4;border-color:#bbf7d0; }
+  .compare-card .card-good h4 { color:var(--green); }
+  .flow-diagram { background:var(--surface2);border-radius:8px;padding:16px 20px;margin:12px 0;font-family:monospace;font-size:13px;overflow-x:auto;white-space:pre;line-height:1.5;color:var(--text2); }
+  .quiz-box { background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:16px 20px;margin:14px 0; }
+  .quiz-box h4 { color:#7c3aed;font-size:14px;margin-bottom:8px; }
+  .phase-nav { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap; }
+  .phase-nav .phase-item { padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600; }
+  .phase-nav .done { background:#dcfce7;color:#16a34a; }
+  .phase-nav .current { background:#f3e8ff;color:#7c3aed;animation:pulse 2s infinite; }
+  .phase-nav .future { background:var(--surface2);color:var(--text3); }
+  @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(124,58,237,0.3);} 50%{box-shadow:0 0 0 6px rgba(124,58,237,0);} }
+  .checklist { background:var(--surface2);border-radius:8px;padding:14px 18px;margin:12px 0;font-size:13.5px;line-height:2; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Phase 3 · 微调部署 · Day 2/7</div>
+  <h1>PEFT 进阶：QLoRA 深度优化 + 数据集构建工程化</h1>
+  <div class="subtitle">4-bit 量化原理 → 数据集全流程 → 数据增强策略 → PEFT 方法横向对比</div>
+</div>
+
+<div class="progress-bar">
+  <span class="label">总进度</span>
+  <div class="track"><div class="fill" style="width:62.9%"></div></div>
+  <span class="percent">44/70</span>
+</div>
+
+<div class="phase-nav">
+  <span class="phase-item done">D1-7 Python核心+LLM API</span>
+  <span class="phase-item done">D8-14 编程思维+LLM拓展</span>
+  <span class="phase-item done">D15-28 工程进阶</span>
+  <span class="phase-item done">D29-42 RAG+Agent</span>
+  <span class="phase-item current">D43-49 微调部署</span>
+  <span class="phase-item future">D50-70 项目实战</span>
+</div>
+
+<!-- ==================== Section 1 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔬</span> QLoRA 深度解析：4-bit 量化的三个关键技术
+    <span class="time-tag">⏱ 12 min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>回顾：</strong>Day 43 我们学习了 LoRA 的核心原理——冻结原始权重 W，只训练低秩分解矩阵 A 和 B。今天深入 QLoRA（Quantized LoRA），它让<strong>消费级显卡</strong>（如 RTX 3090/4090）也能微调 7B 甚至 13B 模型。
+  </div>
+
+  <p>QLoRA 论文（Dettmers et al., 2023）的核心创新：在<strong>4-bit 量化</strong>的基础模型上做 LoRA 微调，效果几乎无损。三项关键技术缺一不可：</p>
+
+  <div class="flow-diagram">QLoRA 三大支柱
+┌─────────────────────────────────────────────────┐
+│  1. NF4 量化        —  正态分布权重的最优4-bit编码  │
+│  2. 双重量化         —  量化常数本身再量化，省显存   │
+│  3. 分页优化器       —  GPU显存不够时自动用CPU内存   │
+└─────────────────────────────────────────────────┘</div>
+
+  <h3 class="h3">1️⃣ NF4（NormalFloat4）量化</h3>
+
+  <p>普通 4-bit 量化（INT4）把浮点数均匀映射到 [-8, 7]，但模型权重呈现<strong>正态分布</strong>——大部分值集中在 0 附近，两端极少。均匀量化会导致精度损失严重。</p>
+
+  <p><strong>NF4 的思路：</strong>用正态分布的分位数来划分区间，让每个量化区间包含大致相同数量的权重值。</p>
+
+<pre><code><span class="keyword">import</span> numpy <span class="keyword">as</span> np
+
+<span class="comment"># NF4 核心思想演示：对比均匀量化 vs 正态量化</span>
+<span class="comment"># 假设模型权重服从正态分布 N(0, 0.02)</span>
+np.random.seed(<span class="num">42</span>)
+weights = np.random.normal(<span class="num">0</span>, <span class="num">0.02</span>, size=<span class="num">1000</span>)  <span class="comment"># 模拟一个权重层</span>
+
+<span class="comment"># === 均匀量化 (INT4) ===</span>
+<span class="comment"># 范围 [-8, 7]，共 16 个等级</span>
+int4_levels = np.arange(-<span class="num">8</span>, <span class="num">8</span>)
+w_min, w_max = weights.min(), weights.max()
+<span class="comment"># 把浮点权重映射到最近的整数等级</span>
+uniform_scaled = np.round((weights - w_min) / (w_max - w_min) * <span class="num">15</span>) - <span class="num">8</span>
+uniform_error = np.mean((weights - uniform_scaled * (w_max - w_min) / <span class="num">15</span> - w_min) ** <span class="num">2</span>)
+<span class="comment"># 均匀量化的 MSE 较大，因为大部分权重挤在中间几个等级</span>
+
+<span class="comment"># === NF4 正态量化 ===</span>
+<span class="comment"># 用正态分布的分位数作为量化边界</span>
+<span class="comment"># 16 个等级 → 17 个分位点</span>
+nf4_levels = np.array([-<span class="num">1.0</span>, -<span class="num">0.6962</span>, -<span class="num">0.5251</span>, -<span class="num">0.3949</span>, -<span class="num">0.2844</span>, -<span class="num">0.1848</span>,
+                       -<span class="num">0.0911</span>, <span class="num">0.0</span>, <span class="num">0.0796</span>, <span class="num">0.1609</span>, <span class="num">0.2461</span>, <span class="num">0.3379</span>,
+                       <span class="num">0.4407</span>, <span class="num">0.5626</span>, <span class="num">0.7230</span>, <span class="num">1.0</span>])
+<span class="comment"># NF4 的量化边界在 0 附近更密集，远处更稀疏</span>
+<span class="comment"># 这样正态分布中间的大量权重获得更精细的表示</span>
+
+<span class="comment"># 存储时：每个权重只需 4 bit（1/8 float32 的大小）</span>
+<span class="comment"># 推理时：查表反量化回 float16 参与计算</span>
+print(<span class="string">f"原始权重占用: {weights.nbytes} bytes (float32)"</span>)
+print(<span class="string">f"NF4 量化后占用: {len(weights) // 2} bytes (4-bit)"</span>)
+print(<span class="string">f"压缩比: {weights.nbytes / (len(weights) // 2):.0f}x"</span>)</code></pre>
+
+  <div class="tip-box">
+    <strong>数仓类比：</strong>NF4 量化就像对数值型指标做<strong>直方图分桶</strong>。均匀分桶（等宽）在偏态分布上浪费桶位；NF4 用等频分桶（分位数），让每个桶里的值差不多多，量化精度更高。
+  </div>
+
+  <h3 class="h3">2️⃣ 双重量化（Double Quantization）</h3>
+
+  <p>NF4 量化后，每个权重块（通常是 32 个或 64 个一组）需要存一个<strong>缩放因子</strong>（absmax）和<strong>零点偏移</strong>，共两个 float32。当模型很大时，这些常量也占不少显存。</p>
+
+  <p><strong>双重量化：</strong>把第一层量化产生的缩放因子，再量化为 8-bit 整数存起来。相当于"省了显存的显存"。</p>
+
+<pre><code><span class="comment"># 双重量化原理伪代码</span>
+<span class="comment"># 第一层量化：float32 权重 → NF4 (4-bit)</span>
+<span class="comment">#   每个block产生 1 个 absmax (float32)</span>
+<span class="comment">#   假设 7B 模型，block_size=64，约产生 7B/64 = ~109M 个 absmax</span>
+<span class="comment">#   占用: 109M × 4 bytes = ~436 MB</span>
+
+<span class="comment"># 第二层量化：absmax → FP8 (8-bit)</span>
+<span class="comment">#   每 256 个 absmax 产生 1 个 absmax'</span>
+<span class="comment">#   占用: 109M × 1 byte = ~109 MB</span>
+<span class="comment">#   节省: 436 - 109 = ~327 MB</span>
+
+<span class="comment"># 实际使用中，在 BitsAndBytesConfig 中自动启用</span></code></pre>
+
+  <h3 class="h3">3️⃣ 分页优化器（Paged Optimizers）</h3>
+
+  <p>训练时，AdamW 优化器需要为每个可训练参数存储 2 份状态（一阶动量 m + 二阶动量 v），LoRA 参数虽少但优化器状态也不小。当 GPU 显存不够时：</p>
+
+  <ul>
+    <li><strong>普通做法：</strong>直接 OOM 崩溃，只能减小 batch size 或模型大小</li>
+    <li><strong>分页优化器：</strong>把优化器状态分页存储，GPU 显存满了自动 spill 到 CPU 内存，需要时再 swap 回来</li>
+  </ul>
+
+  <div class="tip-box">
+    <strong>类比：</strong>就像操作系统的虚拟内存——物理内存（GPU 显存）不够时，不常用的页自动换出到硬盘（CPU 内存），用的时候再换入。用户无感知，只是偶尔慢一点。
+  </div>
+
+  <h3 class="h3">QLoRA vs 标准 LoRA 显存对比</h3>
+
+  <table>
+    <tr><th>配置</th><th>基础模型显存</th><th>LoRA 参数</th><th>优化器状态</th><th><strong>总计 (7B)</strong></th></tr>
+    <tr><td>标准 LoRA (FP16)</td><td>~14 GB</td><td>~0.2 GB</td><td>~0.8 GB</td><td><strong>~15 GB</strong></td></tr>
+    <tr><td>QLoRA (4-bit)</td><td>~4 GB</td><td>~0.2 GB</td><td>~0.8 GB</td><td><strong>~5 GB</strong></td></tr>
+    <tr><td>QLoRA + 分页 (8GB 显卡)</td><td>~4 GB (GPU)</td><td>~0.2 GB</td><td>部分在 CPU</td><td><strong>GPU: ~5 GB</strong></td></tr>
+  </table>
+
+  <div class="warn-box">
+    <strong>注意：</strong>QLoRA 的 "4-bit" 指的是<strong>基础模型冻结部分的精度</strong>，LoRA 矩阵 A/B 仍然以 FP16/BF16 精度训练。前向传播时，基础层先反量化为 FP16，再与 LoRA 矩阵相加。
+  </div>
+</div>
+
+<!-- ==================== Section 2 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span> Python 知识：JSONL 数据处理 + dataclass 进阶
+    <span class="time-tag">⏱ 10 min</span>
+  </div>
+
+  <p>微调数据集通常存储为 <strong>JSONL</strong>（JSON Lines）格式——每行一个 JSON 对象。这种格式天然适合逐行读取大文件、流式处理。作为数据开发工程师，你对"逐行处理"一定很熟悉。</p>
+
+  <h3 class="h3">JSONL 读写与校验</h3>
+
+<pre><code><span class="keyword">import</span> json
+<span class="keyword">from</span> pathlib <span class="keyword">import</span> Path
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field, asdict
+<span class="keyword">from</span> typing <span class="keyword">import</span> Optional
+
+<span class="comment"># ====== 1. 微调样本数据结构 ======</span>
+<span class="keyword">@dataclass</span>
+<span class="keyword">class</span> <span class="func">FineTuneSample</span>:
+    <span class="string">"""单条微调样本，对应三段式 instruction-input-output"""</span>
+    instruction: <span class="func">str</span>          <span class="comment"># 系统指令（角色设定）</span>
+    input_text: <span class="func">str</span> = <span class="string">""</span>     <span class="comment"># 用户输入（可选）</span>
+    output: <span class="func">str</span> = <span class="string">""</span>         <span class="comment"># 期望输出（标准答案）</span>
+    category: <span class="func">str</span> = <span class="string">"general"</span>  <span class="comment"># 分类标签（用于统计/分层采样）</span>
+    difficulty: <span class="func">str</span> = <span class="string">"medium"</span> <span class="comment"># easy / medium / hard</span>
+    source: <span class="func">str</span> = <span class="string">"manual"</span>    <span class="comment"># 数据来源：manual / generated / augmented</span>
+    quality_score: <span class="func">float</span> = <span class="num">1.0</span>  <span class="comment"># 质量评分 0~1</span>
+
+    <span class="keyword">def</span> <span class="func">to_chat_format</span>(self) -> <span class="func">list</span>[<span class="func">dict</span>]:
+        <span class="string">"""转换为模型训练用的对话格式"""</span>
+        messages = [{<span class="string">"role"</span>: <span class="string">"system"</span>, <span class="string">"content"</span>: self.instruction}]
+        <span class="keyword">if</span> self.input_text:
+            messages.append({<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: self.input_text})
+        messages.append({<span class="string">"role"</span>: <span class="string">"assistant"</span>, <span class="string">"content"</span>: self.output})
+        <span class="keyword">return</span> messages
+
+<span class="comment"># ====== 2. JSONL 读写工具 ======</span>
+<span class="keyword">def</span> <span class="func">load_jsonl</span>(path: Path, validate=<span class="keyword">True</span>) -> <span class="func">list</span>[FineTuneSample]:
+    <span class="string">"""读取 JSONL 文件，自动校验每行格式"""</span>
+    samples = []
+    errors = []
+    <span class="keyword">with</span> open(path, <span class="string">"r"</span>, encoding=<span class="string">"utf-8"</span>) <span class="keyword">as</span> f:
+        <span class="keyword">for</span> line_no, line <span class="keyword">in</span> enumerate(f, <span class="num">1</span>):
+            line = line.strip()
+            <span class="keyword">if</span> <span class="keyword">not</span> line:
+                <span class="keyword">continue</span>  <span class="comment"># 跳过空行</span>
+            <span class="keyword">try</span>:
+                data = json.loads(line)
+                <span class="comment"># 字段映射：支持多种命名风格</span>
+                sample = FineTuneSample(
+                    instruction=data.get(<span class="string">"instruction"</span>, data.get(<span class="string">"system"</span>, <span class="string">""</span>)),
+                    input_text=data.get(<span class="string">"input"</span>, data.get(<span class="string">"question"</span>, <span class="string">""</span>)),
+                    output=data.get(<span class="string">"output"</span>, data.get(<span class="string">"answer"</span>, <span class="string">""</span>)),
+                    category=data.get(<span class="string">"category"</span>, <span class="string">"general"</span>),
+                    difficulty=data.get(<span class="string">"difficulty"</span>, <span class="string">"medium"</span>),
+                    source=data.get(<span class="string">"source"</span>, <span class="string">"manual"</span>),
+                    quality_score=data.get(<span class="string">"quality_score"</span>, <span class="num">1.0</span>),
+                )
+                <span class="comment"># 基本校验</span>
+                <span class="keyword">if</span> validate <span class="keyword">and</span> <span class="keyword">not</span> sample.output:
+                    errors.append(<span class="keyword">f</span>Line {line_no}: output 为空<span class="string">")</span>
+                    <span class="keyword">continue</span>
+                samples.append(sample)
+            <span class="keyword">except</span> json.JSONDecodeError <span class="keyword">as</span> e:
+                errors.append(<span class="keyword">f</span>Line {line_no}: JSON 解析失败 - {e}<span class="string">")</span>
+    <span class="keyword">if</span> errors:
+        print(<span class="keyword">f</span>加载 {len(samples)} 条，失败 {len(errors)} 条：<span class="string">")</span>
+        <span class="keyword">for</span> e <span class="keyword">in</span> errors[:<span class="num">5</span>]:  <span class="comment"># 最多显示 5 条错误</span>
+            print(<span class="keyword">f</span>  ⚠ {e}<span class="string">")</span>
+    <span class="keyword">return</span> samples
+
+<span class="keyword">def</span> <span class="func">save_jsonl</span>(samples: <span class="func">list</span>[FineTuneSample], path: Path):
+    <span class="string">"""保存为 JSONL，每个样本一行"""</span>
+    path.parent.mkdir(parents=<span class="keyword">True</span>, exist_ok=<span class="keyword">True</span>)
+    <span class="keyword">with</span> open(path, <span class="string">"w"</span>, encoding=<span class="string">"utf-8"</span>) <span class="keyword">as</span> f:
+        <span class="keyword">for</span> sample <span class="keyword">in</span> samples:
+            f.write(json.dumps(asdict(sample), ensure_ascii=<span class="keyword">False</span>) + <span class="string">"\n"</span>)
+    print(<span class="keyword">f</span>已保存 {len(samples)} 条 → {path}<span class="string">")</span>
+
+<span class="comment"># ====== 3. 流式读取大文件（不全部加载到内存） ======</span>
+<span class="keyword">def</span> <span class="func">stream_jsonl</span>(path: Path):
+    <span class="string">"""生成器：逐行读取 JSONL，适合超大文件"""</span>
+    <span class="keyword">with</span> open(path, <span class="string">"r"</span>, encoding=<span class="string">"utf-8"</span>) <span class="keyword">as</span> f:
+        <span class="keyword">for</span> line <span class="keyword">in</span> f:
+            line = line.strip()
+            <span class="keyword">if</span> line:
+                <span class="keyword">yield</span> json.loads(line)
+
+<span class="comment"># 使用示例：逐行统计，不占内存</span>
+total_len = <span class="num">0</span>
+count = <span class="num">0</span>
+<span class="keyword">for</span> record <span class="keyword">in</span> stream_jsonl(Path(<span class="string">"train.jsonl"</span>)):
+    total_len += len(record.get(<span class="string">"output"</span>, <span class="string">""</span>))
+    count += <span class="num">1</span>
+print(<span class="keyword">f</span>平均 output 长度: {total_len / max(count, 1):.0f} 字符<span class="string">")</span></code></pre>
+
+  <h3 class="h3">数据集拆分与统计</h3>
+
+<pre><code><span class="keyword">import</span> random
+<span class="keyword">from</span> collections <span class="keyword">import</span> Counter
+
+<span class="keyword">class</span> <span class="func">DatasetSplitter</span>:
+    <span class="string">"""数据集拆分与质量统计工具"""</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, samples: <span class="func">list</span>[FineTuneSample], seed=<span class="num">42</span>):
+        self.samples = samples
+        self.rng = random.Random(seed)
+
+    <span class="keyword">def</span> <span class="func">split</span>(self, ratio=<span class="num">0.9</span>) -> <span class="func">tuple</span>[<span class="func">list</span>, <span class="func">list</span>]:
+        <span class="string">"""分层随机拆分（保证各类别比例一致）"""</span>
+        <span class="comment"># 按类别分组</span>
+        groups: <span class="func">dict</span>[<span class="func">str</span>, <span class="func">list</span>] = {}
+        <span class="keyword">for</span> s <span class="keyword">in</span> self.samples:
+            groups.setdefault(s.category, []).append(s)
+        <span class="comment"># 每组内随机拆分</span>
+        train, val = [], []
+        <span class="keyword">for</span> cat, group <span class="keyword">in</span> groups.items():
+            self.rng.shuffle(group)
+            n_train = <span class="keyword">int</span>(len(group) * ratio)
+            train.extend(group[:n_train])
+            val.extend(group[n_train:])
+        self.rng.shuffle(train)
+        self.rng.shuffle(val)
+        <span class="keyword">return</span> train, val
+
+    <span class="keyword">def</span> <span class="func">stats</span>(self) -> <span class="func">dict</span>:
+        <span class="string">"""数据集质量统计报告"""</span>
+        cats = Counter(s.category <span class="keyword">for</span> s <span class="keyword">in</span> self.samples)
+        diffs = Counter(s.difficulty <span class="keyword">for</span> s <span class="keyword">in</span> self.samples)
+        sources = Counter(s.source <span class="keyword">for</span> s <span class="keyword">in</span> self.samples)
+        output_lens = [len(s.output) <span class="keyword">for</span> s <span class="keyword">in</span> self.samples]
+        <span class="keyword">return</span> {
+            <span class="string">"total"</span>: len(self.samples),
+            <span class="string">"categories"</span>: dict(cats),
+            <span class="string">"difficulties"</span>: dict(diffs),
+            <span class="string">"sources"</span>: dict(sources),
+            <span class="string">"avg_output_len"</span>: sum(output_lens) / len(output_lens),
+            <span class="string">"max_output_len"</span>: max(output_lens),
+            <span class="string">"min_output_len"</span>: min(output_lens),
+            <span class="string">"quality_avg"</span>: sum(s.quality_score <span class="keyword">for</span> s <span class="keyword">in</span> self.samples) / len(self.samples),
+        }
+
+<span class="comment"># 使用</span>
+splitter = DatasetSplitter(all_samples)
+train_set, val_set = splitter.split(<span class="num">0.9</span>)
+report = splitter.stats()
+print(<span class="keyword">f</span>训练集: {len(train_set)}, 验证集: {len(val_set)}<span class="string">")</span>
+print(<span class="keyword">f</span>平均输出长度: {report['avg_output_len']:.0f}<span class="string">")</span></code></pre>
+
+  <div class="tip-box">
+    <strong>SQL 思维迁移：</strong>JSONL 的一行就是一个"行记录"，<code>load_jsonl</code> 就像 <code>SELECT * FROM table</code>，<code>stream_jsonl</code> 就像游标逐行 fetch。分层拆分就像 <code>PARTITION BY category</code> 后再按比例取样。
+  </div>
+</div>
+
+<!-- ==================== Section 3 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📊</span> 数据集构建全流程：从原始数据到训练就绪
+    <span class="time-tag">⏱ 12 min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>核心观点：</strong>"Garbage in, garbage out" 在微调中尤其致命。微调数据的质量比数量重要 10 倍。100 条高质量样本 > 10000 条低质量样本。
+  </div>
+
+  <div class="flow-diagram">数据集构建管线
+原始数据 → 清洗去噪 → 格式统一 → 质量校验 → 增强扩充 → 拆分统计 → 训练就绪
+    │          │          │          │          │          │          │
+    ▼          ▼          ▼          ▼          ▼          ▼          ▼
+  业务文档    去重/脱敏   instruction  合法性    同义改写    9:1拆分   data/
+  API日志     长度截断    input       逻辑校验   难度分层    统计报告   train.jsonl
+  手写样本    格式纠错    output      格式检查   场景扩充                           val.jsonl</div>
+
+  <h3 class="h3">Step 1: 数据清洗 Pipeline</h3>
+
+<pre><code><span class="keyword">import</span> re
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass
+
+<span class="keyword">@dataclass</span>
+<span class="keyword">class</span> <span class="func">CleaningStats</span>:
+    <span class="string">"""清洗统计"""</span>
+    total: <span class="func">int</span> = <span class="num">0</span>
+    removed_empty: <span class="func">int</span> = <span class="num">0</span>
+    removed_too_short: <span class="func">int</span> = <span class="num">0</span>
+    removed_too_long: <span class="func">int</span> = <span class="num">0</span>
+    removed_duplicate: <span class="func">int</span> = <span class="num">0</span>
+    removed_low_quality: <span class="func">int</span> = <span class="num">0</span>
+    cleaned: <span class="func">int</span> = <span class="num">0</span>
+
+<span class="keyword">class</span> <span class="func">DataCleaner</span>:
+    <span class="string">"""微调数据清洗器"""</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(
+        self,
+        min_output_len: <span class="func">int</span> = <span class="num">20</span>,    <span class="comment"># output 最短字符数</span>
+        max_output_len: <span class="func">int</span> = <span class="num">2000</span>,  <span class="comment"># output 最长字符数</span>
+        min_input_len: <span class="func">int</span> = <span class="num">5</span>,      <span class="comment"># input 最短字符数</span>
+        dedup_by: <span class="func">str</span> = <span class="string">"output"</span>,  <span class="comment"># 去重字段</span>
+    ):
+        self.min_output_len = min_output_len
+        self.max_output_len = max_output_len
+        self.min_input_len = min_input_len
+        self.dedup_by = dedup_by
+
+    <span class="keyword">def</span> <span class="func">clean</span>(self, samples: <span class="func">list</span>[FineTuneSample]) -> <span class="func">tuple</span>[<span class="func">list</span>[FineTuneSample], CleaningStats]:
+        <span class="string">"""执行完整的清洗流程"""</span>
+        stats = CleaningStats(total=len(samples))
+        result = []
+        seen = <span class="keyword">set</span>()  <span class="comment"># 用于去重</span>
+
+        <span class="keyword">for</span> s <span class="keyword">in</span> samples:
+            <span class="comment"># 1) 基础清洗</span>
+            s.output = self._normalize_text(s.output)
+            s.instruction = self._normalize_text(s.instruction)
+            s.input_text = self._normalize_text(s.input_text)
+
+            <span class="comment"># 2) 空值过滤</span>
+            <span class="keyword">if</span> <span class="keyword">not</span> s.output.strip():
+                stats.removed_empty += <span class="num">1</span>; <span class="keyword">continue</span>
+
+            <span class="comment"># 3) 长度过滤</span>
+            <span class="keyword">if</span> len(s.output) < self.min_output_len:
+                stats.removed_too_short += <span class="num">1</span>; <span class="keyword">continue</span>
+            <span class="keyword">if</span> len(s.output) > self.max_output_len:
+                stats.removed_too_long += <span class="num">1</span>; <span class="keyword">continue</span>
+            <span class="keyword">if</span> s.input_text <span class="keyword">and</span> len(s.input_text) < self.min_input_len:
+                stats.removed_too_short += <span class="num">1</span>; <span class="keyword">continue</span>
+
+            <span class="comment"># 4) 去重</span>
+            dedup_key = <span class="keyword">getattr</span>(s, self.dedup_by, <span class="string">""</span>)
+            <span class="keyword">if</span> dedup_key <span class="keyword">in</span> seen:
+                stats.removed_duplicate += <span class="num">1</span>; <span class="keyword">continue</span>
+            seen.add(dedup_key)
+
+            <span class="comment"># 5) 质量检查</span>
+            <span class="keyword">if</span> self._is_low_quality(s):
+                stats.removed_low_quality += <span class="num">1</span>; <span class="keyword">continue</span>
+
+            result.append(s)
+            stats.cleaned += <span class="num">1</span>
+
+        <span class="keyword">return</span> result, stats
+
+    <span class="keyword">def</span> <span class="func">_normalize_text</span>(self, text: <span class="func">str</span>) -> <span class="func">str</span>:
+        <span class="string">"""文本标准化"""</span>
+        <span class="comment"># 全角→半角</span>
+        text = text.replace(<span class="string">"\u3000"</span>, <span class="string">" "</span>)  <span class="comment"># 全角空格</span>
+        text = text.replace(<span class="string">"\r\n"</span>, <span class="string">"\n"</span>).replace(<span class="string">"\r"</span>, <span class="string">"\n"</span>)
+        <span class="comment"># 合并连续空行（保留最多一个）</span>
+        text = re.sub(<span class="string">r"\n{3,}"</span>, <span class="string">"\n\n"</span>, text)
+        <span class="keyword">return</span> text.strip()
+
+    <span class="keyword">def</span> <span class="func">_is_low_quality</span>(self, s: FineTuneSample) -> <span class="func">bool</span>:
+        <span class="string">"""低质量检测启发式规则"""</span>
+        bad_patterns = [
+            <span class="keyword">lambda</span>: <span class="string">"我不知道"</span> <span class="keyword">in</span> s.output <span class="keyword">and</span> len(s.output) < <span class="num">50</span>,
+            <span class="keyword">lambda</span>: s.output.count(<span class="string">"\n"</span>) > <span class="num">30</span>,  <span class="comment"># 空行过多</span>
+            <span class="keyword">lambda</span>: len(re.findall(<span class="keyword">r</span>[!！]{3,}<span class="string">", s.output)) > 3,  </span><span class="comment"># 过多感叹号</span>
+            <span class="keyword">lambda</span>: s.quality_score < <span class="num">0.3</span>,
+        ]
+        <span class="keyword">return</span> any(rule() <span class="keyword">for</span> rule <span class="keyword">in</span> bad_patterns)
+
+<span class="comment"># 使用示例</span>
+cleaner = DataCleaner(min_output_len=<span class="num">30</span>, max_output_len=<span class="num">1500</span>)
+clean_data, stats = cleaner.clean(raw_samples)
+print(<span class="keyword">f</span>清洗前: {stats.total} → 清洗后: {stats.cleaned} (移除: {stats.total - stats.cleaned})<span class="string">")</span></code></pre>
+
+  <h3 class="h3">Step 2: AMC 业务数据集构建示例</h3>
+
+<pre><code><span class="comment"># ====== AMC 不良资产微调数据集 ======</span>
+<span class="comment"># 场景：让模型学会 AMC 领域的专业问答</span>
+
+amc_samples = [
+    FineTuneSample(
+        instruction=<span class="string">"你是不良资产管理领域的专业助手，精通AMC业务术语和法规政策。"</span>,
+        input_text=<span class="string">"什么是'剥离'？它在AMC业务中的作用是什么？"</span>,
+        output=<span class="string">"剥离（Stripping）是不良资产处置的一种方式，指将不良资产从银行资产负债表中转移出来。在AMC业务中，剥离主要有两种形式：(1)政策性剥离：1999年四大AMC成立时，从四大国有银行接收约1.4万亿元不良贷款；(2)商业性剥离：银行按市场价格将不良资产转让给AMC或其他投资者。剥离后，银行腾出信贷空间，AMC获得资产处置权，可通过债务重组、资产证券化、公开拍卖等方式实现资产回收价值最大化。"</span>,
+        category=<span class="string">"term_explanation"</span>,
+        difficulty=<span class="string">"easy"</span>,
+        source=<span class="string">"manual"</span>,
+    ),
+    FineTuneSample(
+        instruction=<span class="string">"你是不良资产管理领域的专业助手，精通AMC业务术语和法规政策。"</span>,
+        input_text=<span class="string">"将以下自然语言查询转换为SQL：查询2024年各省份不良资产余额排名前10的债务人</span>,
+        output=<span class="string">"SELECT d.province, d.debtor_name, SUM(b.npl_balance) AS total_balance\nFROM npl_balance b\nJOIN debtor_info d ON b.debtor_id = d.debtor_id\nWHERE b.data_date = '2024-12-31'\n  AND b.npl_balance > 0\nGROUP BY d.province, d.debtor_name\nORDER BY total_balance DESC\nLIMIT 10;"</span>,
+        category=<span class="string">"nl2sql"</span>,
+        difficulty=<span class="string">"medium"</span>,
+        source=<span class="string">"manual"</span>,
+    ),
+    FineTuneSample(
+        instruction=<span class="string">"你是不良资产管理领域的专业助手，擅长撰写专业的风控评估报告。"</span>,
+        input_text=<span class="string">"债务人：XX化工集团，涉及金额：2.3亿元，抵押物：工业用地50亩（评估价1.8亿），当前经营状态：停产。请生成简要风险分析。</span>,
+        output=<span class="string">"【风险分析报告】\n\n一、债务概况\n债务人XX化工集团涉及不良贷款余额2.3亿元，主要抵押物为工业用地50亩，当前评估价约1.8亿元，抵押率78.3%。\n\n二、风险研判\n1. 信用风险（高）：企业已停产，经营现金流归零，第一还款来源丧失。\n2. 抵押风险（中）：工业用地流动性较弱，变现周期通常12-18个月，且需考虑土地性质变更和环保合规问题。\n3. 追偿风险（中）：需核查是否存在关联担保、对外担保等或有负债。\n\n三、处置建议\n优先推进抵押物司法拍卖程序，同步调查债务人资产线索，争取实现1.5亿元以上回收，目标回收率65%。"  </span>,
+        category=<span class="string">"risk_report"</span>,
+        difficulty=<span class="string">"hard"</span>,
+        source=<span class="string">"manual"</span>,
+    ),
+]
+
+<span class="comment"># 保存为 JSONL</span>
+save_jsonl(amc_samples, Path(<span class="string">"amc_train.jsonl"</span>))</code></pre>
+</div>
+
+<!-- ==================== Section 4 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔄</span> 数据增强策略：用 LLM 扩充训练数据
+    <span class="time-tag">⏱ 10 min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>问题：</strong>手写样本太慢，100 条可能需要一周。数据增强的核心思路：用<strong>现有高质量样本</strong> + <strong>LLM</strong> 批量生成更多变体，再人工审核。
+  </div>
+
+  <h3 class="h3">四种增强策略</h3>
+
+  <table>
+    <tr><th>策略</th><th>原理</th><th>适用场景</th><th>风险</th></tr>
+    <tr>
+      <td><strong>同义改写</strong></td>
+      <td>保持 output 不变，改写 input 的表述方式</td>
+      <td>问答类、翻译类</td>
+      <td>低</td>
+    </tr>
+    <tr>
+      <td><strong>难度分层</strong></td>
+      <td>基于简单样本生成更难/更简的变体</td>
+      <td>知识类、推理类</td>
+      <td>中</td>
+    </tr>
+    <tr>
+      <td><strong>反向生成</strong></td>
+      <td>从 output 反向构造 input</td>
+      <td>NL2SQL、格式转换</td>
+      <td>中</td>
+    </tr>
+    <tr>
+      <td><strong>Self-Instruct</strong></td>
+      <td>让 LLM 自主生成 instruction+input+output</td>
+      <td>通用任务</td>
+      <td>高</td>
+    </tr>
+  </table>
+
+<pre><code><span class="keyword">import</span> asyncio
+
+<span class="keyword">class</span> <span class="func">DataAugmenter</span>:
+    <span class="string">"""用 LLM 进行数据增强"""</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, llm_call_fn):
+        <span class="string">"""llm_call_fn: 异步函数，接收 prompt 返回回复"""</span>
+        self.llm = llm_call_fn
+
+    <span class="keyword">async</span> <span class="keyword">def</span> <span class="func">paraphrase_input</span>(
+        self, sample: FineTuneSample, n_variants=<span class="num">3</span>
+    ) -> <span class="func">list</span>[FineTuneSample]:
+        <span class="string">"""同义改写：保持 output 不变，改写 input"""</span>
+        prompt = <span class="keyword">f</span><span class="string">"""请将以下用户问题改写为{n_variants}个不同的表述方式，
+保持原意不变，但用词、句式、详略程度要有变化。
+每个改写用"【改写{i+1}】"开头。
+
+原始问题：{sample.input_text}"""</span>
+
+        response = <span class="keyword">await</span> self.llm(prompt)
+        variants = []
+        <span class="keyword">for</span> match <span class="keyword">in</span> re.finditer(<span class="keyword">r</span>【改写\d+】(.+?)(?=【改写|$)<span class="string">", response, re.DOTALL):</span>
+            new_input = match.group(<span class="num">1</span>).strip()
+            <span class="keyword">if</span> new_input:
+                variants.append(FineTuneSample(
+                    instruction=sample.instruction,
+                    input_text=new_input,
+                    output=sample.output,  <span class="comment"># output 不变！</span>
+                    category=sample.category,
+                    difficulty=sample.difficulty,
+                    source=<span class="string">"augmented"</span>,
+                    quality_score=<span class="num">0.8</span>,  <span class="comment"># 增强数据初始评分略低</span>
+                ))
+        <span class="keyword">return</span> variants
+
+    <span class="keyword">async</span> <span class="keyword">def</span> <span class="func">augment_dataset</span>(
+        self, samples: <span class="func">list</span>[FineTuneSample],
+        n_variants=<span class="num">3</span>, concurrency=<span class="num">5</span>
+    ) -> <span class="func">list</span>[FineTuneSample]:
+        <span class="string">"""批量增强整个数据集"""</span>
+        semaphore = asyncio.Semaphore(concurrency)
+        all_variants = []
+
+        <span class="keyword">async</span> <span class="keyword">def</span> <span class="func">_augment_one</span>(sample):
+            <span class="keyword">async with</span> semaphore:
+                <span class="keyword">try</span>:
+                    <span class="keyword">return await</span> self.paraphrase_input(sample, n_variants)
+                <span class="keyword">except</span> Exception:
+                    <span class="keyword">return</span> []  <span class="comment"># 失败则跳过</span>
+
+        tasks = [_augment_one(s) <span class="keyword">for</span> s <span class="keyword">in</span> samples]
+        results = <span class="keyword">await</span> asyncio.gather(*tasks)
+
+        <span class="keyword">for</span> variants <span class="keyword">in</span> results:
+            all_variants.extend(variants)
+
+        print(<span class="keyword">f</span>增强完成: {len(samples)} 条 → 新增 {len(all_variants)} 条<span class="string">")</span>
+        <span class="keyword">return</span> all_variants</code></pre>
+
+  <div class="warn-box">
+    <strong>关键原则：</strong>增强时<strong>只改 input，不改 output</strong>。output 是"标准答案"，必须保持正确和一致。如果改写了 output，相当于引入了"错误标注"，会让模型学到错误的东西。
+  </div>
+
+  <div class="tip-box">
+    <strong>数据增强的"黄金比例"：</strong>手写样本（高质量种子）占 20-30%，增强样本占 70-80%。手写样本保证方向正确，增强样本扩大覆盖面。千万不要 100% 增强数据——会导致"模式崩塌"（model collapse）。
+  </div>
+</div>
+
+<!-- ==================== Section 5 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚖️</span> PEFT 方法横向对比：LoRA 不是唯一选择
+    <span class="time-tag">⏱ 10 min</span>
+  </div>
+
+  <p>PEFT（Parameter-Efficient Fine-Tuning）是一个大家族，LoRA 是其中最流行的成员。不同方法适合不同场景：</p>
+
+  <h3 class="h3">五大 PEFT 方法对比</h3>
+
+  <table>
+    <tr>
+      <th>方法</th><th>可训练参数</th><th>显存</th><th>效果</th><th>推理开销</th><th>适合场景</th>
+    </tr>
+    <tr>
+      <td><strong>LoRA</strong></td>
+      <td>0.1-1%</td><td>低</td><td>★★★★</td><td>零（可合并）</td>
+      <td>通用场景首选</td>
+    </tr>
+    <tr>
+      <td><strong>QLoRA</strong></td>
+      <td>0.1-1%</td><td>极低</td><td>★★★★</td><td>零（可合并）</td>
+      <td>显存受限</td>
+    </tr>
+    <tr>
+      <td><strong>Prompt Tuning</strong></td>
+      <td>0.01%</td><td>极低</td><td>★★★</td><td>极小</td>
+      <td>多任务快速切换</td>
+    </tr>
+    <tr>
+      <td><strong>Prefix Tuning</strong></td>
+      <td>0.1%</td><td>低</td><td>★★★</td><td>小</td>
+      <td>生成任务</td>
+    </tr>
+    <tr>
+      <td><strong>P-Tuning v2</strong></td>
+      <td>0.1-1%</td><td>低</td><td>★★★★</td><td>小</td>
+      <td>小模型/理解任务</td>
+    </tr>
+    <tr>
+      <td><strong>DoRA</strong></td>
+      <td>0.1-1%</td><td>低</td><td>★★★★★</td><td>零（可合并）</td>
+      <td>追求极限效果</td>
+    </tr>
+  </table>
+
+  <h3 class="h3">方法原理速览</h3>
+
+  <h4 class="h4">Prompt Tuning &amp; Prefix Tuning</h4>
+
+  <p>不再训练模型参数，而是在输入中添加一段<strong>可学习的虚拟 token</strong>（soft prompt）：</p>
+
+<pre><code><span class="comment"># Prompt Tuning: 只在输入前添加可学习的向量</span>
+<span class="comment"># 原始: [CLS] 今天天气怎么样？ [SEP]</span>
+<span class="comment"># Prompt Tuning:</span>
+<span class="comment"># [虚拟token1][虚拟token2]...[虚拟tokenN][CLS] 今天天气怎么样？ [SEP]</span>
+<span class="comment"># ↑ 这些虚拟token是可训练的"软提示"，替代了人工写prompt</span>
+
+<span class="comment"># Prefix Tuning: 在每一层都添加可学习的前缀</span>
+<span class="comment"># Layer i: [prefix_i][原始hidden_states]</span>
+<span class="comment"># 每一层都有自己的可训练前缀，比Prompt Tuning更灵活</span>
+
+<span class="comment"># 区别：Prompt Tuning 只在输入层加，Prefix Tuning 每层都加</span></code></pre>
+
+  <h4 class="h4">DoRA（Weight-Decomposed Low-Rank Adaptation）</h4>
+
+  <p>2024 年的新方法，将权重分解为<strong>幅度（magnitude）</strong>和<strong>方向（direction）</strong>两部分分别微调：</p>
+
+<pre><code><span class="comment"># LoRA: W' = W + ΔW = W + B×A</span>
+<span class="comment"># DoRA: W' = m × (W + B×A) / ||W + B×A||</span>
+<span class="comment">#        ↑幅度(可学习标量)    ↑方向(LoRA微调后L2归一化)</span>
+
+<span class="comment"># 思路：LoRA 改变了幅值也改变了方向，DoRA 让两者独立调整</span>
+<span class="comment"># 效果：在相同参数量下，DoRA 效果优于 LoRA</span>
+<span class="comment"># 推理：同样可以合并，零额外开销</span></code></pre>
+
+  <h3 class="h3">如何选择 PEFT 方法？</h3>
+
+  <div class="compare-card">
+    <div class="card card-good">
+      <h4>✅ 推荐选择</h4>
+      <ul>
+        <li><strong>显存够（16GB+）</strong>→ LoRA (r=8~16)</li>
+        <li><strong>显存紧（8GB）</strong>→ QLoRA (4bit + LoRA)</li>
+        <li><strong>多任务快速切换</strong>→ Prompt Tuning</li>
+        <li><strong>追求最佳效果</strong>→ DoRA</li>
+      </ul>
+    </div>
+    <div class="card card-bad">
+      <h4>❌ 避免踩坑</h4>
+      <ul>
+        <li>小模型（&lt;1B）用 LoRA 效果差 → P-Tuning v2</li>
+        <li>需要合并部署 → 不要用 Prefix Tuning（无法合并）</li>
+        <li>推理要求零延迟 → 只选 LoRA/QLoRA/DoRA</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== Section 6 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🛠️</span> LLM 实战：完整数据集构建 + QLoRA 微调
+    <span class="time-tag">⏱ 12 min</span>
+  </div>
+
+  <p>把今天的知识串联起来——从零构建一个完整的 AMC 微调数据集，然后用 QLoRA 进行训练。</p>
+
+  <h3 class="h3">完整 Pipeline 代码</h3>
+
+<pre><code><span class="comment"># ====== 完整数据集构建 + QLoRA 训练 Pipeline ======</span>
+
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field, asdict
+<span class="keyword">from</span> pathlib <span class="keyword">import</span> Path
+<span class="keyword">import</span> json, random
+
+<span class="comment"># ---- 1. 定义数据结构 ----</span>
+<span class="keyword">@dataclass</span>
+<span class="keyword">class</span> <span class="func">TrainConfig</span>:
+    <span class="string">"""训练配置"""</span>
+    base_model: <span class="func">str</span> = <span class="string">"Qwen/Qwen2.5-1.5B"</span>
+    output_dir: <span class="func">str</span> = <span class="string">"./amc-lora-output"</span>
+    lora_r: <span class="func">int</span> = <span class="num">8</span>
+    lora_alpha: <span class="func">int</span> = <span class="num">16</span>
+    lora_dropout: <span class="func">float</span> = <span class="num">0.05</span>
+    learning_rate: <span class="func">float</span> = <span class="num">2e-4</span>
+    num_epochs: <span class="func">int</span> = <span class="num">3</span>
+    batch_size: <span class="func">int</span> = <span class="num">4</span>
+    max_seq_length: <span class="func">int</span> = <span class="num">1024</span>
+    quantization: <span class="func">str</span> = <span class="string">"nf4"</span>  <span class="comment"># nf4 / fp16 / none</span>
+
+<span class="comment"># ---- 2. 构建数据集 ----</span>
+<span class="keyword">def</span> <span class="func">build_amc_dataset</span>() -> <span class="func">list</span>[<span class="func">dict</span>]:
+    <span class="string">"""构建 AMC 微调数据集（示例：精简版）"""</span>
+    raw = [
+        {
+            <span class="string">"instruction"</span>: <span class="string">"你是AMC不良资产领域的专业助手。"</span>,
+            <span class="string">"input"</span>: <span class="string">"解释什么是'批量转让'。"</span>,
+            <span class="string">"output"</span>: <span class="string">"批量转让是指AMC将多笔不良资产打包，以不低于评估价值的一定折扣比例，整体转让给投资者的处置方式。特点是处置速度快、回收率适中（通常30-50%），适合债务人分散、单笔金额较小的资产包。2005年后成为AMC最主要的处置手段之一。"</span>,
+            <span class="string">"category"</span>: <span class="string">"term"</span>
+        },
+        {
+            <span class="string">"instruction"</span>: <span class="string">"你是AMC不良资产领域的专业助手。"</span>,
+            <span class="string">"input"</span>: <span class="string">"NL2SQL: 查询2024年Q3各AMC公司新增不良资产收购金额</span>,
+            <span class="string">"output"</span>: <span class="string">"SELECT company_name, SUM(acquisition_amount) AS total_amount\nFROM amc_acquisition\nWHERE year = 2024 AND quarter = 3\nGROUP BY company_name\nORDER BY total_amount DESC;"</span>,
+            <span class="string">"category"</span>: <span class="string">"nl2sql"</span>
+        },
+        {
+            <span class="string">"instruction"</span>: <span class="string">"你是AMC风险分析专家，请生成结构化评估报告。"</span>,
+            <span class="string">"input"</span>: <span class="string">"评估标的：XX房地产公司，贷款余额5000万，抵押物为商业物业(评估4000万)，借款人已逾期180天，且涉及诉讼2起。</span>,
+            <span class="string">"output"</span>: <span class="string">"【风控评估】\n标的：XX房地产公司 | 余额：5000万元\n\n1. 还款能力：丧失（逾期180天+）\n2. 抵押覆盖率：80%（4000/5000），存在20%敞口\n3. 法律风险：2起诉讼增加处置不确定性\n4. 综合评级：高风险\n\n建议：加速推进司法处置程序，同步排查借款人其他资产线索，力争回收率60%以上。"</span>,
+            <span class="string">"category"</span>: <span class="string">"risk"</span>
+        },
+    ]
+    <span class="keyword">return</span> raw
+
+<span class="comment"># ---- 3. 完整训练入口（伪代码展示流程） ----</span>
+<span class="keyword">def</span> <span class="func">train_qlora</span>(config: TrainConfig):
+    <span class="string">"""
+    QLoRA 微调完整流程（伪代码）
+    实际运行需要: pip install transformers peft bitsandbytes datasets trl
+    """</span>
+    <span class="comment"># Step 1: 加载 QLoRA 量化的基础模型</span>
+    <span class="comment"># from transformers import AutoModelForCausalLM, BitsAndBytesConfig</span>
+    <span class="comment"># bnb_config = BitsAndBytesConfig(</span>
+    <span class="comment">#     load_in_4bit=True,</span>
+    <span class="comment">#     bnb_4bit_quant_type="nf4",            # NF4 量化</span>
+    <span class="comment">#     bnb_4bit_compute_dtype=torch.bfloat16,</span>
+    <span class="comment">#     bnb_4bit_use_double_quant=True,       # 双重量化</span>
+    <span class="comment"># )</span>
+    <span class="comment"># model = AutoModelForCausalLM.from_pretrained(</span>
+    <span class="comment">#     config.base_model, quantization_config=bnb_config,</span>
+    <span class="comment">#     device_map="auto"  # 自动分配GPU/CPU</span>
+    <span class="comment"># )</span>
+
+    <span class="comment"># Step 2: 配置 LoRA</span>
+    <span class="comment"># from peft import LoraConfig, get_peft_model</span>
+    <span class="comment"># lora_config = LoraConfig(</span>
+    <span class="comment">#     r=config.lora_r,</span>
+    <span class="comment">#     lora_alpha=config.lora_alpha,</span>
+    <span class="comment">#     lora_dropout=config.lora_dropout,</span>
+    <span class="comment">#     target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],</span>
+    <span class="comment">#     bias="none",</span>
+    <span class="comment">#     task_type="CAUSAL_LM"</span>
+    <span class="comment"># )</span>
+    <span class="comment"># model = get_peft_model(model, lora_config)</span>
+    <span class="comment"># model.print_trainable_parameters()</span>
+    <span class="comment"># # 输出类似: trainable params: 4.2M || all params: 1.5B || 0.28%</span>
+
+    <span class="comment"># Step 3: 准备数据集（HuggingFace Datasets 格式）</span>
+    <span class="comment"># from datasets import Dataset</span>
+    <span class="comment"># raw_data = build_amc_dataset()</span>
+    <span class="comment"># dataset = Dataset.from_list(raw_data)</span>
+
+    <span class="comment"># Step 4: 训练</span>
+    <span class="comment"># from trl import SFTTrainer, SFTConfig</span>
+    <span class="comment"># trainer = SFTTrainer(</span>
+    <span class="comment">#     model=model,</span>
+    <span class="comment">#     train_dataset=dataset,</span>
+    <span class="comment">#     args=SFTConfig(</span>
+    <span class="comment">#         output_dir=config.output_dir,</span>
+    <span class="comment">#         num_train_epochs=config.num_epochs,</span>
+    <span class="comment">#         per_device_train_batch_size=config.batch_size,</span>
+    <span class="comment">#         learning_rate=config.learning_rate,</span>
+    <span class="comment">#         max_seq_length=config.max_seq_length,</span>
+    <span class="comment">#         optim="paged_adamw_8bit",  # 分页优化器！</span>
+    <span class="comment">#         logging_steps=10,</span>
+    <span class="comment">#         save_strategy="epoch",</span>
+    <span class="comment">#     )</span>
+    <span class="comment"># )</span>
+    <span class="comment"># trainer.train()</span>
+
+    <span class="comment"># Step 5: 保存 LoRA adapter（只有几十MB）</span>
+    <span class="comment"># trainer.model.save_pretrained(config.output_dir)</span>
+    <span class="comment"># print(f"LoRA adapter 已保存到 {config.output_dir}")</span>
+
+    print(<span class="keyword">f</span>训练配置: {json.dumps(asdict(config), ensure_ascii=False, indent=2)}<span class="string">")</span>
+    print(<span class="string">"✅ 训练完成！（以上为流程伪代码，实际运行需安装依赖）"</span>)
+
+<span class="comment"># 运行</span>
+<span class="keyword">if</span> __name__ == <span class="string">"__main__"</span>:
+    config = TrainConfig()
+    <span class="comment"># 1. 构建数据集</span>
+    raw_data = build_amc_dataset()
+    save_jsonl(
+        [FineTuneSample(**d) <span class="keyword">for</span> d <span class="keyword">in</span> raw_data],
+        Path(<span class="string">"amc_finetune_train.jsonl"</span>)
+    )
+    <span class="comment"># 2. 执行训练</span>
+    train_qlora(config)</code></pre>
+
+  <div class="tip-box">
+    <strong>分页优化器的关键配置：</strong>注意上面代码中的 <code>optim="paged_adamw_8bit"</code>。这就是 QLoRA 的第三大支柱——分页优化器，配合 <code>device_map="auto"</code>，自动管理 GPU/CPU 之间的内存交换。
+  </div>
+</div>
+
+<!-- ==================== Section 7 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚠️</span> 常见陷阱 Top 5
+    <span class="time-tag">⏱ 5 min</span>
+  </div>
+
+  <div class="error-box">
+    <strong>陷阱 1：数据泄露 — 验证集混入训练集</strong><br>
+    同一问题的不同表述分别出现在训练集和验证集中，导致验证指标虚高，实际效果差。<br>
+    <strong>防御：</strong>按 output 做去重（即使 input 不同，只要 output 相似度 &gt; 90% 就要去重）。
+  </div>
+
+  <div class="error-box">
+    <strong>陷阱 2：output 质量不均匀 — 混入错误标注</strong><br>
+    手写样本时标注错误，或 LLM 增强时生成了错误的 output。<br>
+    <strong>防御：</strong>每条样本人工审核，至少抽查 30%。建立"黄金测试集"（20 条高质量样本，训练前后都用它测试）。
+  </div>
+
+  <div class="warn-box">
+    <strong>陷阱 3：过度增强 — 模式崩塌</strong><br>
+    用 LLM 生成太多变体，导致训练数据过于同质化，模型丧失泛化能力。<br>
+    <strong>防御：</strong>增强比例不超过 3:1（每条手写样本最多生成 3 条变体），保持多样性。
+  </div>
+
+  <div class="warn-box">
+    <strong>陷阱 4：LoRA rank 过大 — 过拟合</strong><br>
+    r=64 或更大看起来"更强"，但数据量不足时严重过拟合，训练 loss 接近 0 但验证效果很差。<br>
+    <strong>防御：</strong>从小开始（r=8），只有在验证集指标不再提升时才增大 r。
+  </div>
+
+  <div class="warn-box">
+    <strong>陷阱 5：忘记合并推理 — 额外延迟</strong><br>
+    训练后直接加载 LoRA adapter 推理，每次前向传播都要做 W + B×A 计算。<br>
+    <strong>防御：</strong>部署前执行 <code>model.merge_and_unload()</code>，将 LoRA 权重合并进基础模型，推理零额外开销。
+  </div>
+</div>
+
+<!-- ==================== Section 8 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📋</span> 数据集构建最佳实践 Checklist
+  </div>
+
+  <div class="checklist">
+  <strong>□ 数据质量</strong>
+    □ 每条 output 经过人工审核（至少抽查 30%）
+    □ output 格式统一（JSON/Markdown/纯文本 选一种）
+    □ 建立黄金测试集（20 条，训练全程监控）
+    □ output 长度适中（50-500 字为最佳区间）
+    □ 无涉密信息、已脱敏处理
+
+  <strong>□ 数据多样性</strong>
+    □ 覆盖所有目标场景（术语/问答/NL2SQL/报告）
+    □ 每个场景至少 30+ 条样本
+    □ input 表述多样化（同一问题不同问法）
+    □ 难度分层（easy:medium:hard = 3:5:2）
+    □ 手写:增强 = 3:7（手写保底，增强扩面）
+
+  <strong>□ 数据工程</strong>
+    □ JSONL 格式存储，每行一条
+    □ 训练:验证 = 9:1，按类别分层拆分
+    □ output 字段去重（相似度 &gt; 90% 视为重复）
+    □ 清洗 Pipeline（去空/去噪/长度过滤/格式纠错）
+    □ 统计报告（总条数/各类比例/平均长度/质量分布）
+
+  <strong>□ PEFT 配置</strong>
+    □ QLoRA (4bit) + LoRA (r=8) 作为起点
+    □ target_modules 包含 q/k/v/o_proj
+    □ paged_adamw_8bit 优化器节省显存
+    □ 训练后 merge_and_unload 再部署
+    □ 保留训练配置 + LoRA adapter + 训练日志
+  </div>
+</div>
+
+<!-- ==================== Section 9 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">💪</span> 今日练习
+  </div>
+
+  <div class="quiz-box">
+    <h4>练习 1：实现数据集质量分析器</h4>
+    <p>编写 <code>DatasetAnalyzer</code> 类，接收 JSONL 文件路径，输出：</p>
+    <ul>
+      <li>各 category 的样本数和占比</li>
+      <li>output 长度分布（min/max/avg/P50/P90）</li>
+      <li>重复率（output 完全相同的比例）</li>
+      <li>低质量预警（output 含"不知道"/长度&lt;20/连续空行过多）</li>
+    </ul>
+    <p>提示：用 <code>collections.Counter</code> 做分类统计，<code>sorted()</code> 做百分位数计算。</p>
+  </div>
+
+  <div class="quiz-box">
+    <h4>练习 2：实现 Self-Instruct 数据生成</h4>
+    <p>用 LLM（可用智谱 API）实现一个简化的 Self-Instruct 流程：</p>
+    <ul>
+      <li>输入：5 条手写 AMC 微调样本</li>
+      <li>让 LLM 参考 seed 样本的格式和风格，生成 10 条新样本</li>
+      <li>输出：保存为 JSONL，source 标记为 "self_instruct"</li>
+      <li>对生成的样本做质量检查（格式/长度/关键词）</li>
+    </ul>
+  </div>
+
+  <div class="quiz-box">
+    <h4>练习 3：LeetCode #66 加一（数组操作）</h4>
+    <p>给定一个用数组表示的非负整数（最高位在数组头部），对该数加一。<br>
+    例如 <code>[1,2,3]</code> → <code>[1,2,4]</code>；<code>[9,9]</code> → <code>[1,0,0]</code>。<br>
+    <strong>提示：</strong>从末尾向前遍历，处理进位。注意全是 9 的情况需要扩展数组。</p>
+  </div>
+</div>
+
+<!-- ==================== Footer ==================== -->
+<div class="section" style="text-align:center;color:var(--text3);font-size:13px;">
+  <p><strong>Day 44 完成</strong> · PEFT 进阶 + 数据集构建工程化 ✅</p>
+  <p>明日预告：<strong>Day 45 — 高效推理：Ollama 本地部署 + 模型量化与选择</strong></p>
+  <p style="margin-top:8px;font-size:12px;">
+    <span class="tag tag-purple">Phase 3 微调部署</span>
+    <span class="tag tag-blue">QLoRA</span>
+    <span class="tag tag-green">数据工程</span>
+  </p>
+</div>
+
+</body>
+</html>
