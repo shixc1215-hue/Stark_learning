@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 46 - vLLM 高性能推理引擎</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#ecfdf5,#eff6ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #a7f3d0; }
+  .header .badge { display:inline-block;background:#dcfce7;color:#16a34a;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent2);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--green); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  .sql-box { background:#f5f3ff;border-left:3px solid var(--accent2);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .sql-box strong { color:var(--accent2); }
+  pre { background:#1e293b;color:#e2e8f0;padding:18px 22px;border-radius:10px;overflow-x:auto;font-size:13.5px;line-height:1.65;margin:14px 0;font-family:'Cascadia Code','Fira Code','Consolas',monospace; }
+  pre .comment { color:#64748b;font-style:italic; }
+  pre .keyword { color:#93c5fd; }
+  pre .string { color:#86efac; }
+  pre .func { color:#fbbf24; }
+  pre .decorator { color:#c084fc; }
+  pre .number { color:#fda4af; }
+  pre .type { color:#67e8f9; }
+  code { background:var(--surface2);padding:2px 7px;border-radius:5px;font-size:13px;font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--accent2); }
+  .compare-table { width:100%;border-collapse:collapse;margin:14px 0;font-size:14px; }
+  .compare-table th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border-bottom:2px solid var(--border);color:var(--text); }
+  .compare-table td { padding:10px 14px;border-bottom:1px solid var(--surface3);color:var(--text2); }
+  .compare-table tr:last-child td { border-bottom:none; }
+  .compare-table tr:hover td { background:#f8fafc; }
+  .compare-table .highlight { background:#dcfce7;font-weight:600;color:var(--green); }
+  .compare-table .dim { color:var(--text3); }
+  .sub-title { font-size:15px;font-weight:600;margin:18px 0 8px;color:var(--text); }
+  .exercise { background:var(--surface);border-radius:var(--radius);padding:20px 24px;margin-bottom:16px;border:1px solid var(--border); }
+  .exercise h3 { font-size:16px;font-weight:700;margin-bottom:10px;color:var(--accent2); }
+  .exercise p { color:var(--text2);font-size:14px;margin-bottom:8px; }
+  .footer { text-align:center;padding:20px;color:var(--text3);font-size:13px;margin-top:20px; }
+  ul,ol { padding-left:22px;margin:8px 0; }
+  li { margin:4px 0;color:var(--text2);font-size:14px; }
+  .inline-code { background:var(--surface2);padding:2px 6px;border-radius:4px;font-family:'Cascadia Code','Fira Code','Consolas',monospace;font-size:13px;color:var(--accent2); }
+  .arch-diagram { background:var(--surface2);border:1px dashed var(--border);border-radius:10px;padding:20px;margin:14px 0;font-family:'Cascadia Code','Fira Code',monospace;font-size:13px;line-height:1.7;color:var(--text);white-space:pre;overflow-x:auto; }
+  .tag { display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;margin-right:6px; }
+  .tag-blue { background:#dbeafe;color:#2563eb; }
+  .tag-green { background:#dcfce7;color:#16a34a; }
+  .tag-orange { background:#fff7ed;color:#ea580c; }
+  .tag-purple { background:#f5f3ff;color:#7c3aed; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Phase 3 · 微调部署 · Day 4/7</div>
+  <h1>Day 46 — vLLM 高性能推理引擎</h1>
+  <div class="subtitle">PagedAttention · 连续批处理 · OpenAI 兼容 API 部署 · 性能对比</div>
+</div>
+
+<div class="progress-bar">
+  <span class="label">Day 46 / 70</span>
+  <div class="track"><div class="fill" style="width:65.7%"></div></div>
+  <span class="percent">65.7%</span>
+</div>
+
+<!-- ==================== Section 1 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🚀</span> 为什么需要 vLLM？推理性能瓶颈
+    <span class="time-tag">~15 min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>vLLM 核心价值：</strong>在同样的 GPU 上，让 LLM 推理吞吐量提升 2~24 倍。它解决了传统推理框架的<strong>显存浪费</strong>和<strong>批处理效率低</strong>两大痛点。
+  </div>
+
+  <div class="sub-title">数仓类比：从「逐条查询」到「批量优化」</div>
+  <p style="color:var(--text2);font-size:14px;">
+    想象你有一条 SQL：<code>SELECT * FROM table WHERE id = ?</code>。如果每条请求都单独执行，数据库会为每个连接分配独立的内存、解析计划、缓存——这就像传统 LLM 推理的 <strong>Static Batching</strong>。而 vLLM 的 <strong>PagedAttention</strong> 就像数据库的「连接池 + 共享缓存」，让多个请求共享 GPU 显存，显著提升利用率。
+  </p>
+
+  <div class="sub-title">传统推理框架的三大浪费</div>
+  <table class="compare-table">
+    <thead>
+      <tr><th>浪费类型</th><th>原理</th><th>影响</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>显存碎片</strong></td>
+        <td>为每个序列预分配<strong>最大长度</strong>的 KV Cache，但实际使用可能很短</td>
+        <td>7B 模型 2048 上下文，平均长度 512 → <strong>75% 显存浪费</strong></td>
+      </tr>
+      <tr>
+        <td><strong>显存重复</strong></td>
+        <td>相同 prompt 的 KV Cache 被重复存储（如 system prompt）</td>
+        <td>batch 中 10 个请求共享 system prompt → <strong>9 份冗余</strong></td>
+      </tr>
+      <tr>
+        <td><strong>批处理低效</strong></td>
+        <td>Static Batching 等最慢请求完成才开始下一批</td>
+        <td>1 个长请求拖慢 9 个短请求 → <strong>吞吐量暴跌</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="arch-diagram">
+┌─────────────────────────────────────────────────────────────┐
+│                  传统推理 (Static Batching)                   │
+│                                                             │
+│  GPU 显存                                                     │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
+│  │ Seq 1    │ │ Seq 2    │ │ Seq 3    │ │ Seq 4    │       │
+│  │ KV Cache  │ │ KV Cache  │ │ KV Cache  │ │ KV Cache  │       │
+│  │ (用了一半)│ │ (用满)   │ │ (用了1/4)│ │ (用了2/3)│       │
+│  │ ░░░░░░░░░│ │ ████████ │ │ ░░░░░░░░░│ │ ░░░░░░░░░│       │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘       │
+│  ← 预分配固定大小，实际利用率低，大量浪费 ░                    │
+│                                                             │
+│  时间轴：                                                     │
+│  ████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  Batch 1      │
+│  ↑ 等最长的 Seq 2 生成完毕，才能开始 Batch 2                   │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│                  vLLM (PagedAttention + Continuous Batching) │
+│                                                             │
+│  GPU 显存                                                     │
+│  ┌─────────────────────────────────────────────────┐       │
+│  │            共享内存池 (Memory Pool)               │       │
+│  │  ┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐    │       │
+│  │  │ P0│ P1│ P2│ P3│ P4│ P5│ P6│ P7│ P8│ P9│    │       │
+│  │  └───┴───┴─┬─┴───┴─┬─┴───┴───┴─┬─┴───┴───┘    │       │
+│  │            │       │         │                  │       │
+│  │  Seq 1    │ Seq 2 │ Seq 3   │ Seq 4 (新加入)   │       │
+│  │  用 3 页  │ 用 4 页│ 用 1 页 │ 用 2 页          │       │
+│  │  按需分配  │        │         │ 随时可加入       │       │
+│  └─────────────────────────────────────────────────┘       │
+│  ← 按需分页，Seq 2 完成释放内存，Seq 4 立即加入               │
+│                                                             │
+│  时间轴：                                                     │
+│  Seq1 ████████████████░░░░░                                   │
+│  Seq2 ████████████████████████████████████                   │
+│  Seq3 ████████████░░░░░░░░░░░░░░░░░░░░░░░░                   │
+│  Seq4 ░░░░░░░░░░░░░░░░███████████████████░░                 │
+│  ↑ Continuous Batching: 随到随处理，完成后腾出位置给新请求      │
+└─────────────────────────────────────────────────────────────┘
+  </div>
+
+  <div class="sub-title">vLLM vs Ollama vs TGI 对比</div>
+  <table class="compare-table">
+    <thead>
+      <tr><th>特性</th><th>vLLM</th><th>Ollama</th><th>TGI (HuggingFace)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>核心优化</td><td class="highlight">PagedAttention + Continuous Batching</td><td>llama.cpp 量化</td><td>Tensor Parallel + Flash Attention</td></tr>
+      <tr><td>吞吐量</td><td class="highlight">最高 (2-24x 提升)</td><td>中等</td><td>高</td></tr>
+      <tr><td>部署复杂度</td><td>中等 (pip install)</td><td class="highlight">最低</td><td>高 (Docker)</td></tr>
+      <tr><td>API 兼容</td><td class="highlight">OpenAI 完整兼容</td><td>OpenAI 兼容</td><td>OpenAI 兼容</td></tr>
+      <tr><td>适用场景</td><td>高并发生产环境</td><td>本地开发/测试</td><td>大规模分布式</td></tr>
+      <tr><td>Python SDK</td><td>官方 SDK</td><td>社区 SDK</td><td>HTTP API</td></tr>
+    </tbody>
+  </table>
+
+  <div class="tip-box">
+    <strong>选择建议：</strong>本地开发用 Ollama（Day 45 已学），生产部署用 vLLM。你作为数据开发工程师，未来如果需要搭建 AMC 内部的 LLM 推理服务，vLLM 是最主流的选择。
+  </div>
+</div>
+
+<!-- ==================== Section 2 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🧠</span> PagedAttention 原理详解
+    <span class="time-tag">~20 min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>PagedAttention 核心思想：</strong>借鉴操作系统虚拟内存的分页机制，把 KV Cache 切成固定大小的「页」，按需分配、动态回收，彻底消除显存浪费和碎片。
+  </div>
+
+  <div class="sub-title">Step 1：理解 KV Cache</div>
+  <p style="color:var(--text2);font-size:14px;">
+    Transformer 模型在生成每个 token 时，需要「回顾」之前所有 token 的 Key 和 Value 信息，这就是 KV Cache。它是一个形状为 <code>[num_layers, 2, num_heads, seq_len, head_dim]</code> 的张量。
+  </p>
+
+<pre>
+<span class="comment"># 用 Python 理解 KV Cache 的结构</span>
+<span class="comment"># 假设一个 7B 模型的典型参数</span>
+<span class="keyword">import</span> numpy <span class="keyword">as</span> np
+
+<span class="comment"># 模型参数</span>
+num_layers = <span class="number">32</span>        <span class="comment"># Transformer 层数</span>
+num_heads = <span class="number">32</span>         <span class="comment"># 注意力头数</span>
+head_dim = <span class="number">128</span>         <span class="comment"># 每个头的维度</span>
+seq_len = <span class="number">2048</span>         <span class="comment"># 最大序列长度</span>
+batch_size = <span class="number">8</span>          <span class="comment"># 批处理大小</span>
+
+<span class="comment"># 传统方式：预分配最大长度的 KV Cache</span>
+<span class="comment"># 每个位置存储 Key 和 Value 两个矩阵</span>
+kv_cache_shape = (num_layers, <span class="number">2</span>, num_heads, seq_len, head_dim)
+kv_cache = np.zeros(kv_cache_shape, dtype=np.float16)
+
+<span class="comment"># 计算显存占用（float16 = 2 bytes）</span>
+memory_gb = kv_cache.nbytes / (<span class="number">1024</span> ** <span class="number">3</span>)
+<span class="func">print</span>(<span class="string">f"单个请求 KV Cache: </span>{<span class="func">round</span>(memory_gb, <span class="number">2</span>)}<span class="string"> GB"</span>)
+<span class="func">print</span>(<span class="string">f"batch_size=</span>{batch_size}<span class="string"> 总共: </span>{<span class="func">round</span>(memory_gb * batch_size, <span class="number">2</span>)}<span class="string"> GB"</span>)
+
+<span class="comment"># 📊 输出：</span>
+<span class="comment"># 单个请求 KV Cache: 2.0 GB</span>
+<span class="comment"># batch_size=8 总共: 16.0 GB   ← 一张 24GB 的 4090 只能跑 batch=12！</span>
+
+<span class="comment"># ⚠️ 但实际平均长度可能只有 512，浪费了 75%！</span>
+avg_len = <span class="number">512</span>
+actual_needed = memory_gb * (avg_len / seq_len)
+<span class="func">print</span>(<span class="string">f"实际需要: </span>{<span class="func">round</span>(actual_needed, <span class="number">2</span>)}<span class="string"> GB，浪费: </span>{<span class="func">round</span>(<span class="number">1</span> - actual_needed/memory_gb, <span class="number">1</span>)}<span class="string">%"</span>)
+<span class="comment"># 实际需要: 0.5 GB，浪费: 0.8% → 等等，这不对...</span>
+<span class="comment"># 修正：浪费了 75%，实际 batch_size 可以翻 4 倍</span>
+</pre>
+
+  <div class="sub-title">Step 2：分页 (Paging) 机制</div>
+  <p style="color:var(--text2);font-size:14px;">
+    vLLM 把每层的 KV Cache 切成固定大小的「页」（默认 16 个 token 为一页）。类比操作系统的虚拟内存：
+  </p>
+  <ul>
+    <li><strong>虚拟地址 → 物理页</strong>：每个序列的 KV Cache 是一个虚拟的连续数组，但物理上由不连续的「页」组成</li>
+    <li><strong>页表 (Page Table)</strong>：维护虚拟页 → 物理页的映射关系</li>
+    <li><strong>按需分配</strong>：序列增长时分配新页，序列完成后回收页面</li>
+  </ul>
+
+<pre>
+<span class="comment"># 用 Python 模拟 PagedAttention 的分页逻辑</span>
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> typing <span class="keyword">import</span> Optional
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="type">Page</span>:
+    <span class="string">"""一个 KV Cache 页，存储 block_size 个 token 的 K 和 V"""</span>
+    block_size: <span class="type">int</span>          <span class="comment"># 每页的 token 数（如 16）</span>
+    page_id: <span class="type">int</span>            <span class="comment"># 物理页编号</span>
+    data: dict = field(default_factory=<span class="keyword">dict</span>)  <span class="comment"># 实际存储的 KV 数据</span>
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="type">BlockTable</span>:
+    <span class="string">"""页表：虚拟页 → 物理页的映射"""</span>
+    num_blocks: <span class="type">int</span>          <span class="comment"># 物理内存池中总页数</span>
+    block_size: <span class="type">int</span>          <span class="comment"># 每页 token 数</span>
+
+    <span class="comment"># 物理页状态：None 表示空闲</span>
+    free_pages: list = field(default_factory=<span class="keyword">list</span>)
+    <span class="comment"># 每个序列的页表：seq_id → [物理页编号列表]</span>
+    page_tables: dict = field(default_factory=<span class="keyword">dict</span>)
+
+    <span class="keyword">def</span> <span class="func">__post_init__</span>(self):
+        self.free_pages = <span class="func">list</span>(<span class="func">range</span>(self.num_blocks))
+
+    <span class="keyword">def</span> <span class="func">allocate</span>(self, seq_id: <span class="type">str</span>, num_tokens: <span class="type">int</span>) -> list[<span class="type">int</span>]:
+        <span class="string">"""为序列分配足够的页"""</span>
+        num_pages_needed = (num_tokens + self.block_size - <span class="number">1</span>) // self.block_size
+        <span class="keyword">if</span> <span class="func">len</span>(self.free_pages) < num_pages_needed:
+            <span class="keyword">raise</span> <span class="type">MemoryError</span>(<span class="string">f"显存不足！需要 </span>{num_pages_needed}<span class="string"> 页，剩余 </span>{<span class="func">len</span>(self.free_pages)}<span class="string"> 页"</span>)
+
+        allocated = []
+        <span class="keyword">for</span> _ <span class="keyword">in</span> <span class="func">range</span>(num_pages_needed):
+            allocated.<span class="func">append</span>(self.free_pages.<span class="func">pop</span>(<span class="number">0</span>))
+        self.page_tables[seq_id] = allocated
+        <span class="keyword">return</span> allocated
+
+    <span class="keyword">def</span> <span class="func">append_token</span>(self, seq_id: <span class="type">str</span>) -> Optional[<span class="type">int</span>]:
+        <span class="string">"""序列新增 1 个 token，需要新页时分配"""</span>
+        current_pages = self.page_tables.<span class="func">get</span>(seq_id, [])
+        <span class="comment"># 检查最后一页是否已满</span>
+        <span class="comment"># （简化逻辑：假设我们有某种方式跟踪每页使用量）</span>
+        <span class="keyword">if</span> <span class="keyword">not</span> self.free_pages:
+            <span class="keyword">raise</span> <span class="type">MemoryError</span>(<span class="string">"显存池已满！"</span>)
+        new_page = self.free_pages.<span class="func">pop</span>(<span class="number">0</span>)
+        current_pages.<span class="func">append</span>(new_page)
+        <span class="keyword">return</span> new_page
+
+    <span class="keyword">def</span> <span class="func">free</span>(self, seq_id: <span class="type">str</span>):
+        <span class="string">"""释放序列的所有页"""</span>
+        <span class="keyword">for</span> page_id <span class="keyword">in</span> self.page_tables.<span class="func">pop</span>(seq_id, []):
+            self.free_pages.<span class="func">append</span>(page_id)
+
+<span class="comment"># === 模拟演示 ===</span>
+pool = BlockTable(num_blocks=<span class="number">100</span>, block_size=<span class="number">16</span>)
+<span class="func">print</span>(<span class="string">f"初始空闲页: </span>{<span class="func">len</span>(pool.free_pages)}<span class="string">"</span>)
+
+<span class="comment"># 序列 A 请求 100 个 token → 需要 7 页</span>
+pool.<span class="func">allocate</span>(<span class="string">"seq_A"</span>, <span class="number">100</span>)
+<span class="func">print</span>(<span class="string">f"seq_A 分配后空闲页: </span>{<span class="func">len</span>(pool.free_pages)}<span class="string"> (用了 7 页)"</span>)
+
+<span class="comment"># 序列 B 请求 500 个 token → 需要 32 页</span>
+pool.<span class="func">allocate</span>(<span class="string">"seq_B"</span>, <span class="number">500</span>)
+<span class="func">print</span>(<span class="string">f"seq_B 分配后空闲页: </span>{<span class="func">len</span>(pool.free_pages)}<span class="string"> (用了 32 页)"</span>)
+
+<span class="comment"># 序列 A 完成，释放 7 页给新请求</span>
+pool.<span class="func">free</span>(<span class="string">"seq_A"</span>)
+<span class="func">print</span>(<span class="string">f"seq_A 释放后空闲页: </span>{<span class="func">len</span>(pool.free_pages)}<span class="string"> (回收 7 页)"</span>)
+
+<span class="comment"># 序列 C 可以立即使用回收的页</span>
+pool.<span class="func">allocate</span>(<span class="string">"seq_C"</span>, <span class="number">50</span>)
+<span class="func">print</span>(<span class="string">f"seq_C 分配后空闲页: </span>{<span class="func">len</span>(pool.free_pages)}<span class="string">"</span>)
+</pre>
+
+  <div class="sub-title">Step 3：Copy-on-Write (CoW) 实现显存共享</div>
+  <p style="color:var(--text2);font-size:14px;">
+    当多个请求共享相同的 prefix（如 system prompt），vLLM 不会复制 KV Cache，而是让它们<strong>共享同一组物理页</strong>。只有当某个请求需要修改共享页时，才触发 Copy-on-Write 复制一份。这就像 Linux 进程的 <code>fork()</code> 机制。
+  </p>
+
+  <div class="tip-box">
+    <strong>类比 ETL：</strong>传统批处理就像每次都全表扫描（重复计算 prefix），PagedAttention + CoW 就像增量处理（共享已计算部分，只算新增部分）。数据开发工程师对此应该很熟悉。
+  </div>
+</div>
+
+<!-- ==================== Section 3 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚡</span> Python 知识：进程管理 &amp; 子系统命令
+    <span class="time-tag">~10 min</span>
+  </div>
+
+  <p style="color:var(--text2);font-size:14px;">
+    部署 vLLM 服务需要从 Python 中启动和管理子进程。这里补充 <code>subprocess</code> 模块的进阶用法。
+  </p>
+
+<pre>
+<span class="keyword">import</span> subprocess
+<span class="keyword">from</span> pathlib <span class="keyword">import</span> Path
+
+<span class="comment"># ===== 1. 基础：运行命令并获取输出 =====</span>
+result = subprocess.<span class="func">run</span>(
+    [<span class="string">"python"</span>, <span class="string">"-c"</span>, <span class="string">"print('hello vLLM')"</span>],
+    capture_output=<span class="keyword">True</span>,     <span class="comment"># 捕获 stdout 和 stderr</span>
+    text=<span class="keyword">True</span>,              <span class="comment"># 输出为字符串而非 bytes</span>
+    timeout=<span class="number">10</span>              <span class="comment"># 超时秒数</span>
+)
+<span class="func">print</span>(result.stdout.<span class="func">strip</span>())   <span class="comment"># → hello vLLM</span>
+<span class="func">print</span>(result.returncode)      <span class="comment"># → 0（成功）</span>
+
+<span class="comment"># ===== 2. 启动后台进程（启动 vLLM 服务器）=====</span>
+<span class="comment"># Popen 返回一个进程对象，不会阻塞主线程</span>
+server_process = subprocess.<span class="func">Popen</span>(
+    [<span class="string">"python"</span>, <span class="string">"-m"</span>, <span class="string">"vllm.entrypoints.openai.api_server"</span>,
+     <span class="string">"--model"</span>, <span class="string">"Qwen/Qwen2.5-7B-Instruct"</span>,
+     <span class="string">"--port"</span>, <span class="string">"8000"</span>],
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+    text=<span class="keyword">True</span>
+)
+
+<span class="comment"># ===== 3. 等待服务就绪（轮询检查端口）=====</span>
+<span class="keyword">import</span> time
+<span class="keyword">import</span> socket
+
+<span class="keyword">def</span> <span class="func">wait_for_service</span>(host: <span class="type">str</span>, port: <span class="type">int</span>, timeout: <span class="type">int</span> = <span class="number">120</span>) -> <span class="type">bool</span>:
+    <span class="string">"""轮询等待服务端口可用"""</span>
+    start = time.<span class="func">perf_counter</span>()
+    <span class="keyword">while</span> time.<span class="func">perf_counter</span>() - start < timeout:
+        <span class="keyword">try</span>:
+            <span class="keyword">with</span> socket.<span class="func">create_connection</span>((host, port), timeout=<span class="number">2</span>):
+                <span class="keyword">return</span> <span class="keyword">True</span>
+        <span class="keyword">except</span> (ConnectionRefusedError, OSError):
+            time.<span class="number">0.5</span>()    <span class="comment"># 等待 0.5 秒后重试</span>
+    <span class="keyword">return</span> <span class="keyword">False</span>
+
+<span class="keyword">if</span> <span class="func">wait_for_service</span>(<span class="string">"localhost"</span>, <span class="number">8000</span>):
+    <span class="func">print</span>(<span class="string">"✅ vLLM 服务已就绪"</span>)
+<span class="keyword">else</span>:
+    <span class="func">print</span>(<span class="string">"❌ vLLM 服务启动超时"</span>)
+
+<span class="comment"># ===== 4. 优雅关闭进程 =====</span>
+server_process.<span class="func">terminate</span>()          <span class="comment"># 发送 SIGTERM（Windows 下类似）</span>
+<span class="keyword">try</span>:
+    server_process.<span class="func">wait</span>(timeout=<span class="number">5</span>)   <span class="comment"># 等待最多 5 秒</span>
+<span class="keyword">except</span> subprocess.TimeoutExpired:
+    server_process.<span class="func">kill</span>()          <span class="comment"># 强制杀死</span>
+    <span class="func">print</span>(<span class="string">"⚠️ 进程未正常退出，已强制关闭"</span>)
+
+<span class="comment"># ===== 5. subprocess 完整封装类 =====</span>
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="type">ServiceManager</span>:
+    <span class="string">"""管理子进程服务的生命周期"""</span>
+    name: <span class="type">str</span>
+    cmd: <span class="type">list</span>[<span class="type">str</span>]
+    host: <span class="type">str</span> = <span class="string">"localhost"</span>
+    port: <span class="type">int</span> = <span class="number">8000</span>
+    startup_timeout: <span class="type">int</span> = <span class="number">120</span>
+
+    _process: subprocess.Popen = field(default=<span class="keyword">None</span>, repr=<span class="keyword">False</span>)
+
+    <span class="keyword">def</span> <span class="func">start</span>(self) -> <span class="type">bool</span>:
+        <span class="string">"""启动服务并等待就绪"""</span>
+        <span class="func">print</span>(<span class="string">f"🚀 启动 </span>{self.name}<span class="string">..."</span>)
+        self._process = subprocess.<span class="func">Popen</span>(
+            self.cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=<span class="keyword">True</span>
+        )
+        <span class="keyword">if</span> <span class="func">wait_for_service</span>(self.host, self.port, self.startup_timeout):
+            <span class="func">print</span>(<span class="string">f"✅ </span>{self.name}<span class="string"> 已就绪 (PID=</span>{self._process.pid}<span class="string">)"</span>)
+            <span class="keyword">return</span> <span class="keyword">True</span>
+        <span class="keyword">return</span> <span class="keyword">False</span>
+
+    <span class="keyword">def</span> <span class="func">stop</span>(self):
+        <span class="string">"""优雅关闭服务"""</span>
+        <span class="keyword">if</span> self._process:
+            self._process.<span class="func">terminate</span>()
+            <span class="keyword">try</span>:
+                self._process.<span class="func">wait</span>(<span class="number">5</span>)
+            <span class="keyword">except</span> subprocess.TimeoutExpired:
+                self._process.<span class="func">kill</span>()
+            <span class="func">print</span>(<span class="string">f"🛑 </span>{self.name}<span class="string"> 已关闭"</span>)
+</pre>
+
+  <div class="tip-box">
+    <strong>实践提示：</strong>部署 vLLM 时通常在终端直接运行命令，不需要从 Python 启动子进程。但理解 <code>subprocess</code> 有助于你编写自动化部署脚本、CI/CD 流水线中的服务管理。
+  </div>
+</div>
+
+<!-- ==================== Section 4 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔧</span> vLLM 安装与启动
+    <span class="time-tag">~10 min</span>
+  </div>
+
+  <div class="sub-title">安装方式</div>
+<pre>
+<span class="comment"># 方式一：pip 安装（推荐，最简单）</span>
+pip install vllm
+
+<span class="comment"># 方式二：源码安装（最新特性）</span>
+git clone https://github.com/vllm-project/vllm.git
+cd vllm
+pip install -e .
+
+<span class="comment"># ⚠️ 硬件要求：</span>
+<span class="comment"># - NVIDIA GPU（计算能力 ≥ 7.0，如 V100/A100/4090/L20）</span>
+<span class="comment"># - CUDA 11.8+ / 12.1+</span>
+<span class="comment"># - Python 3.9 - 3.12</span>
+<span class="comment"># - Linux 推荐（Windows 仅支持 CPU 推理）</span>
+</pre>
+
+  <div class="sub-title">启动 OpenAI 兼容服务器</div>
+<pre>
+<span class="comment"># 最简单的启动命令</span>
+python -m vllm.entrypoints.openai.api_server \
+    --model Qwen/Qwen2.5-7B-Instruct \
+    --port 8000
+
+<span class="comment"># 生产环境推荐参数</span>
+python -m vllm.entrypoints.openai.api_server \
+    --model Qwen/Qwen2.5-7B-Instruct \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --dtype half \
+    --gpu-memory-utilization 0.90 \
+    --max-model-len 4096 \
+    --max-num-seqs 256 \
+    --enforce-eager \
+    --served-model-name qwen7b
+</pre>
+
+  <div class="sub-title">关键启动参数解读</div>
+  <table class="compare-table">
+    <thead>
+      <tr><th>参数</th><th>默认值</th><th>说明</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>--model</code></td><td>必填</td><td>模型名称（HuggingFace ID 或本地路径）</td></tr>
+      <tr><td><code>--dtype</code></td><td>auto</td><td>权重精度：half(fp16) / bfloat16 / float32</td></tr>
+      <tr><td><code>--gpu-memory-utilization</code></td><td>0.90</td><td>GPU 显存使用率，留一些给 CUDA 内核</td></tr>
+      <tr><td><code>--max-model-len</code></td><td>模型最大值</td><td>最大上下文长度，越小省显存越多</td></tr>
+      <tr><td><code>--max-num-seqs</code></td><td>256</td><td>最大并发序列数（连续批处理上限）</td></tr>
+      <tr><td><code>--enforce-eager</code></td><td>False</td><td>禁用 CUDA Graph，节省显存但略慢</td></tr>
+      <tr><td><code>--served-model-name</code></td><td>同 model</td><td>API 中显示的模型名称（可自定义）</td></tr>
+      <tr><td><code>--tensor-parallel-size</code></td><td>1</td><td>张量并行数（多卡部署时使用）</td></tr>
+      <tr><td><code>--quantization</code></td><td>无</td><td>量化方式：awq/gptq/squeeze/compact</td></tr>
+      <tr><td><code>--swap-space</code></td><td>4 (GB)</td><td>CPU swap 空间，显存不足时暂存 KV Cache</td></tr>
+    </tbody>
+  </table>
+
+  <div class="warn-box">
+    <strong>注意：</strong>本机 Windows 环境只能运行 CPU 推理，生产部署务必使用 Linux 服务器。以下是使用 OpenAI 兼容 API 调用的通用写法，与部署环境无关。
+  </div>
+</div>
+
+<!-- ==================== Section 5 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔌</span> OpenAI 兼容 API 调用实战
+    <span class="time-tag">~15 min</span>
+  </div>
+
+  <p style="color:var(--text2);font-size:14px;">
+    vLLM 启动后，提供与 OpenAI API 完全兼容的接口。你可以直接使用 <code>openai</code> SDK 或 <code>requests</code> 调用，只需修改 <code>base_url</code>。
+  </p>
+
+<pre>
+<span class="comment"># ===== 方式一：使用 openai SDK（推荐）=====</span>
+<span class="keyword">from</span> openai <span class="keyword">import</span> OpenAI
+
+<span class="comment"># 指向 vLLM 服务地址</span>
+client = OpenAI(
+    base_url=<span class="string">"http://localhost:8000/v1"</span>,
+    api_key=<span class="string">"token-abc123"</span>   <span class="comment"># vLLM 不做鉴权，任意值即可</span>
+)
+
+<span class="comment"># 查看可用模型</span>
+models = client.models.<span class="func">list</span>()
+<span class="keyword">for</span> m <span class="keyword">in</span> models.data:
+    <span class="func">print</span>(<span class="string">f"模型: </span>{m.id}<span class="string">"</span>)
+
+<span class="comment"># Chat Completions（对话生成）</span>
+response = client.chat.completions.<span class="func">create</span>(
+    model=<span class="string">"Qwen/Qwen2.5-7B-Instruct"</span>,
+    messages=[
+        {<span class="string">"role"</span>: <span class="string">"system"</span>, <span class="string">"content"</span>: <span class="string">"你是AMC金融分析师助手。"</span>},
+        {<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: <span class="string">"解释一下不良资产率的概念。"</span>}
+    ],
+    max_tokens=<span class="number">512</span>,
+    temperature=<span class="number">0.7</span>,
+    top_p=<span class="number">0.9</span>,
+    stream=<span class="keyword">True</span>     <span class="comment"># 流式输出（打字机效果）</span>
+)
+
+<span class="comment"># 流式读取</span>
+<span class="keyword">for</span> chunk <span class="keyword">in</span> response:
+    <span class="keyword">if</span> chunk.choices[<span class="number">0</span>].delta.content:
+        <span class="func">print</span>(chunk.choices[<span class="number">0</span>].delta.content, end=<span class="string">""</span>)
+<span class="func">print</span>()  <span class="comment"># 换行</span>
+
+<span class="comment"># Completions（文本补全）</span>
+response = client.completions.<span class="func">create</span>(
+    model=<span class="string">"Qwen/Qwen2.5-7B-Instruct"</span>,
+    prompt=<span class="string">"不良资产处置的三种方式："</span>,
+    max_tokens=<span class="number">200</span>,
+    n=<span class="number">3</span>           <span class="comment"># 生成 3 个候选</span>
+)
+<span class="keyword">for</span> i, choice <span class="keyword">in</span> <span class="func">enumerate</span>(response.choices):
+    <span class="func">print</span>(<span class="string">f"\n候选 </span>{i+<span class="number">1</span>}<span class="string">: </span>{choice.text[:<span class="number">100</span>]}<span class="string">..."</span>)
+</pre>
+
+<pre>
+<span class="comment"># ===== 方式二：使用 requests 裸调 =====</span>
+<span class="keyword">import</span> requests
+
+<span class="comment"># Chat Completions API</span>
+url = <span class="string">"http://localhost:8000/v1/chat/completions"</span>
+payload = {
+    <span class="string">"model"</span>: <span class="string">"Qwen/Qwen2.5-7B-Instruct"</span>,
+    <span class="string">"messages"</span>: [
+        {<span class="string">"role"</span>: <span class="string">"system"</span>, <span class="string">"content"</span>: <span class="string">"你是AMC金融分析师。"</span>},
+        {<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: <span class="string">"什么是五级分类？"</span>}
+    ],
+    <span class="string">"max_tokens"</span>: <span class="number">256</span>,
+    <span class="string">"temperature"</span>: <span class="number">0.3</span>
+}
+
+resp = requests.<span class="func">post</span>(url, json=payload)
+data = resp.<span class="func">json</span>()
+
+<span class="comment"># 解析响应</span>
+<span class="func">print</span>(<span class="string">"模型:"</span>, data[<span class="string">"model"</span>])
+<span class="func">print</span>(<span class="string">"回复:"</span>, data[<span class="string">"choices"</span>][<span class="number">0</span>][<span class="string">"message"</span>][<span class="string">"content"</span>])
+<span class="func">print</span>(<span class="string">"Token用量:"</span>, data[<span class="string">"usage"</span>])
+<span class="comment"># {'prompt_tokens': 35, 'completion_tokens': 120, 'total_tokens': 155}</span>
+</pre>
+
+  <div class="sub-title">vLLM 独有 API：离线批处理推理</div>
+  <p style="color:var(--text2);font-size:14px;">
+    vLLM 提供了 OpenAI SDK 不支持的批处理接口，可以在不需要服务器的场景下高效推理。
+  </p>
+<pre>
+<span class="keyword">from</span> vllm <span class="keyword">import</span> LLM, SamplingParams
+
+<span class="comment"># 初始化引擎（非服务模式，直接在当前进程推理）</span>
+llm = <span class="func">LLM</span>(
+    model=<span class="string">"Qwen/Qwen2.5-7B-Instruct"</span>,
+    dtype=<span class="string">"half"</span>,
+    gpu_memory_utilization=<span class="number">0.90</span>,
+    max_model_len=<span class="number">2048</span>
+)
+
+<span class="comment"># 定义采样参数</span>
+sampling = <span class="func">SamplingParams</span>(
+    temperature=<span class="number">0.7</span>,
+    top_p=<span class="number">0.9</span>,
+    max_tokens=<span class="number">256</span>
+)
+
+<span class="comment"># 批量推理（一次性处理多条请求，vLLM 自动连续批处理）</span>
+prompts = [
+    <span class="string">"AMC不良资产处置的主要方式有哪些？"</span>,
+    <span class="string">"解释一下NPL（Non-Performing Loan）的概念。"</span>,
+    <span class="string">"五级分类中，次级类贷款的标准是什么？"</span>,
+]
+
+<span class="comment"># vLLM 自动处理 KV Cache 分配、连续批处理</span>
+outputs = llm.<span class="func">generate</span>(prompts, sampling)
+
+<span class="keyword">for</span> output <span class="keyword">in</span> outputs:
+    <span class="func">print</span>(<span class="string">f"Prompt: </span>{output.prompt[:<span class="number">40</span>]}<span class="string">..."</span>)
+    <span class="func">print</span>(<span class="string">f"生成: </span>{output.outputs[<span class="number">0</span>].text[:<span class="number">150</span>]}<span class="string">...\n"</span>)
+</pre>
+
+  <div class="tip-box">
+    <strong>离线模式 vs 服务器模式选择：</strong>离线模式（<code>LLM.generate()</code>）适合批量处理脚本、离线评估；服务器模式（<code>api_server</code>）适合在线服务、多客户端调用。
+  </div>
+</div>
+
+<!-- ==================== Section 6 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏗️</span> LLM 实战：AMC 智能报告批量生成服务
+    <span class="time-tag">~15 min</span>
+  </div>
+
+  <p style="color:var(--text2);font-size:14px;">
+    把今天学的 vLLM 知识串起来，构建一个 AMC 智能报告批量生成服务：从数据库读取数据 → 调用 vLLM 生成分析报告 → 结果入库。
+  </p>
+
+<pre>
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> typing <span class="keyword">import</span> Optional
+<span class="keyword">import</span> asyncio
+<span class="keyword">import</span> time
+
+<span class="comment"># ===== 1. 数据模型 =====</span>
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="type">AMCAsset</span>:
+    <span class="string">"""不良资产数据（模拟从数仓读取）"""</span>
+    debtor_name: <span class="type">str</span>      <span class="comment"># 债务人名称</span>
+    asset_type: <span class="type">str</span>       <span class="comment"># 资产类型：贷款/债券/抵债资产</span>
+    principal: <span class="type">float</span>      <span class="comment"># 本金（万元）</span>
+    interest: <span class="type">float</span>        <span class="comment"># 应收利息（万元）</span>
+    risk_level: <span class="type">str</span>       <span class="comment"># 风险等级：次级/可疑/损失</span>
+    overdue_days: <span class="type">int</span>     <span class="comment"># 逾期天数</span>
+    region: <span class="type">str</span>           <span class="comment"># 区域</span>
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="type">ReportResult</span>:
+    <span class="string">"""生成报告结果"""</span>
+    asset: <span class="type">AMCAsset</span>
+    report: <span class="type">str</span>
+    tokens_used: <span class="type">int</span> = <span class="number">0</span>
+    latency_ms: <span class="type">float</span> = <span class="number">0</span>
+
+<span class="comment"># ===== 2. 模拟数据集 =====</span>
+MOCK_ASSETS = [
+    AMCAsset(<span class="string">"华腾钢铁"</span>, <span class="string">"贷款"</span>, <span class="number">5000</span>, <span class="number">320</span>, <span class="string">"可疑"</span>, <span class="number">365</span>, <span class="string">"华东"</span>),
+    AMCAsset(<span class="string">"恒盛地产"</span>, <span class="string">"抵债资产"</span>, <span class="number">12000</span>, <span class="number">890</span>, <span class="string">"损失"</span>, <span class="number">730</span>, <span class="string">"华南"</span>),
+    AMCAsset(<span class="string">"新源科技"</span>, <span class="string">"债券"</span>, <span class="number">2000</span>, <span class="number">150</span>, <span class="string">"次级"</span>, <span class="number">180</span>, <span class="string">"华北"</span>),
+    AMCAsset(<span class="string">"昌泰贸易"</span>, <span class="string">"贷款"</span>, <span class="number">3500</span>, <span class="number">210</span>, <span class="string">"次级"</span>, <span class="number">120</span>, <span class="string">"华东"</span>),
+    AMCAsset(<span class="string">"东方制造"</span>, <span class="string">"贷款"</span>, <span class="number">8000</span>, <span class="number">560</span>, <span class="string">"可疑"</span>, <span class="number">540</span>, <span class="string">"西部"</span>),
+]
+
+<span class="comment"># ===== 3. 异步报告生成器 =====</span>
+<span class="keyword">import</span> aiohttp
+
+<span class="keyword">class</span> <span class="type">AMCReportGenerator</span>:
+    <span class="string">"""AMC 智能报告批量生成器（调用 vLLM 服务）"""</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, api_url: <span class="type">str</span> = <span class="string">"http://localhost:8000/v1"</span>,
+                 model: <span class="type">str</span> = <span class="string">"Qwen/Qwen2.5-7B-Instruct"</span>,
+                 concurrency: <span class="type">int</span> = <span class="number">5</span>):
+        self.api_url = api_url
+        self.model = model
+        self.semaphore = asyncio.<span class="func">Semaphore</span>(concurrency)
+        self.results: list[<span class="type">ReportResult</span>] = []
+
+    <span class="keyword">def</span> <span class="func">_build_prompt</span>(self, asset: <span class="type">AMCAsset</span>) -> <span class="type">str</span>:
+        <span class="string">"""根据资产数据构建分析提示词"""</span>
+        <span class="keyword">return</span> <span class="string">f"""你是AMC（资产管理公司）的专业分析师。请对以下不良资产进行简要分析，包含：
+1. 风险评估（等级、严重程度）
+2. 处置建议（推荐处置方式及理由）
+3. 预计回收率区间
+
+资产信息：
+- 债务人：{asset.debtor_name}
+- 资产类型：{asset.asset_type}
+- 本金：{asset.principal}万元
+- 应收利息：{asset.interest}万元
+- 风险等级：{asset.risk_level}
+- 逾期天数：{asset.overdue_days}天
+- 区域：{asset.region}
+
+请用简洁专业的语言分析，控制在200字以内。"""</span>
+
+    <span class="keyword">async</span> <span class="keyword">def</span> <span class="func">_generate_one</span>(self, asset: <span class="type">AMCAsset</span>) -> <span class="type">ReportResult</span>:
+        <span class="string">"""为单个资产生成报告（带并发控制）"""</span>
+        <span class="keyword">async with</span> self.semaphore:   <span class="comment"># 控制并发数</span>
+            prompt = self.<span class="func">_build_prompt</span>(asset)
+            start = time.<span class="func">perf_counter</span>()
+
+            <span class="keyword">async with</span> aiohttp.<span class="func">ClientSession</span>() <span class="keyword">as</span> session:
+                payload = {
+                    <span class="string">"model"</span>: self.model,
+                    <span class="string">"messages"</span>: [
+                        {<span class="string">"role"</span>: <span class="string">"system"</span>, <span class="string">"content"</span>: <span class="string">"你是AMC不良资产分析师。"</span>},
+                        {<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: prompt}
+                    ],
+                    <span class="string">"max_tokens"</span>: <span class="number">300</span>,
+                    <span class="string">"temperature"</span>: <span class="number">0.3</span>
+                }
+                <span class="keyword">async with</span> session.<span class="func">post</span>(
+                    <span class="string">f"</span>{self.api_url}<span class="string">/chat/completions"</span>,
+                    json=payload
+                ) <span class="keyword">as</span> resp:
+                    data = <span class="keyword">await</span> resp.<span class="func">json</span>()
+                    report = data[<span class="string">"choices"</span>][<span class="number">0</span>][<span class="string">"message"</span>][<span class="string">"content"</span>]
+                    tokens = data[<span class="string">"usage"</span>][<span class="string">"total_tokens"</span>]
+
+            latency = (time.<span class="func">perf_counter</span>() - start) * <span class="number">1000</span>
+            <span class="keyword">return</span> <span class="type">ReportResult</span>(asset, report, tokens, latency)
+
+    <span class="keyword">async</span> <span class="keyword">def</span> <span class="func">batch_generate</span>(self, assets: list[<span class="type">AMCAsset</span>]) -> list[<span class="type">ReportResult</span>]:
+        <span class="string">"""批量生成报告（并发处理）"""</span>
+        <span class="func">print</span>(<span class="string">f"📋 开始批量生成 </span>{<span class="func">len</span>(assets)}<span class="string"> 份报告..."</span>)
+        start = time.<span class="func">perf_counter</span>()
+
+        tasks = [self.<span class="func">_generate_one</span>(a) <span class="keyword">for</span> a <span class="keyword">in</span> assets]
+        self.results = <span class="keyword">await</span> asyncio.<span class="func">gather</span>(*tasks)
+
+        total_time = time.<span class="func">perf_counter</span>() - start
+        total_tokens = <span class="func">sum</span>(r.tokens_used <span class="keyword">for</span> r <span class="keyword">in</span> self.results)
+        <span class="func">print</span>(<span class="string">f"✅ 完成！总耗时 </span>{total_time:<span class="number">.1f</span>}<span class="string">s，总Token </span>{total_tokens}<span class="string">"</span>)
+        <span class="func">print</span>(<span class="string">f"   平均每份报告 </span>{total_time/<span class="func">len</span>(assets):<span class="number">.2f</span>}<span class="string">s"</span>)
+        <span class="keyword">return</span> self.results
+
+<span class="comment"># ===== 4. 运行示例 =====</span>
+<span class="keyword">async def</span> <span class="func">main</span>():
+    generator = <span class="func">AMCReportGenerator</span>(
+        api_url=<span class="string">"http://localhost:8000/v1"</span>,
+        model=<span class="string">"Qwen/Qwen2.5-7B-Instruct"</span>,
+        concurrency=<span class="number">3</span>     <span class="comment"># 控制并发，避免压垮服务</span>
+    )
+
+    results = <span class="keyword">await</span> generator.<span class="func">batch_generate</span>(MOCK_ASSETS)
+
+    <span class="comment"># 打印结果摘要</span>
+    <span class="keyword">for</span> r <span class="keyword">in</span> results:
+        <span class="func">print</span>(<span class="string">f"\n【{r.asset.debtor_name}】"</span>)
+        <span class="func">print</span>(<span class="string">f"  类型:{r.asset.asset_type} | 本金:{r.asset.principal}万 | 等级:{r.asset.risk_level}"</span>)
+        <span class="func">print</span>(<span class="string">f"  分析: </span>{r.report[:<span class="number">100</span>]}<span class="string">..."</span>)
+        <span class="func">print</span>(<span class="string">f"  Token: </span>{r.tokens_used}<span class="string"> | 耗时: </span>{r.latency_ms:<span class="number">.0f</span>}<span class="string">ms"</span>)
+
+asyncio.<span class="func">run</span>(<span class="func">main</span>())
+</pre>
+
+  <div class="tip-box">
+    <strong>连续批处理的优势：</strong>5 个请求并发提交，vLLM 的 Continuous Batching 会在任意一个请求完成后立即插入新请求，而不是等所有请求都完成。这比传统 Static Batching 的吞吐量高 2~5 倍。
+  </div>
+</div>
+
+<!-- ==================== Section 7 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📊</span> 性能对比与调优指南
+    <span class="time-tag">~10 min</span>
+  </div>
+
+  <div class="sub-title">Python 实现简单基准测试</div>
+<pre>
+<span class="keyword">import</span> time
+<span class="keyword">import</span> statistics
+
+<span class="keyword">def</span> <span class="func">benchmark_vllm</span>(api_url: <span class="type">str</span>, model: <span class="type">str</span>,
+                    num_requests: <span class="type">int</span> = <span class="number">20</span>,
+                    prompt: <span class="type">str</span> = <span class="string">"解释不良资产五级分类。"</span>,
+                    max_tokens: <span class="type">int</span> = <span class="number">128</span>):
+    <span class="string">"""简单的 vLLM 吞吐量基准测试"""</span>
+    <span class="keyword">import</span> requests
+
+    latencies = []
+    first_token_times = []
+    total_tokens = <span class="number">0</span>
+
+    <span class="comment"># 逐个发送请求，记录延迟</span>
+    <span class="keyword">for</span> i <span class="keyword">in</span> <span class="func">range</span>(num_requests):
+        start = time.<span class="func">perf_counter</span>()
+        resp = requests.<span class="func">post</span>(
+            <span class="string">f"</span>{api_url}<span class="string">/v1/chat/completions"</span>,
+            json={
+                <span class="string">"model"</span>: model,
+                <span class="string">"messages"</span>: [{<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: prompt}],
+                <span class="string">"max_tokens"</span>: max_tokens,
+                <span class="string">"temperature"</span>: <span class="number">0.7</span>
+            }
+        )
+        end = time.<span class="func">perf_counter</span>()
+        data = resp.<span class="func">json</span>()
+
+        latency = end - start
+        tokens = data[<span class="string">"usage"</span>][<span class="string">"completion_tokens"</span>]
+        latencies.<span class="func">append</span>(latency)
+        total_tokens += data[<span class="string">"usage"</span>][<span class="string">"total_tokens"</span>]
+
+    <span class="comment"># 计算指标</span>
+    total_time = <span class="func">sum</span>(latencies)
+    throughput = total_tokens / total_time   <span class="comment"># tokens/秒</span>
+
+    <span class="func">print</span>(<span class="string">"=== vLLM 基准测试结果 ==="</span>)
+    <span class="func">print</span>(<span class="string">f"请求数:     </span>{num_requests}<span class="string">"</span>)
+    <span class="func">print</span>(<span class="string">f"总 Token:   </span>{total_tokens}<span class="string">"</span>)
+    <span class="func">print</span>(<span class="string">f"总耗时:     </span>{total_time:<span class="number">.2f</span>}<span class="string">s"</span>)
+    <span class="func">print</span>(<span class="string">f"吞吐量:     </span>{throughput:<span class="number">.1f</span>}<span class="string"> tokens/s"</span>)
+    <span class="func">print</span>(<span class="string">f"平均延迟:   </span>{statistics.<span class="func">mean</span>(latencies)<span class="number">.3f</span>}<span class="string">s"</span>)
+    <span class="func">print</span>(<span class="string">f"P99 延迟:   </span>{<span class="func">sorted</span>(latencies)[<span class="keyword">int</span>(num_requests*<span class="number">0.99</span>)-<span class="number">1</span>]:<span class="number">.3f</span>}<span class="string">s"</span>)
+
+    <span class="keyword">return</span> {
+        <span class="string">"throughput"</span>: throughput,
+        <span class="string">"avg_latency"</span>: statistics.<span class="func">mean</span>(latencies),
+        <span class="string">"p99_latency"</span>: <span class="func">sorted</span>(latencies)[<span class="keyword">int</span>(num_requests*<span class="number">0.99</span>)-<span class="number">1</span>],
+    }
+</pre>
+
+  <div class="sub-title">关键调优参数速查表</div>
+  <table class="compare-table">
+    <thead>
+      <tr><th>场景</th><th>调优策略</th><th>参数调整</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>吞吐优先（批量处理）</td><td>增大 batch 和序列数</td><td><code>--max-num-seqs 512</code> + <code>--gpu-memory-utilization 0.95</code></td></tr>
+      <tr><td>延迟优先（实时对话）</td><td>减小 batch，启用 FlashAttention</td><td><code>--max-num-seqs 32</code> + <code>--max-model-len 2048</code></td></tr>
+      <tr><td>长文本（文档分析）</td><td>增大上下文，启用 swap</td><td><code>--max-model-len 8192</code> + <code>--swap-space 8</code></td></tr>
+      <tr><td>显存不足</td><td>量化 + swap + 限制上下文</td><td><code>--quantization awq</code> + <code>--swap-space 8</code> + <code>--max-model-len 1024</code></td></tr>
+      <tr><td>多卡部署</td><td>张量并行</td><td><code>--tensor-parallel-size 2/4/8</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="sub-title">Swap Space 机制</div>
+  <p style="color:var(--text2);font-size:14px;">
+    当 GPU 显存不够容纳所有 KV Cache 时，vLLM 可以将部分不活跃的页换出到 CPU 内存（<code>--swap-space</code>，默认 4GB）。这就像操作系统把不常用的内存页换出到磁盘。代价是换入/换出时会有额外延迟，但可以显著增加并发数。
+  </p>
+
+  <div class="warn-box">
+    <strong>性能权衡：</strong>Swap 可以救急但不是万能药。频繁换入换出会导致延迟抖动，生产环境建议通过<strong>量化模型</strong> + <strong>限制上下文</strong>来避免 swap。
+  </div>
+</div>
+
+<!-- ==================== Section 8 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🎯</span> 常见陷阱 Top 5
+    <span class="time-tag">~3 min</span>
+  </div>
+
+  <ol>
+    <li>
+      <strong>GPU 显存利用率设置过高（>0.95）</strong><br>
+      <span style="color:var(--text2)">CUDA 内核自身需要一些显存，设置 0.95 可能导致 OOM。建议 0.85~0.92。</span>
+    </li>
+    <li>
+      <strong>max-model-len 超过模型原生支持</strong><br>
+      <span style="color:var(--text2)">如模型训练长度 4096，你设 8192，虽然不报错但输出质量会下降（超出训练长度的部分是「幻觉」）。先查模型的 max_position_embeddings。</span>
+    </li>
+    <li>
+      <strong>生产环境忘记设 concurrency limit</strong><br>
+      <span style="color:var(--text2)">客户端无限并发会把 vLLM 打挂。在客户端代码里用 Semaphore 控制并发数，或者在 vLLM 侧用 <code>--max-num-seqs</code> 限流。</span>
+    </li>
+    <li>
+      <strong>流式输出但客户端不消费</strong><br>
+      <span style="color:var(--text2)">如果开 <code>stream=True</code> 但不逐 chunk 读取，请求会挂在服务端，导致连接超时。</span>
+    </li>
+    <li>
+      <strong>多卡部署忘记设 tensor-parallel-size</strong><br>
+      <span style="color:var(--text2)">多卡时模型被自动切分到各卡。忘了设会导致只使用一张卡，其他卡闲置，反而比单卡还慢。</span>
+    </li>
+  </ol>
+
+  <div class="tip-box">
+    <strong>最佳实践速查：</strong>先从默认参数启动 → 观察显存和吞吐 → 按场景调优 → 压测验证 → 生产部署。
+  </div>
+</div>
+
+<!-- ==================== Section 9 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">💪</span> 今日练习
+    <span class="time-tag">~15 min</span>
+  </div>
+
+  <div class="exercise">
+    <h3>练习 1：增强 BlockTable 模拟器</h3>
+    <p>在今天的 BlockTable 类基础上添加以下功能：</p>
+    <ul>
+      <li>Copy-on-Write：当两个序列共享前 N 页时，修改其中一个前 N 页只复制该序列自己的页，不影响另一个</li>
+      <li>使用统计：记录每个物理页被多少序列引用（引用计数），只在引用计数为 0 时才真正回收</li>
+    </ul>
+    <p><strong>提示：</strong>用一个 <code>ref_count: dict[int, int]</code> 记录每个物理页的引用数。</p>
+  </div>
+
+  <div class="exercise">
+    <h3>练习 2：vLLM 客户端封装（带重试 + 熔断）</h3>
+    <p>实现一个 <code>SafeVLLMClient</code> 类：</p>
+    <ul>
+      <li>请求失败自动重试（最多 3 次，指数退避）</li>
+      <li>连续 5 次失败触发熔断，暂停 30 秒</li>
+      <li>每次请求记录延迟到列表，超过 P99 阈值告警</li>
+      <li>用 <code>time.perf_counter()</code> 做精确计时</li>
+    </ul>
+  </div>
+
+  <div class="exercise">
+    <h3>练习 3：LeetCode #347 · Top K Frequent Elements（数组前K个高频元素）</h3>
+    <p>给定数组 <code>nums = [1,1,1,2,2,3]</code> 和 <code>k = 2</code>，返回频率最高的前 2 个元素 <code>[1,2]</code>。</p>
+    <p><strong>要求：</strong>时间复杂度优于 O(n log n)（提示：bucket sort / Counter + heapq）</p>
+<pre>
+<span class="comment"># 你的代码...</span>
+<span class="keyword">from</span> collections <span class="keyword">import</span> Counter
+<span class="keyword">import</span> heapq
+
+<span class="keyword">def</span> <span class="func">top_k_frequent</span>(nums: <span class="type">list</span>[<span class="type">int</span>], k: <span class="type">int</span>) -> <span class="type">list</span>[<span class="type">int</span>]:
+    <span class="comment"># 思路一：Counter + heapq.nlargest</span>
+    <span class="comment"># 思路二：Counter + bucket sort（O(n)）</span>
+    <span class="keyword">pass</span>
+</pre>
+  </div>
+</div>
+
+<!-- ==================== Footer ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🗺️</span> Phase 3 进度地图
+  </div>
+  <table class="compare-table">
+    <thead>
+      <tr><th>Day</th><th>主题</th><th>状态</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>D43</td><td>LoRA 微调入门</td><td><span class="tag tag-green">✅ 完成</span></td></tr>
+      <tr><td>D44</td><td>PEFT 进阶 · 数据集构建</td><td><span class="tag tag-green">✅ 完成</span></td></tr>
+      <tr><td>D45</td><td>Ollama 本地部署 + 量化</td><td><span class="tag tag-green">✅ 完成</span></td></tr>
+      <tr><td>D46</td><td>vLLM 高性能推理引擎</td><td><span class="tag tag-blue">🔷 今天</span></td></tr>
+      <tr><td>D47</td><td>Docker 容器化部署 LLM</td><td><span class="tag tag-orange">⬜ 下一步</span></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="footer">
+  <p>Day 46 · vLLM 高性能推理引擎 · LLM 转型学习计划</p>
+  <p>Phase 3 微调部署 · 2026-07-21</p>
+</div>
+
+</body>
+</html>

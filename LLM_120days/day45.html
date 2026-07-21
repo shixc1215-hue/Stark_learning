@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 45 - Ollama 本地部署 + 模型量化与选择</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#ecfdf5,#eff6ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #a7f3d0; }
+  .header .badge { display:inline-block;background:#dcfce7;color:#16a34a;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent2);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--green); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  pre { background:#1e293b;color:#e2e8f0;padding:16px 20px;border-radius:8px;overflow-x:auto;font-size:13.5px;line-height:1.6;margin:12px 0; }
+  code { font-family:'Cascadia Code','Fira Code','JetBrains Mono',Consolas,monospace; }
+  .inline-code { background:var(--surface2);color:var(--accent);padding:2px 7px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace; }
+  .comment { color:#94a3b8; }
+  .keyword { color:#c084fc; }
+  .string { color:#86efac; }
+  .func { color:#93c5fd; }
+  .num { color:#fbbf24; }
+  .param { color:#fca5a5; }
+  .h3 { font-size:16px;font-weight:700;margin:20px 0 10px;color:var(--text); }
+  .h4 { font-size:14px;font-weight:600;margin:16px 0 8px;color:var(--accent2); }
+  ul,ol { padding-left:20px;margin:8px 0; }
+  li { margin:4px 0;font-size:14px; }
+  table { width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px; }
+  th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border); }
+  td { padding:10px 14px;border:1px solid var(--border); }
+  .tag { display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600; }
+  .tag-purple { background:#f3e8ff;color:#7c3aed; }
+  .tag-blue { background:#dbeafe;color:#2563eb; }
+  .tag-green { background:#dcfce7;color:#16a34a; }
+  .tag-orange { background:#ffedd5;color:#ea580c; }
+  .compare-card { display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0; }
+  .compare-card .card { border-radius:8px;padding:16px;border:1px solid var(--border); }
+  .compare-card .card h4 { font-size:14px;font-weight:700;margin-bottom:8px; }
+  .compare-card .card-bad { background:#fef2f2;border-color:#fecaca; }
+  .compare-card .card-bad h4 { color:var(--red); }
+  .compare-card .card-good { background:#f0fdf4;border-color:#bbf7d0; }
+  .compare-card .card-good h4 { color:var(--green); }
+  .flow-diagram { background:var(--surface2);border-radius:8px;padding:16px 20px;margin:12px 0;font-family:monospace;font-size:13px;overflow-x:auto;white-space:pre;line-height:1.5;color:var(--text2); }
+  .quiz-box { background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:16px 20px;margin:14px 0; }
+  .quiz-box h4 { color:#7c3aed;font-size:14px;margin-bottom:8px; }
+  .phase-nav { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap; }
+  .phase-nav .phase-item { padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600; }
+  .phase-nav .done { background:#dcfce7;color:#16a34a; }
+  .phase-nav .current { background:#f3e8ff;color:#7c3aed;animation:pulse 2s infinite; }
+  .phase-nav .future { background:var(--surface2);color:var(--text3); }
+  @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(124,58,237,0.3);} 50%{box-shadow:0 0 0 6px rgba(124,58,237,0);} }
+  .checklist { background:var(--surface2);border-radius:8px;padding:14px 18px;margin:12px 0;font-size:13.5px;line-height:2; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Phase 3 · 微调部署 · Day 3/7</div>
+  <h1>Ollama 本地部署 + 模型量化与选择</h1>
+  <div class="subtitle">量化原理 → Ollama 全流程 → GGUF 格式 → Python SDK → 部署调优</div>
+</div>
+
+<div class="progress-bar">
+  <span class="label">总进度</span>
+  <div class="track"><div class="fill" style="width:64%"></div></div>
+  <span class="percent">45/70</span>
+</div>
+
+<div class="phase-nav">
+  <span class="phase-item done">D1-7 Python核心</span>
+  <span class="phase-item done">D8-14 编程思维</span>
+  <span class="phase-item done">D15-28 工程进阶</span>
+  <span class="phase-item done">D29-42 RAG+Agent</span>
+  <span class="phase-item current">D43-49 微调部署</span>
+  <span class="phase-item future">D50-70 项目实战</span>
+</div>
+
+<!-- ======================== Section 1 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🧠</span> 模型量化：从 32GB 到 4GB 的魔法
+    <span class="time-tag">~15 min</span>
+  </div>
+
+  <p>前面 Day 43-44 我们学会了微调模型，但训练出来的模型动辄几十GB，怎么在实际环境中跑起来？这就是今天的主角——<strong>模型量化</strong>。</p>
+
+  <div class="concept-box">
+    <strong>量化（Quantization）</strong>：将模型权重从高精度（FP32 / FP16）压缩到低精度（INT8 / INT4），类似把一张高清图压缩成标清——体积缩小数倍，肉眼几乎看不出区别。
+  </div>
+
+  <div class="h3">为什么需要量化？</div>
+  <p>以一个 7B 参数的模型为例（7B = 70亿个参数）：</p>
+
+  <table>
+    <tr><th>精度</th><th>每个参数</th><th>7B 模型大小</th><th>需要显存</th><th>质量损失</th></tr>
+    <tr><td>FP32（float32）</td><td>4 字节</td><td>~28 GB</td><td>专业 GPU</td><td>无（基准）</td></tr>
+    <tr><td>FP16（半精度）</td><td>2 字节</td><td>~14 GB</td><td>高端 GPU</td><td>极小</td></tr>
+    <tr><td>INT8</td><td>1 字节</td><td>~7 GB</td><td>中端 GPU</td><td>轻微</td></tr>
+    <tr><td>INT4</td><td>0.5 字节</td><td>~3.5 GB</td><td>消费级 GPU / CPU</td><td>可控</td></tr>
+  </table>
+
+  <div class="tip-box">
+    <strong>数仓类比</strong>：量化就像数据仓库中的<strong>列式压缩</strong>——把 DECIMAL(20,6) 压成 INT，查询精度够用但存储降 80%。
+  </div>
+
+  <div class="h3">量化核心算法</div>
+
+  <p><strong>1. 对称量化（Symmetric Quantization）</strong></p>
+  <pre><code><span class="comment"># 对称量化：将浮点数映射到 [-127, 127] 的整数范围</span>
+<span class="keyword">import</span> numpy <span class="keyword">as</span> np
+
+<span class="keyword">def</span> <span class="func">symmetric_quantize</span>(weights, bits=<span class="num">8</span>):
+    <span class="comment"># 计算量化范围：最大绝对值</span>
+    scale = np.<span class="func">max</span>(np.<span class="func">abs</span>(weights))
+    <span class="comment"># 量化：乘以缩放因子，四舍五入到整数</span>
+    q_max = <span class="num">2</span> ** (bits - <span class="num">1</span>) - <span class="num">1</span>  <span class="comment"># 8bit → 127</span>
+    quantized = np.<span class="func">round</span>(weights / scale * q_max).<span class="func">astype</span>(np.int8)
+    <span class="keyword">return</span> quantized, scale
+
+<span class="keyword">def</span> <span class="func">symmetric_dequantize</span>(quantized, scale):
+    <span class="comment"># 反量化：还原回浮点数</span>
+    <span class="keyword">return</span> quantized.<span class="func">astype</span>(np.float32) * scale / <span class="num">127.0</span>
+
+<span class="comment"># 演示</span>
+weights = np.<span class="func">array</span>([<span class="num">0.3</span>, <span class="num">-0.8</span>, <span class="num">1.5</span>, <span class="num">-0.1</span>])
+q, s = <span class="func">symmetric_quantize</span>(weights)
+<span class="func">print</span>(<span class="string">f"原始:    </span>{weights}<span class="string">")</span>
+<span class="func">print</span>(<span class="string">f"量化后: </span>{q}<span class="string">")</span>
+<span class="func">print</span>(<span class="string">f"反量化: </span>{<span class="func">symmetric_dequantize</span>(q, s)}<span class="string">")</span>
+<span class="comment"># 输出：原始和反量化有微小差异，这就是量化误差</span></code></pre>
+
+  <p><strong>2. 非对称量化（Asymmetric Quantization）</strong></p>
+  <pre><code><span class="comment"># 非对称量化：使用 zero_point 偏移，更精确地映射非对称分布</span>
+<span class="keyword">def</span> <span class="func">asymmetric_quantize</span>(weights, bits=<span class="num">8</span>):
+    <span class="comment"># 零点 + 缩放，类似线性映射 y = kx + b</span>
+    w_min, w_max = weights.<span class="func">min</span>(), weights.<span class="func">max</span>()
+    q_min, q_max = <span class="num">0</span>, <span class="num">2</span>**bits - <span class="num">1</span>
+    scale = (w_max - w_min) / (q_max - q_min)
+    zero_point = <span class="func">round</span>(-w_min / scale)
+    quantized = np.<span class="func">round</span>(weights / scale + zero_point).<span class="func">astype</span>(np.uint8)
+    <span class="keyword">return</span> quantized, scale, zero_point
+
+<span class="comment"># 对称 vs 非对称：非对称在权重分布不均匀时更精确</span>
+<span class="comment"># 实际生产中 GPTQ、AWQ 等算法在非对称量化基础上做了大量优化</span></code></pre>
+
+  <div class="h3">主流量化方法对比</div>
+  <table>
+    <tr><th>方法</th><th>精度</th><th>特点</th><th>适用场景</th></tr>
+    <tr><td><span class="tag tag-blue">GPTQ</span></td><td>INT4/INT8</td><td>逐层量化 + Hessian 矩阵校准</td><td>离线量化，质量高</td></tr>
+    <tr><td><span class="tag tag-green">AWQ</span></td><td>INT4</td><td>保护关键权重通道（激活感知）</td><td>推理性能最优</td></tr>
+    <tr><td><span class="tag tag-purple">GGUF</span></td><td>INT4~INT8</td><td>Ollama 原生格式，支持 CPU/GPU</td><td>本地部署首选</td></tr>
+    <tr><td><span class="tag tag-orange">bitsandbytes</span></td><td>INT8/INT4</td><td>在线量化，PEFT 训练常用</td><td>LoRA/QLoRA 训练</td></tr>
+  </table>
+</div>
+
+<!-- ======================== Section 2 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📦</span> GGUF 格式：Ollama 的模型集装箱
+    <span class="time-tag">~10 min</span>
+  </div>
+
+  <p>GGUF（GPT-Generated Unified Format）是 llama.cpp 团队设计的模型文件格式，Ollama 使用的就是 GGUF。理解它，就像理解数据仓库中的 Parquet 文件一样重要。</p>
+
+  <div class="h3">GGUF 文件结构</div>
+  <div class="flow-diagram">
+┌──────────────────────────────────────────────┐
+│              GGUF 文件结构                     │
+├──────────────────────────────────────────────┤
+│  Magic Number (GGUF)          4 bytes        │
+│  Version                     4 bytes        │
+│  ─────────────────────────────────────       │
+│  Metadata (JSON-like)                       │
+│    ├── model.name: "qwen2.5-7b"             │
+│    ├── model.params: 7B                      │
+│    ├── general.quantization_version: 2      │
+│    └── tokenizer.model: ...                  │
+│  ─────────────────────────────────────       │
+│  Tensor Data (二进制块)                        │
+│    ├── tensor_1 (INT4 量化权重)               │
+│    ├── tensor_2 (INT4 量化权重)               │
+│    └── ...                                   │
+│  ─────────────────────────────────────       │
+│  Vocabulary (词表)                            │
+└──────────────────────────────────────────────┘</div>
+
+  <div class="h3">量化级别速查</div>
+  <p>下载模型时经常看到 <span class="inline-code">Q4_K_M</span>、<span class="inline-code">Q5_K_S</span> 这样的后缀，含义如下：</p>
+
+  <table>
+    <tr><th>后缀</th><th>每位参数</th><th>7B 模型</th><th>质量</th><th>推荐场景</th></tr>
+    <tr><td>Q4_0</td><td>4.5 bit</td><td>~3.9 GB</td><td>较差</td><td>磁盘极紧</td></tr>
+    <tr><td>Q4_K_M</td><td>4.8 bit</td><td>~4.4 GB</td><td><span class="tag tag-green">不错</span></td><td>⭐ 默认首选</td></tr>
+    <tr><td>Q5_K_M</td><td>5.7 bit</td><td>~5.1 GB</td><td>很好</td><td>质量优先</td></tr>
+    <tr><td>Q8_0</td><td>8.5 bit</td><td>~7.7 GB</td><td>几乎无损</td><td>学术/基准测试</td></tr>
+    <tr><td>F16</td><td>16 bit</td><td>~14 GB</td><td>无损</td><td>微调基座</td></tr>
+  </table>
+
+  <div class="tip-box">
+    <strong>选择建议</strong>：日常使用选 <span class="inline-code">Q4_K_M</span>（速度与质量的甜点）；对质量要求高选 <span class="inline-code">Q5_K_M</span>；做评测或微调选 <span class="inline-code">F16</span>。
+  </div>
+
+  <div class="h3">Python 读取 GGUF 元数据</div>
+  <pre><code><span class="keyword">import</span> struct
+
+<span class="keyword">def</span> <span class="func">read_gguf_metadata</span>(filepath):
+    <span class="string">"""读取 GGUF 文件的元数据部分（前几个 key-value）"""</span>
+    <span class="keyword">with</span> <span class="func">open</span>(filepath, <span class="string">'rb'</span>) <span class="keyword">as</span> f:
+        <span class="comment"># 1. 读取 Magic Number</span>
+        magic = f.<span class="func">read</span>(<span class="num">4</span>)
+        <span class="keyword">if</span> magic != <span class="string">b'GGUF'</span>:
+            <span class="keyword">raise</span> <span class="func">ValueError</span>(<span class="string">"不是有效的 GGUF 文件"</span>)
+
+        <span class="comment"># 2. 读取版本号</span>
+        version = struct.<span class="func">unpack</span>(<span class="string">'&lt;I'</span>, f.<span class="func">read</span>(<span class="num">4</span>))[<span class="num">0</span>]
+
+        <span class="comment"># 3. 读取 metadata count</span>
+        n_kv = struct.<span class="func">unpack</span>(<span class="string">'&lt;Q'</span>, f.<span class="func">read</span>(<span class="num">8</span>))[<span class="num">0</span>]
+
+        <span class="comment"># 4. 简单打印前 5 个 key</span>
+        metadata = {}
+        <span class="keyword">for</span> i <span class="keyword">in</span> <span class="func">range</span>(<span class="func">min</span>(<span class="num">5</span>, n_kv)):
+            <span class="comment"># GGUF key 是 uint32 长度 + UTF-8 字符串</span>
+            key_len = struct.<span class="func">unpack</span>(<span class="string">'&lt;Q'</span>, f.<span class="func">read</span>(<span class="num">8</span>))[<span class="num">0</span>]
+            key = f.<span class="func">read</span>(key_len).<span class="func">decode</span>(<span class="string">'utf-8'</span>)
+            <span class="comment"># value 类型（uint32）</span>
+            vtype = struct.<span class="func">unpack</span>(<span class="string">'&lt;I'</span>, f.<span class="func">read</span>(<span class="num">4</span>))[<span class="num">0</span>]
+            <span class="func">print</span>(<span class="string">f"  Key: {key}, ValueType: {vtype}"</span>)
+
+    <span class="keyword">return</span> version, n_kv
+
+<span class="comment"># 实际使用中 gguf 库提供了更方便的解析接口</span>
+<span class="comment"># pip install gguf</span>
+<span class="comment"># from gguf import GGUFReader</span>
+<span class="comment"># reader = GGUFReader("model.gguf")</span>
+<span class="comment"># print(reader.fields["general.name"])  # 模型名称</span></code></pre>
+</div>
+
+<!-- ======================== Section 3 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🦙</span> Ollama：一行命令部署本地大模型
+    <span class="time-tag">~15 min</span>
+  </div>
+
+  <p>Ollama 是目前最流行的本地模型运行工具，类似 Docker 但专为大模型设计。<strong>一条命令即可下载并运行模型</strong>。</p>
+
+  <div class="h3">安装 Ollama</div>
+  <pre><code><span class="comment"># === 安装（三选一） ===</span>
+
+<span class="comment"># 1. Windows：下载 ollama-installer.exe</span>
+<span class="comment">#    https://ollama.com/download/windows</span>
+
+<span class="comment"># 2. macOS</span>
+<span class="comment">#    brew install ollama</span>
+
+<span class="comment"># 3. Linux</span>
+<span class="comment">#    curl -fsSL https://ollama.com/install.sh | sh</span>
+
+<span class="comment"># === 验证安装 ===</span>
+<span class="comment"># 安装后 Ollama 自动作为后台服务运行</span>
+<span class="comment"># 默认 API 地址：http://localhost:11434</span></code></pre>
+
+  <div class="h3">模型管理核心命令</div>
+  <pre><code><span class="comment"># 1. 拉取并运行模型（自动下载 + 加载，首次较慢）</span>
+ollama run qwen2.5:<span class="num">7b</span>          <span class="comment"># Qwen2.5 7B 中文模型</span>
+ollama run llama3.<span class="num">1</span>:<span class="num">8b</span>         <span class="comment"># Llama 3.1 8B 英文模型</span>
+ollama run gemma2:<span class="num">9b</span>           <span class="comment"># Google Gemma2 9B</span>
+
+<span class="comment"># 2. 仅下载（不运行）</span>
+ollama pull qwen2.5:<span class="num">7b</span>
+
+<span class="comment"># 3. 查看已安装模型</span>
+ollama list
+
+<span class="comment"># 4. 删除模型</span>
+ollama rm qwen2.5:<span class="num">7b</span>
+
+<span class="comment"># 5. 查看模型详细信息</span>
+ollama show qwen2.5:<span class="num">7b</span>
+
+<span class="comment"># 6. 在命令行直接对话（非交互式）</span>
+ollama run qwen2.5:<span class="num">7b</span> <span class="string">"用一句话解释什么是数据仓库"</span>
+
+<span class="comment"># 7. 指定量化级别</span>
+ollama run qwen2.5:<span class="num">7b</span>-q4_K_M    <span class="comment"># Q4_K_M 量化</span>
+ollama run qwen2.5:<span class="num">7b</span>-q5_K_M    <span class="comment"># Q5_K_M 量化</span></code></pre>
+
+  <div class="h3">Ollama 参数调优</div>
+  <pre><code><span class="comment"># 关键参数控制生成行为</span>
+ollama run qwen2.5:<span class="num">7b</span> <span class="string">"分析这个SQL的执行计划"</span> \
+  --temperature <span class="num">0.3</span> \      <span class="comment"># 温度：越低越确定性（分析任务推荐 0.1-0.3）</span>
+  --top-p <span class="num">0.9</span> \             <span class="comment"># 核采样概率阈值</span>
+  --num-predict <span class="num">512</span> \      <span class="comment"># 最大生成 token 数</span>
+  --system <span class="string">"你是AMC数据开发专家"</span>  <span class="comment"># 系统提示词</span>
+
+<span class="comment"># 或者用 Modelfile 持久化参数配置（类似 Dockerfile）</span></code></pre>
+
+  <div class="h3">ModelFile：Ollama 的 Dockerfile</div>
+  <pre><code><span class="comment"># 创建一个自定义模型配置文件：AMCExpert.Modelfile</span>
+<span class="comment"># 写法类似 Dockerfile</span>
+
+<span class="comment"># 基础模型</span>
+FROM qwen2.5:<span class="num">7b</span>
+
+<span class="comment"># 系统提示词</span>
+SYSTEM <span class="string">"""你是 AMC（资产管理公司）数据开发专家。
+- 精通 SQL、ETL、数仓分层（ODS/DWD/DWS/ADS）
+- 熟悉不良资产处置业务
+- 回答简洁专业，必要时给出 SQL 示例
+"""</span>
+
+<span class="comment"># 默认参数</span>
+PARAMETER temperature <span class="num">0.3</span>
+PARAMETER top_p <span class="num">0.9</span>
+PARAMETER num_predict <span class="num">1024</span>
+PARAMETER stop <span class="string">"&lt;|im_end|&gt;"</span>
+
+<span class="comment"># 构建自定义模型</span>
+<span class="comment"># ollama create amc-expert -f AMCExpert.Modelfile</span>
+
+<span class="comment"># 使用自定义模型</span>
+<span class="comment"># ollama run amc-expert "不良资产分类标准是什么？"</span></code></pre>
+
+  <div class="tip-box">
+    <strong>Modelfile 是 Ollama 的杀手级功能</strong>：你可以把 System Prompt + 参数 + 自定义词表打包成一个"模型镜像"，团队成员一键 <span class="inline-code">ollama pull</span> 即可获得完全一致的体验。
+  </div>
+
+  <div class="warn-box">
+    <strong>⚠️ 模型大小选择</strong>：8GB 内存的机器推荐 3B-7B 模型的 Q4 量化；16GB 可跑 7B-14B Q5；32GB+ 可以尝试 32B 甚至 70B。CPU 也能跑但速度比 GPU 慢 5-10 倍。
+  </div>
+</div>
+
+<!-- ======================== Section 4 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span> Python + Ollama：编程调用本地模型
+    <span class="time-tag">~15 min</span>
+  </div>
+
+  <p>Ollama 提供了 OpenAI 兼容的 REST API，这意味着你在 Day 17 学的 <span class="inline-code">requests</span> 和 <span class="inline-code">openai</span> 库都能直接用！</p>
+
+  <div class="h3">方式一：纯 requests 调用（零依赖）</div>
+  <pre><code><span class="keyword">import</span> requests
+<span class="keyword">import</span> json
+
+<span class="comment"># Ollama 的 API 兼容 OpenAI 格式</span>
+OLLAMA_BASE = <span class="string">"http://localhost:11434"</span>
+
+<span class="keyword">def</span> <span class="func">chat_with_ollama</span>(prompt, model=<span class="string">"qwen2.5:7b"</span>, system=<span class="keyword">None</span>):
+    <span class="string">"""通过 Ollama REST API 进行对话"""</span>
+    messages = []
+    <span class="keyword">if</span> system:
+        messages.<span class="func">append</span>({<span class="string">"role"</span>: <span class="string">"system"</span>, <span class="string">"content"</span>: system})
+    messages.<span class="func">append</span>({<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: prompt})
+
+    resp = requests.<span class="func">post</span>(
+        <span class="string">f"{OLLAMA_BASE}/api/chat"</span>,
+        json={
+            <span class="string">"model"</span>: model,
+            <span class="string">"messages"</span>: messages,
+            <span class="string">"stream"</span>: <span class="keyword">False</span>,        <span class="comment"># False=一次性返回; True=流式</span>
+            <span class="string">"options"</span>: {
+                <span class="string">"temperature"</span>: <span class="num">0.3</span>,
+                <span class="string">"num_predict"</span>: <span class="num">512</span>,
+            }
+        },
+        timeout=<span class="num">120</span>
+    )
+    resp.<span class="func">raise_for_status</span>()
+    <span class="keyword">return</span> resp.json()[<span class="string">"message"</span>][<span class="string">"content"</span>]
+
+<span class="comment"># 使用</span>
+result = <span class="func">chat_with_ollama</span>(
+    <span class="string">"解释一下 SQL 中的窗口函数 ROW_NUMBER()"</span>,
+    system=<span class="string">"你是数据开发工程师导师"</span>
+)
+<span class="func">print</span>(result)</code></pre>
+
+  <div class="h3">方式二：Ollama Python SDK</div>
+  <pre><code><span class="comment"># pip install ollama</span>
+<span class="keyword">import</span> ollama
+
+<span class="comment"># === 基本对话 ===</span>
+response = ollama.<span class="func">chat</span>(
+    model=<span class="string">'qwen2.5:7b'</span>,
+    messages=[
+        {<span class="string">'role'</span>: <span class="string">'user'</span>, <span class="string">'content'</span>: <span class="string">'什么是增量ETL？'</span>}
+    ],
+    options={
+        <span class="string">'temperature'</span>: <span class="num">0.3</span>,
+        <span class="string">'num_predict'</span>: <span class="num">512</span>,
+    }
+)
+<span class="func">print</span>(response[<span class="string">'message'</span>][<span class="string">'content'</span>])
+
+<span class="comment"># === 流式输出（打字机效果）===</span>
+<span class="keyword">for</span> chunk <span class="keyword">in</span> ollama.<span class="func">chat</span>(
+    model=<span class="string">'qwen2.5:7b'</span>,
+    messages=[{<span class="string">'role'</span>: <span class="string">'user'</span>, <span class="string">'content'</span>: <span class="string">'写一首关于数据仓库的诗'</span>}],
+    stream=<span class="keyword">True</span>     <span class="comment"># 开启流式</span>
+):
+    <span class="func">print</span>(chunk[<span class="string">'message'</span>][<span class="string">'content'</span>], end=<span class="string">''</span>, flush=<span class="keyword">True</span>)
+
+<span class="comment"># === 多轮对话 ===</span>
+messages = []
+messages.<span class="func">append</span>({<span class="string">'role'</span>: <span class="string">'user'</span>, <span class="string">'content'</span>: <span class="string">'什么是数仓ODS层？'</span>})
+resp1 = ollama.<span class="func">chat</span>(model=<span class="string">'qwen2.5:7b'</span>, messages=messages)
+messages.<span class="func">append</span>(resp1[<span class="string">'message'</span>])    <span class="comment"># 把助手回答加入上下文</span>
+messages.<span class="func">append</span>({<span class="string">'role'</span>: <span class="string">'user'</span>, <span class="string">'content'</span>: <span class="string">'那DWD层和ODS层有什么区别？'</span>})
+resp2 = ollama.<span class="func">chat</span>(model=<span class="string">'qwen2.5:7b'</span>, messages=messages)
+<span class="func">print</span>(resp2[<span class="string">'message'</span>][<span class="string">'content'</span>])</code></pre>
+
+  <div class="h3">方式三：OpenAI SDK 兼容（推荐，代码可复用）</div>
+  <pre><code><span class="comment"># pip install openai</span>
+<span class="keyword">from</span> openai <span class="keyword">import</span> OpenAI
+
+<span class="comment"># Ollama 兼容 OpenAI API！只需改 base_url</span>
+client = OpenAI(
+    base_url=<span class="string">"http://localhost:11434/v1"</span>,
+    api_key=<span class="string">"ollama"</span>   <span class="comment"># Ollama 不需要真实 key，随便填</span>
+)
+
+<span class="comment"># 代码和调用智谱/DeepSeek API 完全一样！</span>
+response = client.chat.completions.<span class="func">create</span>(
+    model=<span class="string">"qwen2.5:7b"</span>,
+    messages=[
+        {<span class="string">"role"</span>: <span class="string">"system"</span>, <span class="string">"content"</span>: <span class="string">"你是AMC数据开发专家"</span>},
+        {<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: <span class="string">"帮我写一个统计不良资产余额的SQL"</span>},
+    ],
+    temperature=<span class="num">0.3</span>,
+    max_tokens=<span class="num">512</span>,
+)
+<span class="func">print</span>(response.choices[<span class="num">0</span>].message.content)
+
+<span class="comment"># === Embedding 也兼容！===</span>
+embedding = client.embeddings.<span class="func">create</span>(
+    model=<span class="string">"nomic-embed-text"</span>,  <span class="comment"># ollama pull nomic-embed-text</span>
+    input=<span class="string">"不良资产处置"</span>
+)
+<span class="func">print</span>(<span class="func">len</span>(embedding.data[<span class="num">0</span>].embedding))  <span class="comment"># 768 维</span></code></pre>
+
+  <div class="concept-box">
+    <strong>架构解耦思维</strong>：因为 Ollama 兼容 OpenAI API，你的 Python 代码只需要改 <span class="inline-code">base_url</span> 就能从云端 API 切到本地模型。<strong>这就是好架构的价值——依赖接口而非实现。</strong>
+  </div>
+
+  <div class="h3">Python 知识补充：struct 二进制读写</div>
+  <pre><code><span class="keyword">import</span> struct
+
+<span class="comment"># struct 是 Python 处理二进制数据的内置模块</span>
+<span class="comment"># 类似 SQL 中 CAST(varbinary AS int)</span>
+
+<span class="comment"># 打包：Python 类型 → 二进制字节</span>
+binary = struct.<span class="func">pack</span>(<span class="string">'&lt;I'</span>, <span class="num">42</span>)    <span class="comment"># &lt;I = 小端序 unsigned int</span>
+<span class="func">print</span>(binary)                    <span class="comment"># b'*\x00\x00\x00'</span>
+
+<span class="comment"># 解包：二进制字节 → Python 类型</span>
+value = struct.<span class="func">unpack</span>(<span class="string">'&lt;I'</span>, binary)[<span class="num">0</span>]
+<span class="func">print</span>(value)                     <span class="comment"># 42</span>
+
+<span class="comment"># 常用格式字符</span>
+<span class="comment"># 'b' = int8 (1 byte), 'h' = int16 (2 bytes)</span>
+<span class="comment"># 'i' = int32 (4 bytes), 'q' = int64 (8 bytes)</span>
+<span class="comment"># 'f' = float32 (4 bytes), 'd' = float64 (8 bytes)</span>
+<span class="comment"># '&lt;' = 小端序（默认），'&gt;' = 大端序</span>
+<span class="comment"># I/H/L/Q = unsigned 版本</span>
+
+<span class="comment"># 批量打包多条数据（类比 SQL INSERT VALUES）</span>
+data = [(<span class="num">1</span>, <span class="num">3.14</span>, <span class="num">True</span>), (<span class="num">2</span>, <span class="num">2.72</span>, <span class="keyword">False</span>)]
+<span class="keyword">for</span> item_id, score, flag <span class="keyword">in</span> data:
+    packed = struct.<span class="func">pack</span>(<span class="string">'&lt;I f ?'</span>, item_id, score, flag)
+    <span class="comment"># 写入二进制文件...（这就是 GGUF 的底层操作）</span></code></pre>
+</div>
+
+<!-- ======================== Section 5 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔧</span> LLM 实战：Ollama + FastAPI 构建本地 LLM 服务
+    <span class="time-tag">~15 min</span>
+  </div>
+
+  <p>把 Day 25-26 学的 FastAPI 和今天的 Ollama 结合，构建一个<strong>完全离线</strong>的 LLM 服务！</p>
+
+  <pre><code><span class="comment"># llm_server.py — 本地 LLM API 服务（零外部依赖）</span>
+<span class="comment"># 无需 API Key，无网络延迟，数据不出机器</span>
+
+<span class="keyword">from</span> fastapi <span class="keyword">import</span> FastAPI, HTTPException
+<span class="keyword">from</span> fastapi.middleware.cors <span class="keyword">import</span> CORSMiddleware
+<span class="keyword">from</span> pydantic <span class="keyword">import</span> BaseModel, Field
+<span class="keyword">from</span> typing <span class="keyword">import</span> Optional
+<span class="keyword">import</span> httpx
+<span class="keyword">import</span> asyncio
+<span class="keyword">from</span> datetime <span class="keyword">import</span> datetime
+<span class="keyword">from</span> contextlib <span class="keyword">import</span> asynccontextmanager
+
+<span class="comment"># ===== 请求/响应模型 =====</span>
+<span class="keyword">class</span> <span class="func">ChatRequest</span>(BaseModel):
+    message: <span class="func">str</span> = Field(..., description=<span class="string">"用户消息"</span>, min_length=<span class="num">1</span>)
+    model: <span class="func">str</span> = Field(<span class="keyword">default</span>=<span class="string">"qwen2.5:7b"</span>, description=<span class="string">"模型名称"</span>)
+    system: Optional[<span class="func">str</span>] = Field(<span class="keyword">default</span>=<span class="keyword">None</span>, description=<span class="string">"系统提示词"</span>)
+    temperature: <span class="func">float</span> = Field(<span class="keyword">default</span>=<span class="num">0.3</span>, ge=<span class="num">0</span>, le=<span class="num">2</span>)
+
+<span class="keyword">class</span> <span class="func">ChatResponse</span>(BaseModel):
+    reply: <span class="func">str</span>
+    model: <span class="func">str</span>
+    tokens: <span class="func">int</span>
+    elapsed_ms: <span class="func">float</span>
+
+<span class="keyword">class</span> <span class="func">ModelInfo</span>(BaseModel):
+    name: <span class="func">str</span>
+    size_gb: <span class="func">float</span>
+    quantization: <span class="func">str</span>
+
+<span class="comment"># ===== 服务类 =====</span>
+<span class="keyword">class</span> <span class="func">OllamaService</span>:
+    <span class="string">"""封装 Ollama API 调用（依赖注入友好的单例）"""</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, base_url=<span class="string">"http://localhost:11434"</span>):
+        self.base_url = base_url
+        self._client: Optional[httpx.AsyncClient] = <span class="keyword">None</span>
+
+    <span class="keyword">async</span> <span class="keyword">def</span> <span class="func">startup</span>(self):
+        <span class="string">"""应用启动时初始化 HTTP 客户端"""</span>
+        self._client = httpx.AsyncClient(
+            base_url=self.base_url,
+            timeout=httpx.Timeout(<span class="num">300.0</span>, connect=<span class="num">10.0</span>)
+        )
+
+    <span class="keyword">async</span> <span class="keyword">def</span> <span class="func">shutdown</span>(self):
+        <span class="string">"""应用关闭时释放连接"""</span>
+        <span class="keyword">if</span> self._client:
+            <span class="keyword">await</span> self._client.<span class="func">aclose</span>()
+
+    <span class="keyword">async</span> <span class="keyword">def</span> <span class="func">chat</span>(self, message: <span class="func">str</span>, model=<span class="string">"qwen2.5:7b"</span>,
+                    system=<span class="keyword">None</span>, temperature=<span class="num">0.3</span>) -> <span class="func">dict</span>:
+        <span class="string">"""调用 Ollama Chat API"""</span>
+        messages = []
+        <span class="keyword">if</span> system:
+            messages.<span class="func">append</span>({<span class="string">"role"</span>: <span class="string">"system"</span>, <span class="string">"content"</span>: system})
+        messages.<span class="func">append</span>({<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: message})
+
+        start = datetime.<span class="func">now</span>()
+        resp = <span class="keyword">await</span> self._client.<span class="func">post</span>(<span class="string">"/api/chat"</span>, json={
+            <span class="string">"model"</span>: model,
+            <span class="string">"messages"</span>: messages,
+            <span class="string">"stream"</span>: <span class="keyword">False</span>,
+            <span class="string">"options"</span>: {<span class="string">"temperature"</span>: temperature}
+        })
+        elapsed = (datetime.<span class="func">now</span>() - start).<span class="func">total_seconds</span>() * <span class="num">1000</span>
+
+        resp.<span class="func">raise_for_status</span>()
+        data = resp.<span class="func">json</span>()
+        <span class="keyword">return</span> {
+            <span class="string">"reply"</span>: data[<span class="string">"message"</span>][<span class="string">"content"</span>],
+            <span class="string">"tokens"</span>: data.<span class="func">get</span>(<span class="string">"eval_count"</span>, <span class="num">0</span>),
+            <span class="string">"elapsed_ms"</span>: elapsed,
+        }
+
+    <span class="keyword">async</span> <span class="keyword">def</span> <span class="func">list_models</span>(self) -> list[<span class="func">dict</span>]:
+        <span class="string">"""列出已安装的模型"""</span>
+        resp = <span class="keyword">await</span> self._client.<span class="func">get</span>(<span class="string">"/api/tags"</span>)
+        resp.<span class="func">raise_for_status</span>()
+        models = []
+        <span class="keyword">for</span> m <span class="keyword">in</span> resp.<span class="func">json</span>().<span class="func">get</span>(<span class="string">"models"</span>, []):
+            size_gb = m[<span class="string">"size"</span>] / (<span class="num">1024</span>**<span class="num">3</span>)
+            models.<span class="func">append</span>({
+                <span class="string">"name"</span>: m[<span class="string">"name"</span>],
+                <span class="string">"size_gb"</span>: <span class="func">round</span>(size_gb, <span class="num">2</span>),
+                <span class="string">"quantization"</span>: m.<span class="func">get</span>(<span class="string">"details"</span>, {}).<span class="func">get</span>(
+                    <span class="string">"quantization_level"</span>, <span class="string">"unknown"</span>
+                )
+            })
+        <span class="keyword">return</span> models
+
+<span class="comment"># ===== FastAPI 应用 =====</span>
+llm_service = <span class="func">OllamaService</span>()
+
+@asynccontextmanager
+<span class="keyword">async</span> <span class="keyword">def</span> <span class="func">lifespan</span>(app: FastAPI):
+    <span class="keyword">await</span> llm_service.<span class="func">startup</span>()
+    <span class="func">print</span>(<span class="string">"🚀 LLM Server 启动完成"</span>)
+    <span class="keyword">yield</span>
+    <span class="keyword">await</span> llm_service.<span class="func">shutdown</span>()
+    <span class="func">print</span>(<span class="string">"👋 LLM Server 关闭"</span>)
+
+app = FastAPI(title=<span class="string">"本地 LLM 服务"</span>, lifespan=lifespan)
+app.<span class="func">add_middleware</span>(
+    CORSMiddleware,
+    allow_origins=[<span class="string">"*"</span>],
+    allow_methods=[<span class="string">"*"</span>],
+    allow_headers=[<span class="string">"*"</span>],
+)
+
+@app.<span class="func">get</span>(<span class="string">"/health"</span>)
+<span class="keyword">async</span> <span class="keyword">def</span> <span class="func">health</span>():
+    <span class="keyword">return</span> {<span class="string">"status"</span>: <span class="string">"ok"</span>, <span class="string">"engine"</span>: <span class="string">"ollama"</span>}
+
+@app.<span class="func">get</span>(<span class="string">"/models"</span>, response_model=list[ModelInfo])
+<span class="keyword">async</span> <span class="keyword">def</span> <span class="func">list_models</span>():
+    models = <span class="keyword">await</span> llm_service.<span class="func">list_models</span>()
+    <span class="keyword">return</span> [ModelInfo(**m) <span class="keyword">for</span> m <span class="keyword">in</span> models]
+
+@app.<span class="func">post</span>(<span class="string">"/chat"</span>, response_model=ChatResponse)
+<span class="keyword">async</span> <span class="keyword">def</span> <span class="func">chat</span>(req: ChatRequest):
+    <span class="keyword">try</span>:
+        result = <span class="keyword">await</span> llm_service.<span class="func">chat</span>(
+            message=req.message,
+            model=req.model,
+            system=req.system,
+            temperature=req.temperature,
+        )
+        <span class="keyword">return</span> ChatResponse(
+            reply=result[<span class="string">"reply"</span>],
+            model=req.model,
+            tokens=result[<span class="string">"tokens"</span>],
+            elapsed_ms=result[<span class="string">"elapsed_ms"</span>],
+        )
+    <span class="keyword">except</span> httpx.ConnectError:
+        <span class="keyword">raise</span> HTTPException(
+            status_code=<span class="num">503</span>,
+            detail=<span class="string">"Ollama 服务未启动，请先运行 ollama serve"</span>
+        )
+
+<span class="comment"># 启动：uvicorn llm_server:app --reload --port 8000</span>
+<span class="comment"># 测试：curl -X POST http://localhost:8000/chat -H "Content-Type: application/json" -d '{"message":"你好"}'</span></code></pre>
+
+  <div class="flow-diagram">请求完整链路：
+┌────────┐    ┌────────────┐    ┌──────────┐    ┌────────┐
+│ 用户   │───▶│ FastAPI    │───▶│ httpx    │───▶│ Ollama │
+│ 浏览器 │◀───│ /chat 路由 │◀───│ POST     │◀───│ 本地   │
+│        │    │ Pydantic   │    │ /api/chat│    │ 推理   │
+└────────┘    │ 校验       │    │          │    └────────┘
+              └────────────┘    └──────────┘       │
+                                                    │ 本地模型
+              ┌────────────┐                  ┌────▼─────┐
+              │ 响应 JSON   │◀────────────────│ GGUF 权重│
+              │ reply+统计  │                  └──────────┘
+              └────────────┘</div>
+</div>
+
+<!-- ======================== Section 6 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📊</span> 模型选型指南：选对模型比微调更重要
+    <span class="time-tag">~8 min</span>
+  </div>
+
+  <p>面对几十上百个开源模型，怎么选？以下是结合你 AMC 数据开发背景的选型指南。</p>
+
+  <div class="h3">按场景选模型</div>
+  <table>
+    <tr><th>场景</th><th>推荐模型</th><th>大小</th><th>量化</th><th>理由</th></tr>
+    <tr><td>中文对话/问答</td><td>Qwen2.5-7B</td><td>7B</td><td>Q4_K_M</td><td>中文能力最强，阿里开源</td></tr>
+    <tr><td>代码生成</td><td>DeepSeek-Coder-V2-Lite</td><td>16B</td><td>Q4_K_M</td><td>代码专精，支持 338 种语言</td></tr>
+    <tr><td>SQL 生成</td><td>CodeLlama-7B</td><td>7B</td><td>Q5_K_M</td><td>SQL 专项训练</td></tr>
+    <tr><td>文本 Embedding</td><td>nomic-embed-text</td><td>137M</td><td>F16</td><td>多语言，维度适中</td></tr>
+    <tr><td>RAG 重排</td><td>bge-reranker-v2-m3</td><td>568M</td><td>F16</td><td>中文重排效果最佳</td></tr>
+    <tr><td>低资源设备</td><td>Qwen2.5-1.5B</td><td>1.5B</td><td>Q4_K_M</td><td>极快极轻，手机可跑</td></tr>
+    <tr><td>微调基座</td><td>Qwen2.5-7B</td><td>7B</td><td>F16</td><td>微调首选基座</td></tr>
+  </table>
+
+  <div class="h3">Python 模型性能基准测试</div>
+  <pre><code><span class="keyword">import</span> time
+<span class="keyword">import</span> asyncio
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+
+<span class="keyword">@dataclass</span>
+<span class="keyword">class</span> <span class="func">BenchResult</span>:
+    <span class="string">"""模型基准测试结果"""</span>
+    model: <span class="func">str</span>
+    prompt_tokens: <span class="func">int</span> = <span class="num">0</span>
+    completion_tokens: <span class="func">int</span> = <span class="num">0</span>
+    time_seconds: <span class="func">float</span> = <span class="num">0</span>
+    tokens_per_second: <span class="func">float</span> = <span class="num">0.0</span>
+
+    <span class="keyword">def</span> <span class="func">__post_init__</span>(self):
+        <span class="comment"># 自动计算 tokens/s</span>
+        <span class="keyword">if</span> self.time_seconds > <span class="num">0</span>:
+            self.tokens_per_second = <span class="func">round</span>(
+                self.completion_tokens / self.time_seconds, <span class="num">2</span>
+            )
+
+<span class="keyword">async</span> <span class="keyword">def</span> <span class="func">benchmark_model</span>(
+    model: <span class="func">str</span>,
+    prompt: <span class="func">str</span>,
+    rounds: <span class="func">int</span> = <span class="num">3</span>
+) -> BenchResult:
+    <span class="string">"""对单个模型进行多轮基准测试"""</span>
+    <span class="keyword">import</span> httpx
+
+    <span class="keyword">async</span> <span class="keyword">with</span> httpx.AsyncClient(
+        base_url=<span class="string">"http://localhost:11434"</span>, timeout=<span class="num">300</span>
+    ) <span class="keyword">as</span> client:
+        total_time = <span class="num">0</span>
+        total_tokens = <span class="num">0</span>
+
+        <span class="keyword">for</span> i <span class="keyword">in</span> <span class="func">range</span>(rounds):
+            start = time.<span class="func">perf_counter</span>()
+            resp = <span class="keyword">await</span> client.<span class="func">post</span>(<span class="string">"/api/chat"</span>, json={
+                <span class="string">"model"</span>: model,
+                <span class="string">"messages"</span>: [{<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: prompt}],
+                <span class="string">"stream"</span>: <span class="keyword">False</span>,
+            })
+            elapsed = time.<span class="func">perf_counter</span>() - start
+            data = resp.<span class="func">json</span>()
+
+            total_time += elapsed
+            total_tokens += data.<span class="func">get</span>(<span class="string">"eval_count"</span>, <span class="num">0</span>)
+
+        <span class="keyword">return</span> BenchResult(
+            model=model,
+            prompt_tokens=data.<span class="func">get</span>(<span class="string">"prompt_eval_count"</span>, <span class="num">0</span>),
+            completion_tokens=total_tokens,
+            time_seconds=<span class="func">round</span>(total_time, <span class="num">2</span>),
+        )
+
+<span class="comment"># 使用示例（需要 Ollama 已安装对应模型）</span>
+<span class="comment"># results = asyncio.gather(</span>
+<span class="comment">#     benchmark_model("qwen2.5:7b", "解释窗口函数", rounds=3),</span>
+<span class="comment">#     benchmark_model("qwen2.5:1.5b", "解释窗口函数", rounds=3),</span>
+<span class="comment"># )</span>
+<span class="comment"># for r in results:</span>
+<span class="comment">#     print(f"{r.model}: {r.tokens_per_second} tok/s, {r.time_seconds}s")</span></code></pre>
+
+  <div class="h3">部署方式对比</div>
+  <table>
+    <tr><th>方式</th><th>优势</th><th>劣势</th><th>适合场景</th></tr>
+    <tr><td><span class="tag tag-green">Ollama</span></td><td>零配置、开箱即用</td><td>性能不如 vLLM</td><td>开发测试、个人使用</td></tr>
+    <tr><td><span class="tag tag-blue">vLLM</span></td><td>极高吞吐、PagedAttention</td><td>配置复杂、需 GPU</td><td>生产服务、高并发</td></tr>
+    <tr><td><span class="tag tag-purple">llama.cpp</span></td><td>纯 C++、极致优化</td><td>API 需自己封装</td><td>嵌入式、CPU 部署</td></tr>
+    <tr><td><span class="tag tag-orange">TGI</span></td><td>HuggingFace 官方</td><td>资源占用较高</td><td>企业级部署</td></tr>
+  </table>
+</div>
+
+<!-- ======================== Section 7 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚡</span> 最佳实践 & 常见陷阱
+    <span class="time-tag">~5 min</span>
+  </div>
+
+  <div class="h3">Ollama 部署最佳实践 Checklist</div>
+  <div class="checklist">
+    ✅ 首次使用选 <span class="inline-code">Q4_K_M</span> 量化，性价比最优<br>
+    ✅ 用 Modelfile 打包 System Prompt + 参数，而非每次传参<br>
+    ✅ 用 OpenAI SDK 兼容接口，代码可在云端/本地自由切换<br>
+    ✅ Embedding 和 Chat 用不同模型（专业分工）<br>
+    ✅ 生产环境用 FastAPI 包装 Ollama，加健康检查 + 错误处理<br>
+    ✅ 做基准测试选模型，别只看参数量<br>
+    ✅ 关注显存/内存使用：<span class="inline-code">ollama ps</span> 查看当前加载的模型
+  </div>
+
+  <div class="h3">常见陷阱 Top 5</div>
+
+  <table>
+    <tr><th>#</th><th>陷阱</th><th>症状</th><th>解决</th></tr>
+    <tr>
+      <td>1</td>
+      <td>量化过度</td>
+      <td>Q4_0 生成胡言乱语</td>
+      <td>升级到 Q4_K_M 或 Q5_K_M</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>内存不足 OOM</td>
+      <td>进程被 Kill，服务挂掉</td>
+      <td>减小模型或用 <span class="inline-code">--num-gpu</span> 分配 GPU</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>中文模型选错</td>
+      <td>中文回答质量差</td>
+      <td>中文场景用 Qwen2.5 而非 Llama</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>并发瓶颈</td>
+      <td>多请求排队等待</td>
+      <td>升级到 vLLM 或启用 Ollama 并行</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>Embedding 混用</td>
+      <td>检索召回不准</td>
+      <td>建索引和查询用同一个 Embedding 模型</td>
+    </tr>
+  </table>
+
+  <div class="h3">Python 知识总结：今日新工具</div>
+  <table>
+    <tr><th>工具</th><th>用途</th><th>关键 API</th></tr>
+    <tr><td><span class="inline-code">struct</span></td><td>二进制数据读写</td><td><span class="inline-code">pack()</span> / <span class="inline-code">unpack()</span> / 格式字符</td></tr>
+    <tr><td><span class="inline-code">time.perf_counter</span></td><td>高精度计时</td><td>返回 float 秒数，比 time() 精确</td></tr>
+    <tr><td><span class="inline-code">httpx.AsyncClient</span></td><td>异步 HTTP 客户端</td><td>async with + post/get</td></tr>
+    <tr><td><span class="inline-code">@asynccontextmanager</span></td><td>异步上下文管理器</td><td>yield 前初始化，yield 后清理</td></tr>
+  </table>
+</div>
+
+<!-- ======================== Section 8 ======================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">✍️</span> 今日练习
+    <span class="time-tag">~10 min</span>
+  </div>
+
+  <div class="quiz-box">
+    <h4>练习 1：Ollama 模型管理器（Python）</h4>
+    <p>用 requests 调用 Ollama API 实现以下功能：</p>
+    <ul>
+      <li>列出所有已安装模型，显示名称、大小、量化级别</li>
+      <li>支持按关键词搜索模型名称</li>
+      <li>显示当前正在运行的模型（<span class="inline-code">/api/ps</span> 接口）</li>
+      <li>格式化输出为表格（类似 SQL 查询结果）</li>
+    </ul>
+    <pre><code><span class="comment"># 提示：主要 API 端点</span>
+<span class="comment"># GET  /api/tags     → 列出所有模型</span>
+<span class="comment"># GET  /api/ps       → 当前运行的模型</span>
+<span class="comment"># GET  /api/show/{name} → 模型详情</span></code></pre>
+  </div>
+
+  <div class="quiz-box">
+    <h4>练习 2：量化精度计算器</h4>
+    <p>写一个函数，输入参数量和量化级别，计算模型文件大小和所需显存：</p>
+    <pre><code><span class="keyword">def</span> <span class="func">calc_model_size</span>(params_billions: <span class="func">int</span>, quant_level: <span class="func">str</span>) -> <span class="func">dict</span>:
+    <span class="string">"""
+    params_billions: 参数量（单位：十亿）
+    quant_level: "Q4_K_M", "Q5_K_M", "Q8_0", "F16", "FP32"
+
+    返回: {
+        "bits_per_param": 4.8,
+        "file_size_gb": 4.2,
+        "min_memory_gb": 6.2,  # 文件 + KV Cache
+        "quality_level": "good"
+    }
+    """</span></code></pre>
+  </div>
+
+  <div class="quiz-box">
+    <h4>练习 3：LeetCode — 精度转换模拟</h4>
+    <p>实现 <strong>INT4 量化 + 反量化</strong>，并计算 MSE（均方误差）：</p>
+    <pre><code><span class="comment"># LeetCode 风格：implement quantize_and_evaluate()</span>
+<span class="keyword">def</span> <span class="func">quantize_and_evaluate</span>(weights: list[<span class="func">float</span>], bits=<span class="num">4</span>) -> <span class="func">dict</span>:
+    <span class="string">"""
+    1. 将浮点权重量化到 INT4
+    2. 反量化回浮点
+    3. 计算 MSE = mean((original - reconstructed)^2)
+    4. 计算最大绝对误差
+    返回 {"mse": ..., "max_error": ..., "compression_ratio": ...}
+    """</span></code></pre>
+  </div>
+</div>
+
+<!-- ======================== Footer ======================== -->
+<div class="section" style="background:linear-gradient(135deg,#f0fdf4,#faf5ff);border-color:#a7f3d0;">
+  <div class="section-title" style="border-bottom-color:#bbf7d0;">
+    <span class="icon">📋</span> Day 45 小结 & 下一步
+  </div>
+
+  <div class="h3">今日收获</div>
+  <ul>
+    <li>理解了量化的本质：高精度→低精度的有损压缩</li>
+    <li>掌握了 GGUF 格式和量化级别（Q4_K_M / Q5_K_M / Q8_0）</li>
+    <li>学会用 Ollama 一行命令部署本地大模型</li>
+    <li>掌握了 3 种 Python 调用方式（requests / SDK / OpenAI 兼容）</li>
+    <li>构建了 FastAPI + Ollama 本地 LLM 服务</li>
+    <li>了解了模型选型的核心原则</li>
+  </ul>
+
+  <div class="h3">下一站：Day 46 — vLLM 高性能推理引擎</div>
+  <p>vLLM 是生产级 LLM 推理的事实标准。我们将学习：</p>
+  <ul>
+    <li>PagedAttention：为什么 vLLM 比 Ollama 快 3-5 倍</li>
+    <li>vLLM OpenAI 兼容服务部署</li>
+    <li>连续批处理（Continuous Batching）原理</li>
+    <li>从 Ollama 迁移到 vLLM 的架构对比</li>
+  </ul>
+</div>
+
+</body>
+</html>
