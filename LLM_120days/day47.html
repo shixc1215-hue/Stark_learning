@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 47 - Docker 容器化部署 LLM</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#ecfdf5,#eff6ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #a7f3d0; }
+  .header .badge { display:inline-block;background:#dcfce7;color:#16a34a;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent2);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--green); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  pre { background:#1e293b;color:#e2e8f0;padding:18px 20px;border-radius:10px;overflow-x:auto;margin:14px 0;font-size:13.5px;line-height:1.65; }
+  pre .comment { color:#64748b;font-style:italic; }
+  pre .keyword { color:#c084fc; }
+  pre .string { color:#34d399; }
+  pre .function { color:#60a5fa; }
+  pre .decorator { color:#fbbf24; }
+  pre .number { color:#fb923c; }
+  pre .type { color:#2dd4bf; }
+  code { background:var(--surface2);color:var(--accent2);padding:2px 7px;border-radius:5px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace; }
+  pre code { background:none;color:inherit;padding:0;font-size:inherit; }
+  .comparison-table { width:100%;border-collapse:separate;border-spacing:0;margin:16px 0;font-size:14px; }
+  .comparison-table th { background:var(--surface2);color:var(--text2);font-weight:600;padding:10px 16px;text-align:left;border-bottom:2px solid var(--border); }
+  .comparison-table td { padding:10px 16px;border-bottom:1px solid var(--surface3); }
+  .comparison-table tr:last-child td { border-bottom:none; }
+  .comparison-table tr:hover td { background:#f8fafc; }
+  .practice-box { background:linear-gradient(135deg,#faf5ff,#eff6ff);border-radius:var(--radius);padding:20px 24px;margin:16px 0;border:1px solid #ddd6fe; }
+  .practice-box h4 { color:var(--accent2);font-size:15px;margin-bottom:10px; }
+  .practice-box ul { padding-left:20px;color:var(--text2);font-size:14px; }
+  .practice-box li { margin-bottom:6px; }
+  .tag { display:inline-block;background:var(--surface2);color:var(--text2);padding:2px 10px;border-radius:10px;font-size:12px;font-weight:500;margin:2px; }
+  .nav-box { background:var(--surface);border-radius:var(--radius);padding:18px 24px;margin-top:24px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:14px; }
+  .nav-box a { color:var(--accent);text-decoration:none;font-weight:600; }
+  .nav-box a:hover { text-decoration:underline; }
+  .flow-diagram { background:var(--surface2);border-radius:10px;padding:20px;margin:16px 0;text-align:center;font-size:14px; }
+  .flow-diagram .step { display:inline-block;background:var(--accent);color:#fff;padding:6px 16px;border-radius:8px;margin:4px; }
+  .flow-diagram .arrow { color:var(--text3);margin:0 6px; }
+  h3 { font-size:16px;font-weight:700;margin:18px 0 10px;color:var(--text); }
+  p { margin:8px 0;font-size:14px;color:var(--text2); }
+  ul, ol { padding-left:22px;margin:8px 0;font-size:14px;color:var(--text2); }
+  li { margin-bottom:4px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Phase 3 · 微调部署 · Day 5/7</div>
+  <h1>Day 47 — Docker 容器化部署 LLM</h1>
+  <div class="subtitle">镜像构建 / Docker Compose 编排 / GPU 容器 / AMC 智能分析服务一键部署</div>
+</div>
+
+<div class="progress-bar">
+  <span class="label">总进度</span>
+  <div class="track"><div class="fill" style="width:66.2%"></div></div>
+  <span class="percent">47/71</span>
+</div>
+
+<!-- ==================== Section 1 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📦</span> Docker 核心概念
+    <span class="time-tag">⏱ 10min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>Docker</strong> = 把「应用 + 依赖 + 环境」打包成一个<strong>轻量级容器</strong>，在任何机器上都能一致运行。
+    就像你用 ETL 管道把源数据加工成标准格式 —— Docker 把软件环境加工成标准格式。
+  </div>
+
+  <h3>三大核心概念</h3>
+  <table class="comparison-table">
+    <thead>
+      <tr><th>概念</th><th>类比（数仓）</th><th>说明</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>镜像 Image</strong></td><td>ETL 模板 / 建表 DDL</td><td>只读模板，定义容器内容（OS + Python + 代码 + 模型）</td></tr>
+      <tr><td><strong>容器 Container</strong></td><td>DDL 执行后的一张实例表</td><td>镜像的可运行实例，有独立文件系统和网络</td></tr>
+      <tr><td><strong>Dockerfile</strong></td><td>建表 SQL 脚本</td><td>定义「如何构建镜像」的步骤清单</td></tr>
+    </tbody>
+  </table>
+
+  <h3>为什么 LLM 需要 Docker？</h3>
+  <ul>
+    <li><strong>环境一致性</strong>：vLLM 在你电脑能跑，在服务器也能跑 —— 不再「在我机器上是好的」</li>
+    <li><strong>依赖隔离</strong>：Python 3.11 + CUDA 12.1 + vLLM 0.5，全封闭在容器里，不污染宿主机</li>
+    <li><strong>快速部署</strong>：一行 <code>docker run</code> 拉起完整 LLM 服务，替代 30 分钟的手动安装</li>
+    <li><strong>可复现性</strong>：版本锁定，队友拉同一镜像，保证一致性</li>
+  </ul>
+
+  <div class="flow-diagram">
+    <span class="step">Dockerfile</span>
+    <span class="arrow">→</span>
+    <span class="step">docker build</span>
+    <span class="arrow">→</span>
+    <span class="step">Image 镜像</span>
+    <span class="arrow">→</span>
+    <span class="step">docker run</span>
+    <span class="arrow">→</span>
+    <span class="step">Container 容器</span>
+  </div>
+
+  <div class="tip-box">
+    <strong>数仓人秒懂</strong>：Image ≈ 数仓表模板，Container ≈ 表实例，Dockerfile ≈ CREATE TABLE 语句。同一模板可以创建多个实例，每个实例独立运行互不干扰。
+  </div>
+</div>
+
+<!-- ==================== Section 2 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🖥️</span> Docker 安装与常用命令
+    <span class="time-tag">⏱ 8min</span>
+  </div>
+
+  <h3>安装（Windows）</h3>
+  <pre><code><span class="comment"># 1. 下载 Docker Desktop: https://www.docker.com/products/docker-desktop</span>
+<span class="comment"># 2. 安装后重启电脑，打开 Docker Desktop</span>
+<span class="comment"># 3. 验证安装</span>
+docker --version          <span class="comment"># Docker version 27.x</span>
+docker compose version    <span class="comment"># Docker Compose version v2.x</span>
+
+<span class="comment"># Linux (Ubuntu) 一键安装</span>
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER   <span class="comment"># 免 sudo 运行</span>
+</code></pre>
+
+  <h3>镜像操作（类比：Git 操作）</h3>
+  <pre><code><span class="comment"># 拉取镜像（类比 git pull）</span>
+docker pull python:3.11-slim          <span class="comment"># 拉取 Python 3.11 精简版</span>
+docker pull vllm/vllm-openai:latest   <span class="comment"># 拉取 vLLM 官方镜像</span>
+
+<span class="comment"># 查看本地镜像（类比 git branch）</span>
+docker images                           <span class="comment"># 列出所有本地镜像</span>
+docker image inspect vllm/vllm-openai  <span class="comment"># 查看镜像详细信息</span>
+
+<span class="comment"># 删除镜像</span>
+docker rmi python:3.11-slim  <span class="comment"># 删除指定镜像</span>
+
+<span class="comment"># 镜像体积管理 —— LLM 镜像通常 5-20 GB！</span>
+docker system df              <span class="comment"># 查看磁盘占用</span>
+docker image prune -a         <span class="comment"># 清理所有未使用镜像</span>
+</code></pre>
+
+  <h3>容器操作（类比：进程管理）</h3>
+  <pre><code><span class="comment"># 运行容器</span>
+docker run -d --name my-llm -p 8000:8000 vllm/vllm-openai:latest \
+    --model Qwen/Qwen2.5-7B-Instruct
+
+<span class="comment"># 参数说明：</span>
+<span class="comment">#   -d        后台运行（detached）</span>
+<span class="comment">#   --name    给容器取个名字</span>
+<span class="comment">#   -p 8000:8000  端口映射：宿主机:容器</span>
+<span class="comment">#   后面的参数传给容器内的 vLLM</span>
+
+<span class="comment"># 查看运行中的容器</span>
+docker ps              <span class="comment"># 正在运行的容器</span>
+docker ps -a           <span class="comment"># 包括已停止的容器</span>
+
+<span class="comment"># 进入容器内部（类比 SSH 登录服务器）</span>
+docker exec -it my-llm /bin/bash
+
+<span class="comment"># 查看日志（类比 tail -f）</span>
+docker logs -f my-llm       <span class="comment"># 实时跟踪日志</span>
+docker logs --tail 100 my-llm  <span class="comment"># 最后 100 行</span>
+
+<span class="comment"># 停止 / 启动 / 删除</span>
+docker stop my-llm       <span class="comment"># 优雅停止（发 SIGTERM）</span>
+docker start my-llm      <span class="comment"># 重新启动</span>
+docker rm my-llm         <span class="comment"># 删除容器（必须先停止）</span>
+docker rm -f my-llm      <span class="comment"># 强制删除（正在运行也能删）</span>
+</code></pre>
+
+  <div class="warn-box">
+    <strong>⚠️ GPU 注意</strong>：默认 <code>docker run</code> 看不到 GPU。需要安装 <strong>NVIDIA Container Toolkit</strong>，然后加 <code>--gpus all</code> 参数。详见下文「GPU 容器」章节。
+  </div>
+</div>
+
+<!-- ==================== Section 3 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span> Python 知识点：YAML 配置 + 环境变量
+    <span class="time-tag">⏱ 12min</span>
+  </div>
+
+  <h3>1. PyYAML 解析配置文件</h3>
+  <p>Docker Compose 用 YAML 编写。Python 读写 YAML 是部署自动化的基础。</p>
+  <pre><code><span class="comment"># pip install pyyaml</span>
+<span class="keyword">import</span> yaml
+<span class="keyword">from</span> pathlib <span class="keyword">import</span> Path
+
+<span class="comment"># ---- 读取 YAML 配置 ----</span>
+config = yaml.safe_load(Path(<span class="string">"deploy.yaml"</span>).read_text(encoding=<span class="string">"utf-8"</span>))
+<span class="function">print</span>(config[<span class="string">"services"</span>][<span class="string">"llm"</span>][<span class="string">"image"</span>])   <span class="comment"># 'vllm/vllm-openai:latest'</span>
+
+<span class="comment"># ---- 动态修改并写回 ----</span>
+config[<span class="string">"services"</span>][<span class="string">"llm"</span>][<span class="string">"environment"</span>][<span class="string">"MODEL_NAME"</span>] = <span class="string">"Qwen/Qwen2.5-14B"</span>
+Path(<span class="string">"deploy.yaml"</span>).write_text(
+    yaml.dump(config, default_flow_style=<span class="keyword">False</span>, allow_unicode=<span class="keyword">True</span>),
+    encoding=<span class="string">"utf-8"</span>
+)
+
+<span class="comment"># ---- YAML 数据类型映射 ----</span>
+<span class="comment"># YAML          → Python</span>
+<span class="comment"># 123           → int</span>
+<span class="comment"># 3.14          → float</span>
+<span class="comment"># "hello"       → str</span>
+<span class="comment"># true/false    → bool</span>
+<span class="comment"># [1, 2, 3]    → list</span>
+<span class="comment"># {key: value} → dict</span>
+<span class="comment"># null          → None</span>
+</code></pre>
+
+  <h3>2. os.environ 环境变量管理</h3>
+  <p>Docker 容器通过环境变量传递配置（模型名、端口、API Key 等）。</p>
+  <pre><code><span class="keyword">import</span> os
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+
+<span class="keyword">@dataclass</span>
+<span class="keyword">class</span> <span class="type">DeployConfig</span>:
+    <span class="string">"""Docker 部署配置 —— 从环境变量读取，提供默认值"""</span>
+    model_name: <span class="type">str</span> = field(
+        default_factory=<span class="keyword">lambda</span>: os.getenv(<span class="string">"MODEL_NAME"</span>, <span class="string">"Qwen/Qwen2.5-7B-Instruct"</span>)
+    )
+    host: <span class="type">str</span> = field(
+        default_factory=<span class="keyword">lambda</span>: os.getenv(<span class="string">"HOST"</span>, <span class="string">"0.0.0.0"</span>)
+    )
+    port: <span class="type">int</span> = field(
+        default_factory=<span class="keyword">lambda</span>: <span class="function">int</span>(os.getenv(<span class="string">"PORT"</span>, <span class="string">"8000"</span>))
+    )
+    gpu_count: <span class="type">int</span> = field(
+        default_factory=<span class="keyword">lambda</span>: <span class="function">int</span>(os.getenv(<span class="string">"GPU_COUNT"</span>, <span class="string">"1"</span>))
+    )
+    api_key: <span class="type">str</span> = field(
+        default_factory=<span class="keyword">lambda</span>: os.getenv(<span class="string">"API_KEY"</span>, <span class="string">""</span>)
+    )
+
+    <span class="keyword">def</span> <span class="function">validate</span>(self) -> <span class="type">list</span>[<span class="type">str</span>]:
+        <span class="string">"""校验配置合法性，返回错误列表"""</span>
+        errors = []
+        <span class="keyword">if</span> self.gpu_count < 1:
+            errors.append(<span class="string">f"GPU_COUNT 必须 >= 1，当前: {self.gpu_count}"</span>)
+        <span class="keyword">if</span> self.port < 1024 <span class="keyword">or</span> self.port > 65535:
+            errors.append(<span class="string">f"PORT 必须在 1024-65535 之间，当前: {self.port}"</span>)
+        <span class="keyword">if</span> <span class="keyword">not</span> self.model_name:
+            errors.append(<span class="string">"MODEL_NAME 不能为空"</span>)
+        <span class="keyword">return</span> errors
+
+<span class="comment"># 使用</span>
+cfg = DeployConfig()
+<span class="function">print</span>(cfg)
+<span class="comment"># DeployConfig(model_name='Qwen/Qwen2.5-7B-Instruct', host='0.0.0.0', port=8000, gpu_count=1, api_key='')</span>
+
+<span class="comment"># Docker 中设置环境变量：docker run -e MODEL_NAME=xxx -e PORT=9000 ...</span>
+</code></pre>
+
+  <div class="tip-box">
+    <strong>数仓人对比</strong>：环境变量就像 Airflow DAG 的 <code>Variable</code>，或者 SQL 里的 <code>SET @param = value</code>。容器启动时注入，运行时可读取，同一镜像不同环境变量 = 不同配置。
+  </div>
+
+  <h3>3. pathlib 跨平台路径处理</h3>
+  <pre><code><span class="keyword">from</span> pathlib <span class="keyword">import</span> Path
+
+<span class="comment"># ---- 路径拼接（跨平台，Windows 用 \，Linux 用 /）----</span>
+project = Path(<span class="string">"/app"</span>)          <span class="comment"># 容器内通常用 /app</span>
+model_dir = project / <span class="string">"models"</span>   <span class="comment"># /app/models（自动用正确分隔符）</span>
+model_file = model_dir / <span class="string">"qwen-7b.bin"</span>
+
+<span class="comment"># ---- 确保目录存在 ----</span>
+model_dir.mkdir(parents=<span class="keyword">True</span>, exist_ok=<span class="keyword">True</span>)
+
+<span class="comment"># ---- 遍历文件 ----</span>
+<span class="keyword">for</span> f <span class="keyword">in</span> project.glob(<span class="string">"**/*.py"</span>):    <span class="comment"># 递归找所有 .py 文件</span>
+    <span class="function">print</span>(f.name, f.stat().st_size)
+
+<span class="comment"># ---- 写入 .env 文件（Docker Compose 会自动读取）---- </span>
+env_content = <span class="string">"""
+MODEL_NAME=Qwen/Qwen2.5-7B-Instruct
+HOST=0.0.0.0
+PORT=8000
+GPU_COUNT=1
+API_KEY=your-api-key-here
+"""</span>
+Path(<span class="string">".env"</span>).write_text(env_content.strip(), encoding=<span class="string">"utf-8"</span>)
+</code></pre>
+</div>
+
+<!-- ==================== Section 4 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏗️</span> 编写 Dockerfile —— 构建 LLM 服务镜像
+    <span class="time-tag">⏱ 15min</span>
+  </div>
+
+  <h3>Dockerfile 语法精讲</h3>
+  <table class="comparison-table">
+    <thead>
+      <tr><th>指令</th><th>作用</th><th>类比</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>FROM</code></td><td>基础镜像（必填第一条）</td><td>CREATE TABLE ... AS SELECT ... 继承模板</td></tr>
+      <tr><td><code>RUN</code></td><td>构建时执行命令</td><td>建表时的 DEFAULT / 约束处理</td></tr>
+      <tr><td><code>COPY</code></td><td>复制文件到镜像</td><td>INSERT 数据到表中</td></tr>
+      <tr><td><code>WORKDIR</code></td><td>设置工作目录</td><td>USE database 切换库</td></tr>
+      <tr><td><code>ENV</code></td><td>设置环境变量</td><td>SET @variable = value</td></tr>
+      <tr><td><code>EXPOSE</code></td><td>声明端口（文档性质）</td><td>注释说明对外接口</td></tr>
+      <tr><td><code>CMD</code></td><td>容器启动命令（可被覆盖）</td><td>程序入口 main()</td></tr>
+      <tr><td><code>ENTRYPOINT</code></td><td>容器启动命令（不可覆盖）</td><td>程序核心逻辑（固定）</td></tr>
+    </tbody>
+  </table>
+
+  <h3>实战：AMC 智能分析服务 Dockerfile</h3>
+  <pre><code><span class="comment"># ---- Dockerfile ----</span>
+<span class="comment"># 选择带 CUDA 的 Python 基础镜像（约 2GB）</span>
+<span class="keyword">FROM</span> nvidia/cuda:12.1.1-runtime-ubuntu22.04
+
+<span class="comment"># 避免交互式安装弹窗</span>
+<span class="keyword">ENV</span> DEBIAN_FRONTEND=noninteractive
+
+<span class="comment"># 安装 Python 3.11 + pip</span>
+<span class="keyword">RUN</span> apt-get update && apt-get install -y \
+    python3.11 python3.11-venv python3-pip \
+    curl wget git \
+    && rm -rf /var/lib/apt/lists/*    <span class="comment"># 清理缓存，减小镜像体积</span>
+
+<span class="comment"># 设置工作目录</span>
+<span class="keyword">WORKDIR</span> /app
+
+<span class="comment"># 先复制 requirements.txt（利用 Docker 缓存层）</span>
+<span class="keyword">COPY</span> requirements.txt .
+<span class="keyword">RUN</span> pip3 install --no-cache-dir -r requirements.txt
+
+<span class="comment"># 复制应用代码</span>
+<span class="keyword">COPY</span> app/ ./app/
+<span class="keyword">COPY</span> config/ ./config/
+<span class="keyword">COPY</span> entrypoint.sh .
+
+<span class="comment"># 声明端口</span>
+<span class="keyword">EXPOSE</span> 8000
+
+<span class="comment"># 设置启动命令</span>
+<span class="keyword">ENTRYPOINT</span> ["bash", "entrypoint.sh"]
+</code></pre>
+
+  <h3>启动脚本 entrypoint.sh</h3>
+  <pre><code><span class="comment">#!/bin/bash
+# entrypoint.sh —— 容器启动入口</span>
+
+set -e  <span class="comment"># 任何命令失败立即退出</span>
+
+<span class="comment"># 打印配置信息（便于排查问题）</span>
+echo "========================================"
+echo "  AMC 智能分析服务"
+echo "  模型: ${MODEL_NAME:-Qwen/Qwen2.5-7B-Instruct}"
+echo "  端口: ${PORT:-8000}"
+echo "  GPU:  ${GPU_COUNT:-1}"
+echo "========================================"
+
+<span class="comment"># 健康检查：等待模型加载就绪</span>
+check_health() {
+    local max_retries=30
+    local retry=0
+    while [ $retry -lt $max_retries ]; do
+        if curl -sf http://localhost:${PORT:-8000}/health > /dev/null 2>&1; then
+            echo "✅ 服务启动成功！"
+            return 0
+        fi
+        echo "⏳ 等待服务就绪... ($((retry+1))/$max_retries)"
+        sleep 5
+        retry=$((retry+1))
+    done
+    echo "❌ 服务启动超时"
+    exit 1
+}
+
+<span class="comment"># 启动 FastAPI 应用</span>
+cd /app
+python3 -m uvicorn app.main:app \
+    --host 0.0.0.0 \
+    --port ${PORT:-8000} \
+    --workers 1 &  <span class="comment"># 后台运行</span>
+
+<span class="comment"># 执行健康检查</span>
+check_health
+
+<span class="comment"># 阻塞主进程（保持容器运行）</span>
+wait %1
+</code></pre>
+
+  <div class="tip-box">
+    <strong>分层缓存优化</strong>：Docker 按指令逐层构建镜像。把不常变的层（如 <code>pip install</code>）放前面，常变的层（如 <code>COPY app/</code>）放后面。这样改代码时不用重新安装依赖，构建速度快 10 倍以上。
+  </div>
+
+  <h3>构建与运行</h3>
+  <pre><code><span class="comment"># 构建镜像（-t 指定镜像名和标签）</span>
+docker build -t amc-llm-service:1.0 .
+
+<span class="comment"># 运行容器</span>
+docker run -d \
+  --name amc-llm \
+  --gpus all \
+  -p 8000:8000 \
+  -e MODEL_NAME=Qwen/Qwen2.5-7B-Instruct \
+  -v /data/models:/app/models \    <span class="comment"># 挂载模型目录（不打包进镜像）</span>
+  amc-llm-service:1.0
+
+<span class="comment"># 测试</span>
+curl http://localhost:8000/health
+</code></pre>
+
+  <div class="warn-box">
+    <strong>⚠️ 模型文件不要打包进镜像！</strong> LLM 模型通常 5-30 GB，用 <code>-v</code> 挂载宿主机目录。镜像只装代码和依赖（约 5-10 GB）。
+  </div>
+</div>
+
+<!-- ==================== Section 5 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🎵</span> Docker Compose 编排多服务
+    <span class="time-tag">⏱ 15min</span>
+  </div>
+
+  <p>真实场景需要多个服务协作。Docker Compose 用一个 YAML 文件定义、一键启动。</p>
+
+  <div class="concept-box">
+    <strong>Docker Compose</strong> = 用 YAML 描述「哪些容器 + 它们怎么连接」，一条命令全部拉起。
+    就像数仓里一个 Airflow DAG 编排多个 Task —— Compose 编排多个容器。
+  </div>
+
+  <h3>AMC 智能分析平台 — 完整 docker-compose.yaml</h3>
+  <pre><code><span class="comment"># ---- docker-compose.yaml ----</span>
+<span class="keyword">version</span>: <span class="string">"3.9"</span>
+
+<span class="keyword">services</span>:
+  <span class="comment"># ========== 1. LLM 推理服务（vLLM）==========</span>
+  <span class="keyword">llm</span>:
+    image: vllm/vllm-openai:latest
+    container_name: amc-llm
+    restart: unless-stopped
+    ports:
+      - <span class="string">"8000:8000"</span>
+    environment:
+      - MODEL_NAME=Qwen/Qwen2.5-7B-Instruct
+      - MAX_MODEL_LEN=4096
+      - GPU_MEMORY_UTILIZATION=0.85
+    volumes:
+      - model_cache:/root/.cache/huggingface   <span class="comment"># 模型缓存持久化</span>
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: [<span class="string">"CMD"</span>, <span class="string">"curl"</span>, <span class="string">"-f"</span>, <span class="string">"http://localhost:8000/health"</span>]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  <span class="comment"># ========== 2. AMC 业务 API（FastAPI）==========</span>
+  <span class="keyword">api</span>:
+    build: .
+    container_name: amc-api
+    restart: unless-stopped
+    ports:
+      - <span class="string">"9000:8000"</span>    <span class="comment"># 宿主机 9000 → 容器 8000</span>
+    environment:
+      - LLM_BASE_URL=http://llm:8000/v1   <span class="comment"># 用服务名访问！</span>
+      - REDIS_URL=redis://redis:6379
+      - MODEL_NAME=Qwen/Qwen2.5-7B-Instruct
+    depends_on:
+      llm:
+        condition: service_healthy    <span class="comment"># 等 LLM 健康后再启动</span>
+      redis:
+        condition: service_started
+
+  <span class="comment"># ========== 3. Redis 缓存 ==========</span>
+  <span class="keyword">redis</span>:
+    image: redis:7-alpine
+    container_name: amc-redis
+    restart: unless-stopped
+    ports:
+      - <span class="string">"6379:6379"</span>
+    volumes:
+      - redis_data:/data
+
+  <span class="comment"># ========== 4. Nginx 反向代理（可选）==========</span>
+  <span class="keyword">nginx</span>:
+    image: nginx:alpine
+    container_name: amc-nginx
+    restart: unless-stopped
+    ports:
+      - <span class="string">"80:80"</span>
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+
+<span class="comment"># ========== 持久化存储卷 ==========</span>
+<span class="keyword">volumes</span>:
+  model_cache:
+  redis_data:
+</code></pre>
+
+  <h3>关键概念解读</h3>
+  <table class="comparison-table">
+    <thead>
+      <tr><th>特性</th><th>说明</th><th>数仓类比</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>service_name</code></td><td>服务名（llm/api/redis），也是容器间 DNS 域名</td><td>数据库名</td></tr>
+      <tr><td><code>depends_on</code></td><td>定义启动顺序 + 依赖条件</td><td>Task 依赖关系</td></tr>
+      <tr><td><code>healthcheck</code></td><td>定期检查服务是否健康</td><td>数据质量监控</td></tr>
+      <tr><td><code>volumes</code></td><td>数据持久化（容器删除后数据不丢）</td><td>外部表 External Table</td></tr>
+      <tr><td><code>restart: unless-stopped</code></td><td>崩溃自动重启</td><td>任务失败重跑</td></tr>
+      <tr><td><code>deploy.resources</code></td><td>GPU 资源分配</td><td>YARN 资源队列</td></tr>
+    </tbody>
+  </table>
+
+  <h3>常用 Compose 命令</h3>
+  <pre><code><span class="comment"># 启动所有服务（-d 后台运行）</span>
+docker compose up -d
+
+<span class="comment"># 查看服务状态</span>
+docker compose ps
+
+<span class="comment"># 查看日志（跟踪所有服务）</span>
+docker compose logs -f
+
+<span class="comment"># 只看某个服务的日志</span>
+docker compose logs -f llm
+
+<span class="comment"># 重启某个服务</span>
+docker compose restart api
+
+<span class="comment"># 停止并删除所有容器</span>
+docker compose down
+
+<span class="comment"># 停止并删除（包括数据卷）</span>
+docker compose down -v
+
+<span class="comment"># 重新构建镜像并启动</span>
+docker compose up -d --build
+</code></pre>
+</div>
+
+<!-- ==================== Section 6 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🎮</span> GPU 容器配置
+    <span class="time-tag">⏱ 8min</span>
+  </div>
+
+  <h3>NVIDIA Container Toolkit 安装</h3>
+  <p>让 Docker 容器能访问宿主机 GPU 的必要工具。</p>
+  <pre><code><span class="comment"># Linux 安装</span>
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
+    | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
+    | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
+    | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+sudo apt-get update
+sudo apt-get install -y nvidia-container-toolkit
+sudo nvidia-ctk runtime configure --runtime=docker
+sudo systemctl restart docker
+
+<span class="comment"># 验证 GPU 可见</span>
+docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
+</code></pre>
+
+  <h3>GPU 参数详解</h3>
+  <pre><code><span class="comment"># 使用所有 GPU</span>
+docker run --gpus all ...
+
+<span class="comment"># 指定 GPU 编号（服务器有多张卡时）</span>
+docker run --gpus '"device=0,1"' ...
+
+<span class="comment"># 限制 GPU 显存（避免一个容器吃光所有显存）</span>
+docker run --gpus all --gpus 2gigabytes ...
+
+<span class="comment"># Docker Compose 中配置 GPU</span>
+deploy:
+  resources:
+    reservations:
+      devices:
+        - driver: nvidia
+          count: 1           <span class="comment"># 使用 1 张 GPU</span>
+          capabilities: [gpu]
+</code></pre>
+
+  <div class="warn-box">
+    <strong>⚠️ Windows 用户注意</strong>：Docker Desktop on Windows 通过 WSL2 支持 GPU，但需要：
+    <br>1. Windows 11 22H2+ 或 Windows 10 21H2+
+    <br>2. NVIDIA 驱动 >= 525.xx
+    <br>3. Docker Desktop Settings → General → 勾选「Use the WSL 2 based engine」
+    <br>4. 在 WSL2 内安装 NVIDIA Container Toolkit
+  </div>
+</div>
+
+<!-- ==================== Section 7 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔧</span> Python + Docker：自动化部署工具
+    <span class="time-tag">⏱ 12min</span>
+  </div>
+
+  <p>用 Python 脚本封装 Docker 操作，实现「一键检测 → 一键部署 → 一键验证」。</p>
+
+  <pre><code><span class="comment"># deploy_manager.py —— Docker 部署管理器</span>
+<span class="keyword">import</span> subprocess
+<span class="keyword">import</span> time
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> pathlib <span class="keyword">import</span> Path
+<span class="keyword">from</span> enum <span class="keyword">import</span> Enum, auto
+
+
+<span class="keyword">class</span> <span class="type">DeployStatus</span>(Enum):
+    PENDING = auto()
+    BUILDING = auto()
+    RUNNING = auto()
+    HEALTHY = auto()
+    FAILED = auto()
+    STOPPED = auto()
+
+
+<span class="keyword">@dataclass</span>
+<span class="keyword">class</span> <span class="type">ServiceHealth</span>:
+    <span class="string">"""单个服务的健康状态"""</span>
+    name: <span class="type">str</span>
+    status: <span class="type">DeployStatus</span> = DeployStatus.PENDING
+    response_time_ms: <span class="type">float</span> = 0.0
+    error: <span class="type">str</span> = <span class="string">""</span>
+
+    <span class="keyword">def</span> <span class="function">__str__</span>(self) -> <span class="type">str</span>:
+        icon = {
+            DeployStatus.PENDING: <span class="string">"⚪"</span>, DeployStatus.BUILDING: <span class="string">"🔨"</span>,
+            DeployStatus.RUNNING: <span class="string">"🔵"</span>, DeployStatus.HEALTHY: <span class="string">"🟢"</span>,
+            DeployStatus.FAILED: <span class="string">"🔴"</span>, DeployStatus.STOPPED: <span class="string">"⚫"</span>,
+        }
+        <span class="keyword">return</span> <span class="string">f"{icon[self.status]} {self.name}: {self.status.name}"</span> \
+               + (<span class="string">f" ({self.response_time_ms:.0f}ms)"</span> <span class="keyword">if</span> self.response_time_ms <span class="keyword">else</span> <span class="string">""</span>) \
+               + (<span class="string">f" [{self.error}]"</span> <span class="keyword">if</span> self.error <span class="keyword">else</span> <span class="string">""</span>)
+
+
+<span class="keyword">class</span> <span class="type">DockerDeployer</span>:
+    <span class="string">"""Docker Compose 部署管理器"""</span>
+
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, compose_file: <span class="type">str</span> = <span class="string">"docker-compose.yaml"</span>):
+        self.compose_file = Path(compose_file)
+        self.project_dir = self.compose_file.parent
+        self.services: <span class="type">list</span>[<span class="type">ServiceHealth</span>] = []
+
+    <span class="comment"># ---- 私有方法：执行 docker 命令 ----</span>
+    <span class="keyword">def</span> <span class="function">_run_cmd</span>(self, cmd: <span class="type">str</span>, timeout: <span class="type">int</span> = 60) -> <span class="type">str</span>:
+        <span class="string">"""执行 shell 命令并返回输出"""</span>
+        result = subprocess.run(
+            cmd, shell=<span class="keyword">True</span>, capture_output=<span class="keyword">True</span>,
+            text=<span class="keyword">True</span>, timeout=timeout, cwd=self.project_dir
+        )
+        <span class="keyword">if</span> result.returncode != 0:
+            <span class="keyword">raise</span> RuntimeError(f<span class="string">"命令失败: {cmd}\n{result.stderr}"</span>)
+        <span class="keyword">return</span> result.stdout.strip()
+
+    <span class="keyword">def</span> <span class="function">_parse_compose_services</span>(self) -> <span class="type">list</span>[<span class="type">str</span>]:
+        <span class="string">"""从 docker-compose.yaml 解析服务名列表"""</span>
+        <span class="keyword">import</span> yaml
+        config = yaml.safe_load(self.compose_file.read_text(encoding=<span class="string">"utf-8"</span>))
+        <span class="keyword">return</span> <span class="function">list</span>(config.get(<span class="string">"services"</span>, {}).keys())
+
+    <span class="comment"># ---- 公共方法：部署流程 ----</span>
+    <span class="keyword">def</span> <span class="function">check_prerequisites</span>(self) -> <span class="type">list</span>[<span class="type">str</span>]:
+        <span class="string">"""检查前置条件"""</span>
+        checks = []
+        <span class="keyword">try</span>:
+            version = self._run_cmd(<span class="string">"docker --version"</span>)
+            checks.append(<span class="string">f"✅ Docker: {version}"</span>)
+        <span class="keyword">except</span> RuntimeError:
+            checks.append(<span class="string">"❌ Docker 未安装或未启动"</span>)
+        <span class="keyword">try</span>:
+            self._run_cmd(<span class="string">"docker compose version"</span>)
+            checks.append(<span class="string">"✅ Docker Compose 可用"</span>)
+        <span class="keyword">except</span> RuntimeError:
+            checks.append(<span class="string">"❌ Docker Compose 不可用"</span>)
+        <span class="keyword">try</span>:
+            output = self._run_cmd(<span class="string">"docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi"</span>, timeout=30)
+            <span class="keyword">if</span> <span class="string">"GPU"</span> <span class="keyword">in</span> output:
+                checks.append(<span class="string">"✅ GPU 可用"</span>)
+        <span class="keyword">except</span> (RuntimeError, subprocess.TimeoutExpired):
+            checks.append(<span class="string">"⚠️ GPU 不可用（将使用 CPU 模式）"</span>)
+        <span class="keyword">return</span> checks
+
+    <span class="keyword">def</span> <span class="function">deploy</span>(self, build: <span class="type">bool</span> = <span class="keyword">True</span>) -> <span class="type">list</span>[<span class="type">ServiceHealth</span>]:
+        <span class="string">"""一键部署所有服务"""</span>
+        <span class="function">print</span>(<span class="string">f"🚀 开始部署 AMC 智能分析平台..."</span>)
+        <span class="function">print</span>(<span class="string">f"   Compose 文件: {self.compose_file}"</span>)
+
+        <span class="comment"># 构建</span>
+        <span class="keyword">if</span> build:
+            <span class="function">print</span>(<span class="string">"🔨 构建镜像..."</span>)
+            self._run_cmd(<span class="string">"docker compose build"</span>, timeout=300)
+
+        <span class="comment"># 启动</span>
+        <span class="function">print</span>(<span class="string">"🐳 启动服务..."</span>)
+        self._run_cmd(<span class="string">"docker compose up -d"</span>, timeout=120)
+
+        <span class="comment"># 等待并检查健康状态</span>
+        service_names = self._parse_compose_services()
+        self.services = [ServiceHealth(name=name) <span class="keyword">for</span> name <span class="keyword">in</span> service_names]
+
+        <span class="keyword">for</span> svc <span class="keyword">in</span> self.services:
+            svc.status = DeployStatus.RUNNING
+            <span class="function">print</span>(<span class="string">f"  ⏳ {svc}"</span>)
+
+        <span class="comment"># 健康检查（轮询）</span>
+        <span class="function">print</span>(<span class="string">"🏥 健康检查..."</span>)
+        self._wait_healthy(max_wait=120)
+
+        <span class="keyword">return</span> self.services
+
+    <span class="keyword">def</span> <span class="function">_wait_healthy</span>(self, max_wait: <span class="type">int</span> = 120):
+        <span class="string">"""轮询等待所有服务健康"""</span>
+        start = time.time()
+        <span class="keyword">while</span> time.time() - start < max_wait:
+            <span class="keyword">try</span>:
+                output = self._run_cmd(<span class="string">"docker compose ps --format json"</span>)
+                <span class="keyword">for</span> svc <span class="keyword">in</span> self.services:
+                    <span class="keyword">if</span> svc.name <span class="keyword">in</span> output <span class="keyword">and</span> <span class="string">"running"</span> <span class="keyword">in</span> output:
+                        svc.status = DeployStatus.HEALTHY
+            <span class="keyword">except</span> RuntimeError:
+                <span class="keyword">pass</span>
+
+            <span class="keyword">if</span> <span class="function">all</span>(s.status == DeployStatus.HEALTHY <span class="keyword">for</span> s <span class="keyword">in</span> self.services):
+                <span class="function">print</span>(<span class="string">"  🎉 所有服务已就绪！"</span>)
+                <span class="keyword">return</span>
+
+            time.sleep(5)
+
+        <span class="keyword">for</span> svc <span class="keyword">in</span> self.services:
+            <span class="keyword">if</span> svc.status != DeployStatus.HEALTHY:
+                svc.status = DeployStatus.FAILED
+                svc.error = <span class="string">"启动超时"</span>
+
+    <span class="keyword">def</span> <span class="function">stop</span>(self):
+        <span class="string">"""停止所有服务"""</span>
+        self._run_cmd(<span class="string">"docker compose down"</span>)
+        <span class="keyword">for</span> svc <span class="keyword">in</span> self.services:
+            svc.status = DeployStatus.STOPPED
+        <span class="function">print</span>(<span class="string">"⏹️  所有服务已停止"</span>)
+
+    <span class="keyword">def</span> <span class="function">get_logs</span>(self, service: <span class="type">str</span> = <span class="string">""</span>, tail: <span class="type">int</span> = 50) -> <span class="type">str</span>:
+        <span class="string">"""获取服务日志"""</span>
+        cmd = <span class="string">f"docker compose logs --tail {tail}"</span>
+        <span class="keyword">if</span> service:
+            cmd += <span class="string">f" {service}"</span>
+        <span class="keyword">return</span> self._run_cmd(cmd)
+
+    <span class="keyword">def</span> <span class="function">show_status</span>(self):
+        <span class="string">"""打印所有服务状态"""</span>
+        <span class="function">print</span>(<span class="string">"\n📊 服务状态:"</span>)
+        <span class="keyword">for</span> svc <span class="keyword">in</span> self.services:
+            <span class="function">print</span>(<span class="string">f"  {svc}"</span>)
+
+
+<span class="comment"># ---- 使用示例 ----</span>
+<span class="keyword">if</span> __name__ == <span class="string">"__main__"</span>:
+    deployer = DockerDeployer(<span class="string">"docker-compose.yaml"</span>)
+
+    <span class="comment"># 1. 检查前置条件</span>
+    <span class="function">print</span>(<span class="string">"🔍 前置检查:"</span>)
+    <span class="keyword">for</span> check <span class="keyword">in</span> deployer.check_prerequisites():
+        <span class="function">print</span>(<span class="string">f"  {check}"</span>)
+
+    <span class="comment"># 2. 一键部署</span>
+    services = deployer.deploy(build=<span class="keyword">True</span>)
+    deployer.show_status()
+
+    <span class="comment"># 3. 查看日志</span>
+    <span class="function">print</span>(<span class="string">"\n📋 LLM 服务日志:"</span>)
+    <span class="function">print</span>(deployer.get_logs(<span class="string">"llm"</span>, tail=20))
+</code></pre>
+
+  <div class="tip-box">
+    <strong>subprocess 最佳实践</strong>：始终用 <code>capture_output=True</code> 捕获输出、设 <code>timeout</code> 防止卡死、检查 <code>returncode</code> 判断成功与否。生产环境可用 <code>docker</code> Python SDK 替代 subprocess 调用。
+  </div>
+</div>
+
+<!-- ==================== Section 8 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏗️</span> 完整项目结构
+    <span class="time-tag">⏱ 5min</span>
+  </div>
+
+  <pre><code>amc-llm-platform/
+├── docker-compose.yaml      <span class="comment"># Compose 编排文件</span>
+├── .env                      <span class="comment"># 环境变量（不提交 Git）</span>
+├── .env.example             <span class="comment"># 环境变量模板</span>
+├── .dockerignore            <span class="comment"># 构建时忽略的文件</span>
+├── Dockerfile               <span class="comment"># API 服务镜像定义</span>
+├── entrypoint.sh             <span class="comment"># 容器启动脚本</span>
+├── nginx.conf               <span class="comment"># Nginx 反向代理配置</span>
+├── requirements.txt          <span class="comment"># Python 依赖</span>
+├── app/
+│   ├── __init__.py
+│   ├── main.py              <span class="comment"># FastAPI 入口</span>
+│   ├── config.py            <span class="comment"># 配置管理</span>
+│   ├── models/              <span class="comment"># 数据模型</span>
+│   ├── services/            <span class="comment"># 业务逻辑</span>
+│   │   ├── llm_client.py    <span class="comment"># LLM API 调用</span>
+│   │   ├── rag_service.py   <span class="comment"># RAG 检索增强</span>
+│   │   └── report_gen.py    <span class="comment"># 报告生成</span>
+│   └── routes/              <span class="comment"># API 路由</span>
+├── config/
+│   └── amc_schema.json       <span class="comment"># AMC 表结构描述</span>
+├── data/                    <span class="comment"># 本地测试数据</span>
+├── tests/                   <span class="comment"># 单元测试</span>
+└── scripts/
+    └── deploy_manager.py     <span class="comment"># Python 部署管理器</span>
+</code></pre>
+
+  <h3>.dockerignore（减小构建上下文）</h3>
+  <pre><code><span class="comment"># .dockerignore —— 类似 .gitignore，排除不需要的文件</span>
+.git/
+__pycache__/
+*.pyc
+.env                    <span class="comment"># 不把密钥打包进镜像！</span>
+data/                    <span class="comment"># 数据不入镜像</span>
+models/                  <span class="comment"># 模型不入镜像（太大）</span>
+tests/
+*.md
+.vscode/
+</code></pre>
+</div>
+
+<!-- ==================== Section 9 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚡</span> 生产部署最佳实践
+    <span class="time-tag">⏱ 8min</span>
+  </div>
+
+  <h3>1. 镜像体积优化</h3>
+  <pre><code><span class="comment"># ❌ 反面教材：镜像 15GB</span>
+<span class="keyword">FROM</span> ubuntu:22.04
+<span class="keyword">RUN</span> apt-get update && apt-get install -y python3 pip ...
+<span class="keyword">RUN</span> pip install pandas requests torch transformers ...
+
+<span class="comment"># ✅ 最佳实践：镜像 5GB</span>
+<span class="keyword">FROM</span> python:3.11-slim AS builder      <span class="comment"># 多阶段构建</span>
+<span class="keyword">RUN</span> pip install --user pandas requests torch transformers
+<span class="keyword">FROM</span> python:3.11-slim AS runtime
+<span class="keyword">COPY</span> --from=builder /root/.local /root/.local
+<span class="keyword">RUN</span> rm -rf /var/lib/apt/lists/*     <span class="comment"># 清理 apt 缓存</span>
+<span class="keyword">RUN</span> pip cache purge                  <span class="comment"># 清理 pip 缓存</span>
+</code></pre>
+
+  <h3>2. 安全加固</h3>
+  <ul>
+    <li><strong>不用 root 运行</strong>：<code>RUN useradd -m appuser && USER appuser</code></li>
+    <li><strong>Secrets 管理</strong>：用 Docker Secrets 或外部密钥管理（不写 .env）</li>
+    <li><strong>最小基础镜像</strong>：用 <code>-slim</code> 或 <code>-alpine</code> 减少攻击面</li>
+    <li><strong>固定版本</strong>：镜像标签用具体版本号，不用 <code>latest</code></li>
+  </ul>
+
+  <h3>3. 监控与日志</h3>
+  <pre><code><span class="comment"># docker-compose.yaml 中添加日志限制</span>
+<span class="keyword">logging</span>:
+  driver: json-file
+  options:
+    max-size: <span class="string">"100m"</span>      <span class="comment"># 单个日志文件最大 100MB</span>
+    max-file: <span class="string">"5"</span>          <span class="comment"># 最多保留 5 个文件</span>
+
+<span class="comment"># 查看资源使用</span>
+docker stats               <span class="comment"># 实时 CPU/内存/网络/GPU</span>
+docker compose top          <span class="comment"># 各容器进程</span>
+</code></pre>
+
+  <h3>4. 部署方式对比</h3>
+  <table class="comparison-table">
+    <thead>
+      <tr><th>方式</th><th>复杂度</th><th>适用场景</th><th>对比数仓</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>docker run</code></td><td>⭐</td><td>开发测试、快速验证</td><td>手动执行 SQL</td></tr>
+      <tr><td><code>docker compose</code></td><td>⭐⭐</td><td>单机多服务、小团队</td><td>单机 Airflow</td></tr>
+      <tr><td><code>Kubernetes</code></td><td>⭐⭐⭐⭐⭐</td><td>大规模、多副本、自动扩缩</td><td>生产级调度系统</td></tr>
+      <tr><td><code>NVIDIA Triton</code></td><td>⭐⭐⭐</td><td>GPU 推理服务专用</td><td>专用计算引擎</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ==================== Section 10 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚠️</span> 常见陷阱 Top 5
+    <span class="time-tag">⏱ 5min</span>
+  </div>
+
+  <div class="error-box">
+    <strong>陷阱 1：模型打包进镜像</strong><br>
+    7B 模型约 15GB，每次构建都上传一次，构建 10 分钟。用 <code>-v</code> 挂载模型目录，镜像只装代码。
+  </div>
+
+  <div class="error-box">
+    <strong>陷阱 2：容器内网络不通</strong><br>
+    Compose 中容器间用<strong>服务名</strong>通信（<code>http://llm:8000</code>），不用 <code>localhost</code>。<code>localhost</code> 在容器内只指向容器自己。
+  </div>
+
+  <div class="error-box">
+    <strong>陷阱 3：GPU 不可用</strong><br>
+    忘装 NVIDIA Container Toolkit，或者 <code>docker run</code> 忘加 <code>--gpus all</code>。容器内 <code>nvidia-smi</code> 能验证。
+  </div>
+
+  <div class="error-box">
+    <strong>陷阱 4：.env 泄露密钥</strong><br>
+    <code>.env</code> 文件包含 API Key，必须加入 <code>.gitignore</code> 和 <code>.dockerignore</code>。用 <code>.env.example</code> 做模板提交。
+  </div>
+
+  <div class="error-box">
+    <strong>陷阱 5：数据卷丢失</strong><br>
+    <code>docker compose down -v</code> 会删除数据卷（Redis 缓存、模型缓存全丢）。普通停止用 <code>docker compose down</code>（不带 <code>-v</code>）。
+  </div>
+</div>
+
+<!-- ==================== Section 11 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">✅</span> 最佳实践速查 & 今日总结
+    <span class="time-tag">⏱ 2min</span>
+  </div>
+
+  <table class="comparison-table">
+    <thead>
+      <tr><th>场景</th><th>命令 / 做法</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>首次部署</td><td><code>docker compose up -d --build</code></td></tr>
+      <tr><td>更新代码</td><td>改代码 → <code>docker compose up -d --build api</code>（只重建 API）</td></tr>
+      <tr><td>查看日志</td><td><code>docker compose logs -f --tail 100</code></td></tr>
+      <tr><td>重启服务</td><td><code>docker compose restart api</code></td></tr>
+      <tr><td>进入容器</td><td><code>docker exec -it amc-api /bin/bash</code></td></tr>
+      <tr><td>清理空间</td><td><code>docker system prune -a</code></td></tr>
+      <tr><td>GPU 容器</td><td>加 <code>--gpus all</code> 或 Compose 中配 <code>deploy.resources</code></td></tr>
+      <tr><td>模型挂载</td><td><code>-v /data/models:/app/models</code></td></tr>
+      <tr><td>环境变量</td><td><code>-e KEY=VALUE</code> 或 <code>.env</code> 文件</td></tr>
+    </tbody>
+  </table>
+
+  <h3>今日知识图谱</h3>
+  <div class="flow-diagram">
+    <span class="step">Docker 基础</span>
+    <span class="arrow">→</span>
+    <span class="step">Dockerfile</span>
+    <span class="arrow">→</span>
+    <span class="step">镜像构建</span>
+    <span class="arrow">→</span>
+    <span class="step">Compose 编排</span>
+    <span class="arrow">→</span>
+    <span class="step">GPU 容器</span>
+    <span class="arrow">→</span>
+    <span class="step">Python 自动化</span>
+    <span class="arrow">→</span>
+    <span class="step">生产部署</span>
+  </div>
+
+  <h3>Python 今日收获</h3>
+  <ul>
+    <li><strong>PyYAML</strong>：解析和生成 YAML 配置文件（Docker Compose 格式）</li>
+    <li><strong>os.environ</strong>：读取容器环境变量，构建灵活配置体系</li>
+    <li><strong>pathlib</strong>：跨平台路径处理（Windows 开发，Linux 部署）</li>
+    <li><strong>subprocess</strong>：Python 调用 Docker 命令，实现自动化部署</li>
+    <li><strong>enum + dataclass</strong>：状态管理和数据建模的最佳拍档</li>
+  </ul>
+
+  <h3>Phase 3 进度</h3>
+  <table class="comparison-table">
+    <thead>
+      <tr><th>天</th><th>主题</th><th>状态</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>D43</td><td>LoRA 微调入门</td><td>✅</td></tr>
+      <tr><td>D44</td><td>PEFT 进阶 + 数据集构建</td><td>✅</td></tr>
+      <tr><td>D45</td><td>Ollama 本地部署</td><td>✅</td></tr>
+      <tr><td>D46</td><td>vLLM 高性能推理引擎</td><td>✅</td></tr>
+      <tr><td><strong>D47</strong></td><td><strong>Docker 容器化部署 LLM</strong></td><td><strong>✅ 今日</strong></td></tr>
+      <tr><td>D48</td><td>LLM 服务监控 + 压力测试</td><td>⏳ 下一步</td></tr>
+      <tr><td>D49</td><td>Phase 3 综合实战 + 收官</td><td>⏳</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ==================== Section 12 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">💪</span> 练习题
+    <span class="time-tag">⏱ 20min</span>
+  </div>
+
+  <div class="practice-box">
+    <h4>练习 1：多阶段构建优化 Dockerfile</h4>
+    <p>改造下面臃肿的 Dockerfile，使用多阶段构建（multi-stage build）将镜像体积减少 50%+：</p>
+    <pre><code><span class="comment"># 优化前的 Dockerfile（镜像约 8GB）</span>
+<span class="keyword">FROM</span> python:3.11
+<span class="keyword">RUN</span> apt-get update && apt-get install -y gcc g++  <span class="comment"># 编译依赖</span>
+<span class="keyword">RUN</span> pip install torch transformers fastapi uvicorn pandas
+<span class="keyword">COPY</span> . /app
+<span class="keyword">WORKDIR</span> /app
+<span class="keyword">CMD</span> [<span class="string">"uvicorn"</span>, <span class="string">"main:app"</span>, <span class="string">"--host"</span>, <span class="string">"0.0.0.0"</span>, <span class="string">"--port"</span>, <span class="string">"8000"</span>]</code></pre>
+    <p>提示：builder 阶段装编译工具 + pip install，runtime 阶段只 COPY 产物，不装 gcc。</p>
+  </div>
+
+  <div class="practice-box">
+    <h4>练习 2：给 DockerDeployer 添加「滚动更新」功能</h4>
+    <p>实现 <code>rolling_update(service_name, new_image)</code> 方法：
+      <br>1. 拉取新镜像 <code>docker pull</code>
+      <br>2. 启动新容器（临时端口）
+      <br>3. 健康检查通过后，切换流量
+      <br>4. 停止旧容器
+    </p>
+    <p>提示：可以用 <code>--name amc-api-v2</code> 区分新旧容器。</p>
+  </div>
+
+  <div class="practice-box">
+    <h4>练习 3：LeetCode #238 · 除自身以外数组的乘积</h4>
+    <p>给你一个整数数组 <code>nums</code>，返回数组 <code>answer</code>，其中 <code>answer[i]</code> 等于 <code>nums</code> 中除 <code>nums[i]</code> 之外其余各元素的乘积。要求 O(n) 时间且不用除法。</p>
+    <p>提示：维护两个数组 <code>left[]</code> 和 <code>right[]</code>，分别存储每个位置左侧和右侧的乘积。类似 Docker 的分层缓存 —— 每层只依赖相邻层。</p>
+  </div>
+</div>
+
+<!-- ==================== 导航 ==================== -->
+<div class="nav-box">
+  <a href="day46.html">← Day 46: vLLM 高性能推理引擎</a>
+  <span>Day 47 / 71</span>
+  <a href="day48.html">Day 48: LLM 服务监控 + 压力测试 →</a>
+</div>
+
+</body>
+</html>
