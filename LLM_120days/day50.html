@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 50 - 项目实战 1：RAG 知识库问答系统（架构设计 + 数据准备 + 分块索引）</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--purple:#9333ea;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#ecfdf5,#eff6ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #a7f3d0; }
+  .header .badge { display:inline-block;background:#dcfce7;color:#15803d;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--green),var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--green);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--green); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  .purple-box { background:#faf5ff;border-left:3px solid var(--purple);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .purple-box strong { color:var(--purple); }
+  pre { background:#1e293b;color:#e2e8f0;padding:18px 20px;border-radius:8px;overflow-x:auto;font-size:13.5px;line-height:1.6;margin:12px 0; }
+  code { font-family:'Fira Code','Cascadia Code',Consolas,monospace; }
+  .inline-code { background:var(--surface2);color:var(--accent);padding:2px 6px;border-radius:4px;font-size:13px;font-family:'Fira Code',Consolas,monospace; }
+  .highlight { background:#fef3c7;padding:2px 6px;border-radius:4px;font-size:13px; }
+  h3 { font-size:16px;font-weight:600;margin:18px 0 8px;color:var(--accent2); }
+  h4 { font-size:14.5px;font-weight:600;margin:14px 0 6px;color:var(--text); }
+  p { font-size:14px;color:var(--text2);margin:8px 0; }
+  ul, ol { font-size:14px;color:var(--text2);padding-left:24px;margin:8px 0; }
+  li { margin:4px 0; }
+  table { width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px; }
+  th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border);color:var(--text); }
+  td { padding:10px 14px;border:1px solid var(--border);color:var(--text2); }
+  .project-map { display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0; }
+  .project-card { background:var(--surface2);border-radius:8px;padding:14px;text-align:center;border:1px solid var(--border); }
+  .project-card.active { background:#dcfce7;border-color:#86efac; }
+  .project-card .num { font-size:20px;font-weight:700;color:var(--accent2); }
+  .project-card .name { font-size:12px;color:var(--text2);margin-top:4px; }
+  .arch-box { display:flex;flex-direction:column;align-items:center;gap:8px;margin:16px 0; }
+  .arch-layer { width:85%;padding:12px 18px;border-radius:8px;text-align:center;font-weight:600;font-size:13.5px; }
+  .arch-layer.api { background:#dbeafe;border:2px solid #60a5fa;color:#1d4ed8; }
+  .arch-layer.service { background:#ede9fe;border:2px solid #a78bfa;color:#5b21b6; }
+  .arch-layer.data { background:#dcfce7;border:2px solid #4ade80;color:#15803d; }
+  .arch-arrow { color:var(--text3);font-size:18px; }
+  .file-tree { font-family:'Fira Code',Consolas,monospace;font-size:13px;line-height:1.8;color:var(--text2);background:var(--surface2);padding:16px 20px;border-radius:8px;margin:12px 0; }
+  .file-tree .dir { color:var(--accent);font-weight:600; }
+  .file-tree .file { color:var(--text); }
+  .file-tree .comment { color:var(--text3); }
+  .kw { color:#7dd3fc; }
+  .str { color:#86efac; }
+  .cmt { color:#94a3b8;font-style:italic; }
+  .fn { color:#fbbf24; }
+  .cls { color:#c084fc; }
+  .dec { color:#f472b6; }
+  .num { color:#fb923c; }
+  .op { color:#94a3b8; }
+  .phase-tag { display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600; }
+  .phase-tag.p4 { background:#dcfce7;color:#15803d; }
+  .comparison { display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0; }
+  .comparison .col { background:var(--surface2);border-radius:8px;padding:14px 16px;border:1px solid var(--border); }
+  .comparison .col h4 { margin:0 0 8px; }
+  .quiz { background:var(--surface2);border-radius:8px;padding:16px 20px;margin:14px 0;border:1px solid var(--border); }
+  .quiz h4 { color:var(--purple);margin-bottom:8px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Phase 4 · 项目实战</div>
+  <h1>Day 50 — RAG 知识库问答系统（架构设计 + 数据准备 + 分块索引）</h1>
+  <div class="subtitle">项目实战 1/8 · 从零搭建生产级 AMC 智能知识库问答系统 · 21 天 8 个项目</div>
+</div>
+
+<div class="progress-bar">
+  <span class="label">总进度</span>
+  <div class="track"><div class="fill" style="width:71.4%"></div></div>
+  <span class="percent">50/70</span>
+</div>
+
+<!-- ==================== Phase 4 总览 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🗺️</span> Phase 4 项目实战 — 总览与路线图
+    <span class="time-tag">了解全景 · 5 min</span>
+  </div>
+
+  <p>经过 Day 1-49 的系统学习，你已经掌握了 <strong>Python 核心 → 工程化 → RAG 全链路 → Agent → 微调部署</strong> 的完整技能栈。Phase 4 是 <strong>实战检验场</strong>——通过 8 个真实项目，把零散知识拧成一个完整体系。</p>
+
+  <div class="concept-box">
+    <strong>数仓思维类比：</strong>Day 1-49 就像学建 ODS→DWD→DWS→ADS 各层理论和工具；Phase 4 则是拿真实业务数据跑一遍完整的数仓建设流程。代码不是背的，是 <strong>练</strong> 出来的。
+  </div>
+
+  <h3>8 个项目路线图</h3>
+  <div class="project-map">
+    <div class="project-card active">
+      <div class="num">P1</div>
+      <div class="name">RAG 知识库问答</div>
+      <div class="comment">D50-D52</div>
+    </div>
+    <div class="project-card">
+      <div class="num">P2</div>
+      <div class="name">NL2SQL 查询助手</div>
+      <div class="comment">D53-D55</div>
+    </div>
+    <div class="project-card">
+      <div class="num">P3</div>
+      <div class="name">数据质量检测</div>
+      <div class="comment">D56-D58</div>
+    </div>
+    <div class="project-card">
+      <div class="num">P4</div>
+      <div class="name">智能报表生成</div>
+      <div class="comment">D59-D61</div>
+    </div>
+    <div class="project-card">
+      <div class="num">P5</div>
+      <div class="name">多 Agent 协作</div>
+      <div class="comment">D62-D64</div>
+    </div>
+    <div class="project-card">
+      <div class="num">P6</div>
+      <div class="name">领域微调部署</div>
+      <div class="comment">D65-D67</div>
+    </div>
+    <div class="project-card">
+      <div class="num">P7</div>
+      <div class="name">应用监控平台</div>
+      <div class="comment">D68-D69</div>
+    </div>
+    <div class="project-card">
+      <div class="num">P8</div>
+      <div class="name">综合毕业项目</div>
+      <div class="comment">D70</div>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>项目</th><th>天数</th><th>核心技能</th><th>产出</th></tr>
+    <tr style="background:#dcfce7"><td><strong>P1 RAG 知识库问答</strong></td><td>D50-52</td><td>分块+Embedding+检索+生成+评估</td><td>可运行的 AMC 问答 API</td></tr>
+    <tr><td>P2 NL2SQL 查询助手</td><td>D53-55</td><td>Schema映射+SQL生成+执行+纠错</td><td>自然语言查 AMC 数据库</td></tr>
+    <tr><td>P3 数据质量检测</td><td>D31-D58</td><td>规则引擎+异常检测+LLM 诊断</td><td>自动化数据巡检 Agent</td></tr>
+    <tr><td>P4 智能报表生成</td><td>D59-D61</td><td>模板引擎+数据聚合+LLM 润色</td><td>一键生成 AMC 分析报告</td></tr>
+    <tr><td>P5 多 Agent 协作</td><td>D62-D64</td><td>Agent 路由+工具链+编排</td><td>AMC 分析流水线</td></tr>
+    <tr><td>P6 领域微调部署</td><td>D65-D67</td><td>LoRA+推理+容器化+上线</td><td>AMC 领域模型服务</td></tr>
+    <tr><td>P7 应用监控平台</td><td>D68-D69</td><td>指标采集+告警+Dashboard</td><td>LLM 服务监控大盘</td></tr>
+    <tr><td>P8 综合毕业项目</td><td>D70</td><td>全部技能综合运用</td><td>AMC 智能数据平台</td></tr>
+  </table>
+</div>
+
+<!-- ==================== Python 知识点 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span> Python 知识：TOML 配置管理 + 项目结构规范
+    <span class="time-tag">20 min</span>
+  </div>
+
+  <p>实战项目的第一步不是写业务代码，而是 <strong>搭好骨架</strong>。就像建数仓先设计分层和命名规范一样，Python 项目也需要标准结构。</p>
+
+  <h3>1. tomllib — Python 3.11+ 内置 TOML 解析</h3>
+
+  <p>Python 3.11 引入了 <span class="inline-code">tomllib</span>（只读），Python 3.12 引入了 <span class="inline-code">tomllib</span> 的写入增强。TOML 是比 JSON/YAML 更适合配置文件的格式：</p>
+
+  <div class="comparison">
+    <div class="col">
+      <h4>TOML 优势</h4>
+      <ul>
+        <li>类型明确（不像 YAML 隐式转换）</li>
+        <li>支持注释（JSON 不行）</li>
+        <li>比 YAML 语法简单，不易出错</li>
+        <li>Python 官方标准库支持</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>常见配置格式对比</h4>
+      <table>
+        <tr><th>格式</th><th>注释</th><th>类型</th><th>Python支持</th></tr>
+        <tr><td>JSON</td><td>❌</td><td>明确</td><td>内置 json</td></tr>
+        <tr><td>YAML</td><td>✅</td><td>隐式(危险)</td><td>需安装</td></tr>
+        <tr><td>TOML</td><td>✅</td><td>明确</td><td>3.11+ 内置</td></tr>
+        <tr><td>.env</td><td>✅</td><td>全是字符串</td><td>dotenv</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <pre>
+<span class="cmt"># config.toml — AMC RAG 项目配置</span>
+
+[<span class="cls">app</span>]
+<span class="kw">name</span> = <span class="str">"amc-rag-qa"</span>
+<span class="kw">version</span> = <span class="str">"1.0.0"</span>
+<span class="kw">debug</span> = <span class="kw">true</span>   <span class="cmt"># 布尔值，TOML 原生支持</span>
+
+[<span class="cls">llm</span>]
+<span class="kw">provider</span> = <span class="str">"zhipu"</span>
+<span class="kw">model</span> = <span class="str">"glm-4-flash"</span>
+<span class="kw">api_key</span> = <span class="str">"${ZHIPU_API_KEY}"</span>  <span class="cmt"># 环境变量占位</span>
+<span class="kw">max_tokens</span> = <span class="num">2048</span>
+<span class="kw">temperature</span> = <span class="num">0.3</span>
+
+[<span class="cls">embedding</span>]
+<span class="kw">model</span> = <span class="str">"embedding-3"</span>
+<span class="kw">batch_size</span> = <span class="num">50</span>
+<span class="kw">dimensions</span> = <span class="num">1024</span>
+
+[<span class="cls">chunking</span>]
+<span class="kw">strategy</span> = <span class="str">"recursive"</span>
+<span class="kw">chunk_size</span> = <span class="num">512</span>
+<span class="kw">chunk_overlap</span> = <span class="num">64</span>
+<span class="kw">separators</span> = [<span class="str">"\n\n"</span>, <span class="str">"\n"</span>, <span class="str">。"</span>, <span class="str">"."</span>]
+
+[<span class="cls">retrieval</span>]
+<span class="kw">top_k</span> = <span class="num">5</span>
+<span class="kw">score_threshold</span> = <span class="num">0.7</span>
+<span class="kw">reranker</span> = <span class="str">"none"</span>  <span class="cmt"># "none" | "jina" | "flashrank"</span>
+
+[<span class="cls">vector_store</span>]
+<span class="kw">persist_dir</span> = <span class="str">"./data/chroma_db"</span>
+<span class="kw">collection_name</span> = <span class="str">"amc_knowledge"</span>
+  </pre>
+
+  <pre>
+<span class="cmt"># 加载 TOML 配置</span>
+<span class="kw">import</span> tomllib  <span class="cmt"># Python 3.11+</span>
+<span class="kw">import</span> os
+<span class="kw">from</span> pathlib <span class="kw">import</span> Path
+
+<span class="kw">def</span> <span class="fn">load_config</span>(config_path: <span class="cls">str</span> = <span class="str">"config.toml"</span>) -> <span class="cls">dict</span>:
+    <span class="str">"""加载 TOML 配置文件，自动替换环境变量占位符"""</span>
+    path = Path(config_path)
+    <span class="kw">if not</span> path.exists():
+        <span class="kw">raise</span> FileNotFoundError(<span class="str">f"配置文件不存在: {config_path}"</span>)
+
+    <span class="cmt"># tomllib.open 返回 dict-like 对象</span>
+    <span class="kw">with</span> tomllib.<span class="fn">open</span>(path, <span class="str">"rb"</span>) <span class="kw">as</span> f:
+        config = <span class="fn">dict</span>(f)  <span class="cmt"># 转为普通 dict 便于后续修改</span>
+
+    <span class="cmt"># 递归替换 ${ENV_VAR} 占位符</span>
+    config = <span class="fn">_resolve_env_vars</span>(config)
+    <span class="kw">return</span> config
+
+
+<span class="kw">def</span> <span class="fn">_resolve_env_vars</span>(obj):
+    <span class="str">"""递归遍历字典，替换 ${KEY} 格式的环境变量"""</span>
+    <span class="kw">if isinstance</span>(obj, <span class="cls">dict</span>):
+        <span class="kw">return</span> {k: <span class="fn">_resolve_env_vars</span>(v) <span class="kw">for</span> k, v <span class="kw">in</span> obj.<span class="fn">items</span>()}
+    <span class="kw">elif isinstance</span>(obj, <span class="cls">list</span>):
+        <span class="kw">return</span> [<span class="fn">_resolve_env_vars</span>(item) <span class="kw">for</span> item <span class="kw">in</span> obj]
+    <span class="kw">elif isinstance</span>(obj, <span class="cls">str</span>) <span class="kw">and</span> obj.<span class="fn">startswith</span>(<span class="str">"${"</span>) <span class="kw">and</span> obj.<span class="fn">endswith</span>(<span class="str">"}"</span>):
+        <span class="cmt"># 提取环境变量名</span>
+        env_key = obj[<span class="num">2</span>:<span class="op">-</span><span class="num">1</span>]
+        env_val = os.environ.<span class="fn">get</span>(env_key, <span class="str">""</span>)
+        <span class="kw">if not</span> env_val:
+            <span class="kw">raise</span> ValueError(<span class="str">f"环境变量 {env_key} 未设置！"</span>)
+        <span class="kw">return</span> env_val
+    <span class="kw">return</span> obj
+
+
+<span class="cmt"># 使用</span>
+config = <span class="fn">load_config</span>(<span class="str">"config.toml"</span>)
+<span class="fn">print</span>(config[<span class="str">"llm"</span>][<span class="str">"model"</span>])         <span class="cmt"># glm-4-flash</span>
+<span class="fn">print</span>(config[<span class="str">"chunking"</span>][<span class="str">"chunk_size"</span>])  <span class="cmt"># 512</span>
+  </pre>
+
+  <div class="tip-box">
+    <strong>数仓人秒懂：</strong><span class="inline-code">${ZHIPU_API_KEY}</span> 就像 Airflow 中 <span class="inline-code">{{ var.value.api_key }}</span> 的占位变量——配置文件里写引用，运行时从环境变量读实际值，避免密钥泄漏到代码仓库。
+  </div>
+
+  <h3>2. 标准项目结构 — 分层思维</h3>
+
+  <p>Python 项目的目录结构就像数仓分层——每层有明确职责，数据单向流动：</p>
+
+  <div class="file-tree">
+<span class="dir">amc-rag-qa/</span>                <span class="comment"># 项目根目录</span>
+├── <span class="file">config.toml</span>            <span class="comment"># 项目配置（TOML）</span>
+├── <span class="file">requirements.txt</span>       <span class="comment"># 依赖清单</span>
+├── <span class="file">.env</span>                    <span class="comment"># 敏感信息（API Key 等，不入 git）</span>
+├── <span class="file">.gitignore</span>              <span class="comment"># Git 忽略规则</span>
+├── <span class="file">main.py</span>                 <span class="comment"># 入口文件</span>
+│
+├── <span class="dir">src/</span>                     <span class="comment"># 🔵 核心代码层（DWD）</span>
+│   ├── <span class="file">__init__.py</span>
+│   ├── <span class="dir">models/</span>               <span class="comment"># 数据模型定义（Protocol + dataclass）</span>
+│   │   ├── <span class="file">__init__.py</span>
+│   │   ├── <span class="file">schemas.py</span>       <span class="comment"># Pydantic 模型（API 请求/响应）</span>
+│   │   └── <span class="file">protocols.py</span>     <span class="comment"># Protocol 接口定义</span>
+│   ├── <span class="dir">chunking/</span>             <span class="comment"># 分块策略</span>
+│   │   ├── <span class="file">__init__.py</span>
+│   │   ├── <span class="file">base.py</span>           <span class="comment"># 抽象基类 BaseChunker</span>
+│   │   ├── <span class="file">recursive.py</span>      <span class="comment"># 递归分隔符分块</span>
+│   │   └── <span class="file">semantic.py</span>       <span class="comment"># 语义分块（可选）</span>
+│   ├── <span class="dir">embedding/</span>            <span class="comment"># 向量化</span>
+│   │   ├── <span class="file">__init__.py</span>
+│   │   ├── <span class="file">base.py</span>           <span class="comment"># BaseEmbedder</span>
+│   │   └── <span class="file">zhipu_embedder.py</span>
+│   ├── <span class="dir">store/</span>                <span class="comment"># 向量存储</span>
+│   │   ├── <span class="file">__init__.py</span>
+│   │   ├── <span class="file">base.py</span>           <span class="comment"># BaseVectorStore</span>
+│   │   └── <span class="file">chroma_store.py</span>
+│   ├── <span class="dir">retrieval/</span>            <span class="comment"># 检索</span>
+│   │   ├── <span class="file">__init__.py</span>
+│   │   ├── <span class="file">base.py</span>           <span class="comment"># BaseRetriever</span>
+│   │   └── <span class="file">vector_retriever.py</span>
+│   ├── <span class="dir">generation/</span>           <span class="comment"># LLM 生成</span>
+│   │   ├── <span class="file">__init__.py</span>
+│   │   └── <span class="file">generator.py</span>
+│   └── <span class="dir">pipeline/</span>             <span class="comment"># 🔴 管线编排层（ADS）</span>
+│       ├── <span class="file">__init__.py</span>
+│       ├── <span class="file">index_pipeline.py</span>  <span class="comment"># 离线索引管线</span>
+│       └── <span class="file">qa_pipeline.py</span>     <span class="comment"># 在线问答管线</span>
+│
+├── <span class="dir">api/</span>                      <span class="comment"># 🟢 API 接口层</span>
+│   ├── <span class="file">__init__.py</span>
+│   ├── <span class="file">app.py</span>               <span class="comment"># FastAPI 应用</span>
+│   └── <span class="file">routes.py</span>             <span class="comment"># 路由定义</span>
+│
+├── <span class="dir">tests/</span>                    <span class="comment"># 🧪 测试</span>
+│   ├── <span class="file">test_chunking.py</span>
+│   └── <span class="file">test_retrieval.py</span>
+│
+├── <span class="dir">data/</span>                     <span class="comment"># 📁 数据层（ODS）</span>
+│   ├── <span class="dir">raw/</span>                  <span class="comment"># 原始文档</span>
+│   │   ├── <span class="file">amc_glossary.md</span>
+│   │   ├── <span class="file">regulation_rules.md</span>
+│   │   └── <span class="file">data_quality_guide.md</span>
+│   └── <span class="dir">chroma_db/</span>           <span class="comment"># ChromaDB 持久化</span>
+│
+└── <span class="dir">scripts/</span>                  <span class="comment"># 🛠️ 工具脚本</span>
+    ├── <span class="file">build_index.py</span>       <span class="comment"># 手动触发索引构建</span>
+    └── <span class="file">run_server.py</span>       <span class="comment"># 启动服务</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>分层原则（核心！）：</strong>每层只依赖下一层。<br>
+    <span class="inline-code">api/</span> → <span class="inline-code">pipeline/</span> → <span class="inline-code">chunking/embedding/store/retrieval/generation/</span> → <span class="inline-code">models/</span><br>
+    就像数仓：ADS → DWS → DWD → ODS，不能反向依赖。违反这个原则，项目就会变成"面条代码"。
+  </div>
+
+  <h3>3. __init__.py 的妙用 — 包管理与公共导出</h3>
+
+  <pre>
+<span class="cmt"># src/__init__.py — 整个 src 包的公共导出</span>
+<span class="cmt"># 这样外部可以用: from src import load_config</span>
+
+<span class="kw">from</span> src.pipeline.index_pipeline <span class="kw">import</span> IndexPipeline
+<span class="kw">from</span> src.pipeline.qa_pipeline <span class="kw">import</span> QAPipeline
+
+<span class="fn">__all__</span> = [<span class="str">"IndexPipeline"</span>, <span class="str">"QAPipeline"</span>]
+
+
+<span class="cmt"># src/models/protocols.py — Protocol 接口</span>
+<span class="kw">from</span> typing <span class="kw">import</span> Protocol, runtime_checkable
+
+<span class="dec">@runtime_checkable</span>
+<span class="kw">class</span> <span class="cls">Embedder</span>(Protocol):
+    <span class="str">"""向量化接口 — 所有 Embedder 必须实现"""</span>
+    <span class="kw">def</span> <span class="fn">embed_texts</span>(self, texts: <span class="cls">list</span>[<span class="cls">str</span>]) -> <span class="cls">list</span>[<span class="cls">list</span>[<span class="cls">float</span>]]: ...
+    <span class="kw">def</span> <span class="fn">embed_query</span>(self, query: <span class="cls">str</span>) -> <span class="cls">list</span>[<span class="cls">float</span>]: ...
+
+
+<span class="dec">@runtime_checkable</span>
+<span class="kw">class</span> <span class="cls">VectorStore</span>(Protocol):
+    <span class="str">"""向量存储接口"""</span>
+    <span class="kw">def</span> <span class="fn">add_documents</span>(self, chunks: <span class="cls">list</span>[<span class="cls">dict</span>], embeddings: <span class="cls">list</span>[<span class="cls">list</span>[<span class="cls">float</span>]]) -> <span class="cls">int</span>: ...
+    <span class="kw">def</span> <span class="fn">search</span>(self, query_embedding: <span class="cls">list</span>[<span class="cls">float</span>], top_k: <span class="cls">int</span> = <span class="num">5</span>) -> <span class="cls">list</span>[<span class="cls">dict</span>]: ...
+    <span class="kw">def</span> <span class="fn">count</span>(self) -> <span class="cls">int</span>: ...
+
+
+<span class="dec">@runtime_checkable</span>
+<span class="kw">class</span> <span class="cls">Retriever</span>(Protocol):
+    <span class="str">"""检索接口"""</span>
+    <span class="kw">def</span> <span class="fn">retrieve</span>(self, query: <span class="cls">str</span>, top_k: <span class="cls">int</span> = <span class="num">5</span>) -> <span class="cls">list</span>[<span class="cls">dict</span>]: ...
+  </pre>
+
+  <div class="purple-box">
+    <strong>Protocol vs ABC：</strong>Protocol 是"隐式接口"——只要类实现了对应方法就自动满足协议，不需要显式继承。ABC 是"显式接口"——必须继承并实现所有抽象方法。<br><br>
+    <strong>实战选型：</strong>项目内部组件用 Protocol（灵活替换实现），对外暴露的 API 契约用 ABC（强制子类实现）。
+  </div>
+</div>
+
+<!-- ==================== 项目实战 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏗️</span> 项目实战：AMC RAG 知识库问答系统 — 架构设计
+    <span class="time-tag">15 min</span>
+  </div>
+
+  <h3>系统架构</h3>
+
+  <p>我们的目标是构建一个完整的 RAG 知识库问答系统，能够回答 AMC 资产管理相关的专业问题：</p>
+
+  <div class="arch-box">
+    <div class="arch-layer api">📝 用户提问 ("什么是五级分类？")</div>
+    <div class="arch-arrow">▼</div>
+    <div class="arch-layer api">🌐 API 层 — FastAPI 路由 + 请求校验 (Day 52)</div>
+    <div class="arch-arrow">▼</div>
+    <div class="arch-layer service">⚡ QA Pipeline — 编排问答全流程</div>
+    <div class="arch-arrow">▼</div>
+    <div class="arch-layer service">🔍 检索 → Embedding Query → Top-K 召回</div>
+    <div class="arch-arrow">▼</div>
+    <div class="arch-layer service">🤖 LLM 生成 — 基于上下文回答问题</div>
+    <div class="arch-arrow">▼</div>
+    <div class="arch-layer data">📦 向量库 (ChromaDB) — 存储文档向量</div>
+    <div class="arch-arrow">▼</div>
+    <div class="arch-layer data">📄 离线索引 Pipeline — 文档→分块→Embedding→入库 (今天实现!)</div>
+    <div class="arch-arrow">▼</div>
+    <div class="arch-layer data">📁 原始文档 — AMC 术语表 / 监管规则 / 数据质量规范</div>
+  </div>
+
+  <p>今天（Day 50）实现 <strong>离线索引管线</strong>（底部三层），Day 51 实现在线问答，Day 52 加 API 接口 + 评估。</p>
+
+  <h3>核心设计原则</h3>
+  <table>
+    <tr><th>原则</th><th>数仓类比</th><th>Python 实现</th></tr>
+    <tr><td><strong>接口抽象</strong></td><td>每层定义清晰的 Input/Output Schema</td><td>Protocol 接口 + dataclass 数据类</td></tr>
+    <tr><td><strong>配置驱动</strong></td><td>ETL 参数放配置表，不改代码</td><td>config.toml + pydantic-settings</td></tr>
+    <tr><td><strong>单次遍历</strong></td><td>一个 MR Job 只扫一次源表</td><td>生成器 + 批量 Embedding</td></tr>
+    <tr><td><strong>可观测性</strong></td><td>ETL 日志 + 数据质量告警</td><td>logging + 结构化统计</td></tr>
+    <tr><td><strong>幂等性</strong></td><td>重跑不产生重复数据</td><td>collection.delete + 重新 upsert</td></tr>
+  </table>
+</div>
+
+<!-- ==================== 核心实现：分块 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">✂️</span> 核心实现 1：文档加载 + 分块
+    <span class="time-tag">25 min</span>
+  </div>
+
+  <h3>Step 1：文档加载器 — 统一读取不同格式</h3>
+
+  <pre>
+<span class="cmt"># src/chunking/loader.py</span>
+<span class="cmt">"""文档加载器 — 支持 .md / .txt / .csv 文件"""</span>
+
+<span class="kw">from</span> pathlib <span class="kw">import</span> Path
+<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass, field
+<span class="kw">import</span> csv
+<span class="kw">import</span> logging
+
+logger = logging.<span class="fn">getLogger</span>(<span class="str">__name__</span>)
+
+
+<span class="dec">@dataclass</span>
+<span class="kw">class</span> <span class="cls">Document</span>:
+    <span class="str">"""统一文档数据结构"""</span>
+    content: <span class="cls">str</span>                    <span class="cmt"># 文档正文</span>
+    metadata: <span class="cls">dict</span> = field(<span class="fn">default_factory</span>=<span class="cls">dict</span>)  <span class="cmt"># 元数据（来源/日期等）</span>
+
+    <span class="kw">def</span> <span class="fn">__post_init__</span>(self):
+        <span class="cmt"># 自动统计字符数和段落数</span>
+        self.metadata[<span class="str">"char_count"</span>] = <span class="fn">len</span>(self.content)
+        self.metadata[<span class="str">"paragraph_count"</span>] = <span class="fn">len</span>(self.content.<span class="fn">split</span>(<span class="str">"\n\n"</span>))
+
+
+<span class="kw">class</span> <span class="cls">DocumentLoader</span>:
+    <span class="str">"""文档加载器 — 从目录批量加载文档"""</span>
+
+    <span class="cmt"># 支持的文件扩展名</span>
+    SUPPORTED_EXTENSIONS = {<span class="str">".md"</span>, <span class="str">".txt"</span>, <span class="str">".csv"</span>}
+
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, data_dir: <span class="cls">str</span>):
+        self.data_dir = Path(data_dir)
+        <span class="kw">if not</span> self.data_dir.<span class="fn">exists</span>():
+            <span class="kw">raise</span> FileNotFoundError(<span class="str">f"数据目录不存在: {data_dir}"</span>)
+
+    <span class="kw">def</span> <span class="fn">load_directory</span>(self, recursive: <span class="cls">bool</span> = <span class="kw">True</span>) -> <span class="cls">list</span>[<span class="cls">Document</span>]:
+        <span class="str">"""批量加载目录下所有支持的文件"""</span>
+        pattern = <span class="str">"**/*"</span> <span class="kw">if</span> recursive <span class="kw">else</span> <span class="str">"*"</span>
+        documents = []
+
+        <span class="kw">for</span> file_path <span class="kw">in</span> sorted(self.data_dir.<span class="fn">glob</span>(pattern)):
+            <span class="kw">if</span> file_path.suffix.<span class="fn">lower</span>() <span class="kw">in</span> self.SUPPORTED_EXTENSIONS:
+                <span class="kw">try</span>:
+                    doc = self.<span class="fn">load_file</span>(file_path)
+                    documents.<span class="fn">append</span>(doc)
+                    logger.<span class="fn">info</span>(<span class="str">"加载文档: %s (%d 字符)"</span>,
+                                file_path.name, doc.metadata[<span class="str">"char_count"</span>])
+                <span class="kw">except</span> Exception <span class="kw">as</span> e:
+                    logger.<span class="fn">warning</span>(<span class="str">"跳过文件 %s: %s"</span>, file_path.name, e)
+
+        logger.<span class="fn">info</span>(<span class="str">"共加载 %d 个文档"</span>, <span class="fn">len</span>(documents))
+        <span class="kw">return</span> documents
+
+    <span class="kw">def</span> <span class="fn">load_file</span>(self, file_path: Path) -> <span class="cls">Document</span>:
+        <span class="str">"""加载单个文件（自动识别格式）"""</span>
+        suffix = file_path.suffix.<span class="fn">lower</span>()
+
+        <span class="kw">if</span> suffix <span class="op">==</span> <span class="str">".csv"</span>:
+            content = self.<span class="fn">_load_csv</span>(file_path)
+        <span class="kw">else</span>:  <span class="cmt"># .md / .txt</span>
+            content = file_path.<span class="fn">read_text</span>(encoding=<span class="str">"utf-8"</span>)
+
+        <span class="cmt"># 构造元数据</span>
+        metadata = {
+            <span class="str">"source"</span>: <span class="fn">str</span>(file_path.<span class="fn">relative_to</span>(self.data_dir)),
+            <span class="str">"filename"</span>: file_path.name,
+            <span class="str">"extension"</span>: suffix,
+        }
+
+        <span class="kw">return</span> <span class="cls">Document</span>(content=content, metadata=metadata)
+
+    <span class="kw">def</span> <span class="fn">_load_csv</span>(self, file_path: Path) -> <span class="cls">str</span>:
+        <span class="str">"""将 CSV 转为可读文本（每行用逗号分隔）"""</span>
+        rows = []
+        <span class="kw">with</span> <span class="fn">open</span>(file_path, encoding=<span class="str">"utf-8"</span>) <span class="kw">as</span> f:
+            reader = csv.<span class="fn">reader</span>(f)
+            headers = <span class="kw">for</span> i, row <span class="kw">in</span> <span class="fn">enumerate</span>(reader):
+                <span class="kw">if</span> i <span class="op">==</span> <span class="num">0</span>:
+                    headers = row
+                    <span class="kw">continue</span>
+                <span class="cmt"># 把每行数据格式化为 "字段: 值" 的可读形式</span>
+                parts = [<span class="str">f"{headers[j]}: {val}"</span>
+                         <span class="kw">for</span> j, val <span class="kw">in</span> <span class="fn">enumerate</span>(row) <span class="kw">if</span> j < <span class="fn">len</span>(headers)]
+                rows.<span class="fn">append</span>(<span class="str">" | "</span>.<span class="fn">join</span>(parts))
+        <span class="kw">return</span> <span class="str">"\n"</span>.<span class="fn">join</span>(rows)
+  </pre>
+
+  <h3>Step 2：分块器 — 递归分隔符策略</h3>
+
+  <pre>
+<span class="cmt"># src/chunking/base.py</span>
+<span class="cmt">"""分块抽象基类 — 所有分块策略的统一接口"""</span>
+
+<span class="kw">from</span> abc <span class="kw">import</span> ABC, abstractmethod
+<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass, field
+<span class="kw">from</span> typing <span class="kw">import</span> Optional
+
+
+<span class="dec">@dataclass</span>
+<span class="kw">class</span> <span class="cls">Chunk</span>:
+    <span class="str">"""文本块 — RAG 系统的基本处理单元"""</span>
+    text: <span class="cls">str</span>                          <span class="cmt"># 块文本内容</span>
+    chunk_index: <span class="cls">int</span>                   <span class="cmt"># 在文档内的序号（0-based）</span>
+    metadata: <span class="cls">dict</span> = field(<span class="fn">default_factory</span>=<span class="cls">dict</span>)  <span class="cmt"># 继承文档元数据 + 块特定信息</span>
+    char_count: <span class="cls">int</span> = field(init=<span class="kw">False</span>)   <span class="cmt"># 自动计算</span>
+
+    <span class="kw">def</span> <span class="fn">__post_init__</span>(self):
+        self.char_count = <span class="fn">len</span>(self.text)
+        <span class="cmt"># 在元数据中记录块信息</span>
+        self.metadata[<span class="str">"char_count"</span>] = self.char_count
+
+
+<span class="kw">class</span> <span class="cls">BaseChunker</span>(ABC):
+    <span class="str">"""分块抽象基类 — 子类必须实现 split 方法"""</span>
+
+    @abstractmethod
+    <span class="kw">def</span> <span class="fn">split</span>(self, text: <span class="cls">str</span>, metadata: Optional[<span class="cls">dict</span>] = <span class="kw">None</span>) -> <span class="cls">list</span>[<span class="cls">Chunk</span>]:
+        <span class="str">"""将一段文本切分为多个 Chunk"""</span>
+        ...
+  </pre>
+
+  <pre>
+<span class="cmt"># src/chunking/recursive.py</span>
+<span class="cmt">"""递归分隔符分块器 — 最实用的分块策略"""</span>
+
+<span class="kw">from</span> src.chunking.base <span class="kw">import</span> BaseChunker, Chunk
+
+
+<span class="kw">class</span> <span class="cls">RecursiveCharacterChunker</span>(<span class="cls">BaseChunker</span>):
+    <span class="str">"""
+    递归分隔符分块器
+
+    核心思路（数仓类比）：
+    像 Hive 的 STR_TO_MAP一样，先按大分隔符切，切不动了再按小分隔符切。
+    分隔符优先级：段落 → 行 → 句子 → 词 → 字符
+    """</span>
+
+    <span class="cmt"># 默认分隔符优先级（中文场景优化）</span>
+    DEFAULT_SEPARATORS = [<span class="str">"\n\n"</span>, <span class="str">"\n"</span>, <span class="str">。"</span>, <span class="str">"！"</span>, <span class="str">"？"</span>,
+                          <span class="str">"."</span>, <span class="str">" "</span>, <span class="str">"，"</span>, <span class="str">""</span>]
+
+    <span class="kw">def</span> <span class="fn">__init__</span>(
+        self,
+        chunk_size: <span class="cls">int</span> = <span class="num">512</span>,
+        chunk_overlap: <span class="cls">int</span> = <span class="num">64</span>,
+        separators: Optional[<span class="cls">list</span>[<span class="cls">str</span>]] = <span class="kw">None</span>,
+    ):
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        self.separators = separators <span class="kw">or</span> self.DEFAULT_SEPARATORS
+
+    <span class="kw">def</span> <span class="fn">split</span>(self, text: <span class="cls">str</span>, metadata: Optional[<span class="cls">dict</span>] = <span class="kw">None</span>) -> <span class="cls">list</span>[<span class="cls">Chunk</span>]:
+        <span class="str">"""递归分块主方法"""</span>
+        raw_chunks = self._recursive_split(text, self.separators)
+        <span class="kw">return</span> self._merge_small_chunks(raw_chunks, metadata <span class="kw">or</span> {})
+
+    <span class="kw">def</span> <span class="fn">_recursive_split</span>(self, text: <span class="cls">str</span>, separators: <span class="cls">list</span>[<span class="cls">str</span>]) -> <span class="cls">list</span>[<span class="cls">str</span>]:
+        <span class="str">"""
+        递归分块核心算法：
+        1. 用当前分隔符分割文本
+        2. 如果分割后的所有片段都 ≤ chunk_size，直接返回
+        3. 如果有片段 > chunk_size，用下一个分隔符继续分割该片段
+        4. 直到用完所有分隔符，最后按字符数硬切
+        """</span>
+        <span class="kw">if not</span> text.<span class="fn">strip</span>():
+            <span class="kw">return</span> []
+
+        <span class="cmt"># 没有更多分隔符了，按字符硬切</span>
+        <span class="kw">if not</span> separators:
+            <span class="kw">return</span> self._hard_split(text)
+
+        sep = separators[<span class="num">0</span>]
+        remaining_seps = separators[<span class="num">1</span>:]
+
+        <span class="cmt"># 用当前分隔符分割</span>
+        splits = text.<span class="fn">split</span>(sep)
+        splits = [s <span class="kw">for</span> s <span class="kw">in</span> splits <span class="kw">if</span> s.<span class="fn">strip</span>()]  <span class="cmt"># 过滤空串</span>
+
+        result = []
+        <span class="kw">for</span> split <span class="kw">in</span> splits:
+            <span class="kw">if</span> <span class="fn">len</span>(split) <= self.chunk_size:
+                <span class="cmt"># 片段足够小，直接加入</span>
+                result.<span class="fn">append</span>(split)
+            <span class="kw">else</span>:
+                <span class="cmt"># 片段太大，用下一个分隔符继续切</span>
+                sub_splits = self.<span class="fn">_recursive_split</span>(split, remaining_seps)
+                result.<span class="fn">extend</span>(sub_splits)
+
+        <span class="kw">return</span> result
+
+    <span class="kw">def</span> <span class="fn">_hard_split</span>(self, text: <span class="cls">str</span>) -> <span class="cls">list</span>[<span class="cls">str</span>]:
+        <span class="str">"""兜底：按固定字符数切分（带 overlap）"""</span>
+        chunks = []
+        start = <span class="num">0</span>
+        <span class="kw">while</span> start < <span class="fn">len</span>(text):
+            end = start + self.chunk_size
+            chunks.<span class="fn">append</span>(text[start:end])
+            <span class="cmt"># 下一个块的起始位置 = end - overlap（保证相邻块有重叠）</span>
+            start = end - self.chunk_overlap
+        <span class="kw">return</span> chunks
+
+    <span class="kw">def</span> <span class="fn">_merge_small_chunks</span>(
+        self,
+        chunks: <span class="cls">list</span>[<span class="cls">str</span>],
+        metadata: <span class="cls">dict</span>,
+    ) -> <span class="cls">list</span>[<span class="cls">Chunk</span>]:
+        <span class="str">"""
+        合并过小的块（避免"一句话一个块"浪费检索配额）
+
+        数仓类比：就像小文件合并（CombineHiveInputFormat），
+        把太小的 chunk 拼到前一个 chunk 里。
+        """</span>
+        result = []
+        buffer = <span class="str">""</span>
+        index = <span class="num">0</span>
+
+        <span class="kw">for</span> chunk_text <span class="kw">in</span> chunks:
+            <span class="kw">if not</span> buffer:
+                buffer = chunk_text
+            <span class="kw">elif</span> <span class="fn">len</span>(buffer) + <span class="fn">len</span>(chunk_text) + <span class="num">1</span> <= self.chunk_size:
+                <span class="cmt"># 合并到缓冲区</span>
+                buffer = buffer + <span class="str">"\n"</span> + chunk_text
+            <span class="kw">else</span>:
+                <span class="cmt"># 缓冲区已满，保存当前块</span>
+                result.<span class="fn">append</span>(<span class="cls">Chunk</span>(
+                    text=buffer,
+                    chunk_index=index,
+                    metadata={<span class="op">**</span>metadata, <span class="str">"chunk_index"</span>: index}
+                ))
+                index += <span class="num">1</span>
+                buffer = chunk_text
+
+        <span class="cmt"># 保存最后一个缓冲区</span>
+        <span class="kw">if</span> buffer:
+            result.<span class="fn">append</span>(<span class="cls">Chunk</span>(
+                text=buffer,
+                chunk_index=index,
+                metadata={<span class="op">**</span>metadata, <span class="str">"chunk_index"</span>: index}
+            ))
+
+        <span class="kw">return</span> result
+  </pre>
+
+  <div class="tip-box">
+    <strong>chunk_overlap 的作用：</strong>就像数仓 ETL 中"上游分区字段冗余存储到下游"——overlap 确保被分隔符切断的上下文在相邻块中也有副本，避免检索时丢失关键信息。典型值：chunk_size 的 10%~20%。
+  </div>
+</div>
+
+<!-- ==================== 核心实现：Embedding + 向量库 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔢</span> 核心实现 2：Embedding + ChromaDB 存储
+    <span class="time-tag">25 min</span>
+  </div>
+
+  <h3>Step 3：智谱 Embedder — 批量向量化</h3>
+
+  <pre>
+<span class="cmt"># src/embedding/zhipu_embedder.py</span>
+<span class="cmt">"""智谱 Embedding API 封装 — 支持批量 + 缓存"""</span>
+
+<span class="kw">import</span> hashlib
+<span class="kw">import</span> json
+<span class="kw">import</span> logging
+<span class="kw">from</span> functools <span class="kw">import</span> lru_cache
+<span class="kw">from</span> pathlib <span class="kw">import</span> Path
+
+logger = logging.<span class="fn">getLogger</span>(<span class="str">__name__</span>)
+
+
+<span class="kw">class</span> <span class="cls">ZhipuEmbedder</span>:
+    <span class="str">"""
+    智谱 Embedding API 封装
+
+    核心优化：
+    1. 批量请求（减少 HTTP 往返）
+    2. MD5 缓存（相同文本不重复计算）
+    3. 指数退避重试（API 偶尔 429）
+    """</span>
+
+    <span class="cmt"># 智谱 Embedding API 端点</span>
+    API_URL = <span class="str">"https://open.bigmodel.cn/api/paas/v4/embeddings"</span>
+    <span class="cmt"># 最大批量大小（智谱限制）</span>
+    MAX_BATCH = <span class="num">50</span>
+
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, api_key: <span class="cls">str</span>, model: <span class="cls">str</span> = <span class="str">"embedding-3"</span>):
+        <span class="kw">import</span> requests
+        self.api_key = api_key
+        self.model = model
+        self._session = requests.<span class="cls">Session</span>()
+        self._session.headers.<span class="fn">update</span>({
+            <span class="str">"Authorization"</span>: <span class="str">f"Bearer {api_key}"</span>
+        })
+
+    <span class="kw">def</span> <span class="fn">embed_texts</span>(self, texts: <span class="cls">list</span>[<span class="cls">str</span>]) -> <span class="cls">list</span>[<span class="cls">list</span>[<span class="cls">float</span>]]:
+        <span class="str">"""批量向量化（自动分批）"""</span>
+        all_embeddings = []
+
+        <span class="cmt"># 按最大批量分批处理</span>
+        <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">0</span>, <span class="fn">len</span>(texts), self.MAX_BATCH):
+            batch = texts[i : i + self.MAX_BATCH]
+            embeddings = self._embed_batch(batch)
+            all_embeddings.<span class="fn">extend</span>(embeddings)
+            logger.<span class="fn">debug</span>(<span class="str">"已嵌入 %d/%d 文本"</span>, <span class="fn">min</span>(i + self.MAX_BATCH, <span class="fn">len</span>(texts)), <span class="fn">len</span>(texts))
+
+        <span class="kw">return</span> all_embeddings
+
+    <span class="kw">def</span> <span class="fn">embed_query</span>(self, query: <span class="cls">str</span>) -> <span class="cls">list</span>[<span class="cls">float</span>]:
+        <span class="str">"""单条查询向量化"""</span>
+        <span class="kw">return</span> self.<span class="fn">embed_texts</span>([query])[<span class="num">0</span>]
+
+    <span class="kw">def</span> <span class="fn">_embed_batch</span>(self, texts: <span class="cls">list</span>[<span class="cls">str</span>]) -> <span class="cls">list</span>[<span class="cls">list</span>[<span class="cls">float</span>]]:
+        <span class="str">"""单批次 API 调用（带重试）"""</span>
+        <span class="kw">import</span> time
+
+        <span class="kw">for</span> attempt <span class="kw">in</span> <span class="fn">range</span>(<span class="num">3</span>):  <span class="cmt"># 最多重试 3 次</span>
+            <span class="kw">try</span>:
+                resp = self._session.<span class="fn">post</span>(
+                    self.API_URL,
+                    json={
+                        <span class="str">"model"</span>: self.model,
+                        <span class="str">"input"</span>: texts,
+                    },
+                    timeout=<span class="num">30</span>,
+                )
+                resp.<span class="fn">raise_for_status</span>()
+
+                data = resp.<span class="fn">json</span>()
+                <span class="cmt"># 按原始顺序排列（API 可能不按顺序返回）</span>
+                sorted_results = <span class="fn">sorted</span>(data[<span class="str">"data"</span>], key=<span class="kw">lambda</span> x: x[<span class="str">"index"</span>])
+                <span class="kw">return</span> [item[<span class="str">"embedding"</span>] <span class="kw">for</span> item <span class="kw">in</span> sorted_results]
+
+            <span class="kw">except</span> Exception <span class="kw">as</span> e:
+                logger.<span class="fn">warning</span>(<span class="str">"Embedding API 第 %d 次调用失败: %s"</span>, attempt + <span class="num">1</span>, e)
+                <span class="kw">if</span> attempt < <span class="num">2</span>:
+                    <span class="cmt"># 指数退避：1s, 2s, 4s</span>
+                    time.<span class="fn">sleep</span>(<span class="num">2</span> <span class="op">**</span> attempt)
+                <span class="kw">else</span>:
+                    <span class="kw">raise</span>
+  </pre>
+
+  <h3>Step 4：ChromaDB 向量存储</h3>
+
+  <pre>
+<span class="cmt"># src/store/chroma_store.py</span>
+<span class="cmt">"""ChromaDB 向量存储封装 — 持久化 + 元数据过滤"""</span>
+
+<span class="kw">import</span> logging
+<span class="kw">from</span> pathlib <span class="kw">import</span> Path
+
+logger = logging.<span class="fn">getLogger</span>(<span class="str">__name__</span>)
+
+
+<span class="kw">class</span> <span class="cls">ChromaVectorStore</span>:
+    <span class="str">"""
+    ChromaDB 向量存储
+
+    核心设计：
+    1. 持久化到磁盘（重启不丢数据）
+    2. 元数据过滤（按来源/类型检索）
+    3. 幂等写入（upsert 语义）
+    """</span>
+
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, persist_dir: <span class="cls">str</span>, collection_name: <span class="cls">str</span> = <span class="str">"default"</span>):
+        <span class="kw">import</span> chromadb
+
+        <span class="cmt"># 确保持久化目录存在</span>
+        Path(persist_dir).<span class="fn">mkdir</span>(parents=<span class="kw">True</span>, exist_ok=<span class="kw">True</span>)
+
+        <span class="cmt"># 创建持久化客户端</span>
+        self.client = chromadb.<span class="fn">PersistentClient</span>(path=persist_dir)
+
+        <span class="cmt"># 获取或创建 Collection</span>
+        self.collection = self.client.<span class="fn">get_or_create_collection</span>(
+            name=collection_name,
+            metadata={<span class="str">"description"</span>: <span class="str">"AMC 知识库"</span>}
+        )
+        logger.<span class="fn">info</span>(<span class="str">"向量库初始化: %s (已有 %d 条)"</span>,
+                    collection_name, self.collection.<span class="fn">count</span>())
+
+    <span class="kw">def</span> <span class="fn">add_documents</span>(
+        self,
+        ids: <span class="cls">list</span>[<span class="cls">str</span>],
+        embeddings: <span class="cls">list</span>[<span class="cls">list</span>[<span class="cls">float</span>]],
+        documents: <span class="cls">list</span>[<span class="cls">str</span>],
+        metadatas: <span class="cls">list</span>[<span class="cls">dict</span>],
+    ) -> <span class="cls">int</span>:
+        <span class="str">"""批量添加文档（upsert 语义，同 ID 覆盖）"""</span>
+
+        <span class="cmt"># ChromaDB 单次限制 5000 条，自动分批</span>
+        batch_size = <span class="num">1000</span>
+        total_added = <span class="num">0</span>
+
+        <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">0</span>, <span class="fn">len</span>(ids), batch_size):
+            end = <span class="fn">min</span>(i + batch_size, <span class="fn">len</span>(ids))
+            self.collection.<span class="fn">upsert</span>(
+                ids=ids[i:end],
+                embeddings=embeddings[i:end],
+                documents=documents[i:end],
+                metadatas=metadatas[i:end],
+            )
+            total_added += (end - i)
+            logger.<span class="fn">info</span>(<span class="str">"入库进度: %d/%d"</span>, total_added, <span class="fn">len</span>(ids))
+
+        <span class="kw">return</span> total_added
+
+    <span class="kw">def</span> <span class="fn">search</span>(
+        self,
+        query_embedding: <span class="cls">list</span>[<span class="cls">float</span>],
+        top_k: <span class="cls">int</span> = <span class="num">5</span>,
+        where: Optional[<span class="cls">dict</span>] = <span class="kw">None</span>,
+    ) -> <span class="cls">list</span>[<span class="cls">dict</span>]:
+        <span class="str">"""向量相似度检索"""</span>
+        results = self.collection.<span class="fn">query</span>(
+            query_embeddings=[query_embedding],
+            n_results=top_k,
+            where=where,  <span class="cmt"># 元数据过滤条件</span>
+            include=[<span class="str">"documents"</span>, <span class="str">"metadatas"</span>, <span class="str">"distances"</span>]
+        )
+
+        <span class="cmt"># 组装结果</span>
+        retrieved = []
+        <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(top_k):
+            retrieved.<span class="fn">append</span>({
+                <span class="str">"text"</span>: results[<span class="str">"documents"</span>][<span class="num">0</span>][i],
+                <span class="str">"metadata"</span>: results[<span class="str">"metadatas"</span>][<span class="num">0</span>][i],
+                <span class="str">"distance"</span>: results[<span class="str">"distances"</span>][<span class="num">0</span>][i],
+                <span class="str">"score"</span>: <span class="num">1</span> - results[<span class="str">"distances"</span>][<span class="num">0</span>][i],  <span class="cmt"># 余弦相似度 = 1 - 距离</span>
+            })
+
+        <span class="kw">return</span> retrieved
+
+    <span class="kw">def</span> <span class="fn">count</span>(self) -> <span class="cls">int</span>:
+        <span class="str">"""返回当前文档总数"""</span>
+        <span class="kw">return</span> self.collection.<span class="fn">count</span>()
+
+    <span class="kw">def</span> <span class="fn">delete_collection</span>(self):
+        <span class="str">"""删除整个集合（重建索引时用）"""</span>
+        self.client.<span class="fn">delete_collection</span>(self.collection.name)
+        logger.<span class="fn">warning</span>(<span class="str">"已删除集合: %s"</span>, self.collection.name)
+  </pre>
+
+  <div class="concept-box">
+    <strong>ChromaDB 的 upsert 语义：</strong>就像数仓的 MERGE INTO（INSERT ON DUPLICATE KEY UPDATE）——相同 ID 的文档会被覆盖更新，不会产生重复。这保证了索引构建的<strong>幂等性</strong>：不管你跑多少次，最终结果都一样。
+  </div>
+</div>
+
+<!-- ==================== 管线编排 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔗</span> 核心实现 3：离线索引 Pipeline — 全流程串联
+    <span class="time-tag">25 min</span>
+  </div>
+
+  <pre>
+<span class="cmt"># src/pipeline/index_pipeline.py</span>
+<span class="cmt">"""离线索引管线 — 文档 → 分块 → Embedding → 入库
+
+这个 Pipeline 就是 RAG 的"离线 ETL"：
+  ODS（原始文档）→ DWD（分块）→ DWS（Embedding）→ ADS（向量库）
+"""</span>
+
+<span class="kw">import</span> logging
+<span class="kw">import</span> time
+<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass, field
+<span class="kw">from</span> typing <span class="kw">import</span> Optional
+
+<span class="kw">from</span> src.chunking.loader <span class="kw">import</span> DocumentLoader, Document
+<span class="kw">from</span> src.chunking.recursive <span class="kw">import</span> RecursiveCharacterChunker
+<span class="kw">from</span> src.embedding.zhipu_embedder <span class="kw">import</span> ZhipuEmbedder
+<span class="kw">from</span> src.store.chroma_store <span class="kw">import</span> ChromaVectorStore
+
+logger = logging.<span class="fn">getLogger</span>(<span class="str">__name__</span>)
+
+
+<span class="dec">@dataclass</span>
+<span class="kw">class</span> <span class="cls">IndexStats</span>:
+    <span class="str">"""索引统计信息 — 就像 ETL 的运行报告"""</span>
+    total_documents: <span class="cls">int</span> = <span class="num">0</span>
+    total_chunks: <span class="cls">int</span> = <span class="num">0</span>
+    total_chars: <span class="cls">int</span> = <span class="num">0</span>
+    elapsed_seconds: <span class="cls">float</span> = <span class="num">0</span>
+    chunks_per_doc: <span class="cls">float</span> = <span class="num">0</span>
+    avg_chunk_size: <span class="cls">float</span> = <span class="num">0</span>
+
+    <span class="kw">def</span> <span class="fn">summary</span>(self) -> <span class="cls">str</span>:
+        <span class="kw">return</span> <span class="str">f"""
+  ========== 索引构建报告 ==========
+  文档数量:    {self.total_documents}
+  分块数量:    {self.total_chunks}
+  总字符数:    {self.total_chars:,}
+  耗时:        {self.elapsed_seconds:.1f}s
+  平均每文档:  {self.chunks_per_doc:.1f} 块
+  平均块大小:  {self.avg_chunk_size:.0f} 字符
+  ================================="""</span>
+
+
+<span class="kw">class</span> <span class="cls">IndexPipeline</span>:
+    <span class="str">"""
+    离线索引管线 — RAG 系统的 ETL
+
+    数据流：
+    documents/ → DocumentLoader → Chunks → Embedder → ChromaDB
+
+    设计要点：
+    1. 组件可替换（通过 Protocol 接口）
+    2. 配置驱动（从 config.toml 读取参数）
+    3. 幂等执行（rebuild=True 先清空再重建）
+    4. 统计报告（运行后输出完整报告）
+    """</span>
+
+    <span class="kw">def</span> <span class="fn">__init__</span>(
+        self,
+        data_dir: <span class="cls">str</span>,
+        api_key: <span class="cls">str</span>,
+        persist_dir: <span class="cls">str</span> = <span class="str">"./data/chroma_db"</span>,
+        collection_name: <span class="cls">str</span> = <span class="str">"amc_knowledge"</span>,
+        chunk_size: <span class="cls">int</span> = <span class="num">512</span>,
+        chunk_overlap: <span class="cls">int</span> = <span class="num">64</span>,
+        embedding_model: <span class="cls">str</span> = <span class="str">"embedding-3"</span>,
+    ):
+        <span class="cmt"># 初始化各组件</span>
+        self.loader = <span class="cls">DocumentLoader</span>(data_dir)
+        self.chunker = <span class="cls">RecursiveCharacterChunker</span>(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+        )
+        self.embedder = <span class="cls">ZhipuEmbedder</span>(api_key=api_key, model=embedding_model)
+        self.store = <span class="cls">ChromaVectorStore</span>(persist_dir, collection_name)
+
+        logger.<span class="fn">info</span>(<span class="str">"IndexPipeline 初始化完成"</span>)
+
+    <span class="kw">def</span> <span class="fn">run</span>(self, rebuild: <span class="cls">bool</span> = <span class="kw">False</span>) -> <span class="cls">IndexStats</span>:
+        <span class="str">"""
+        执行完整索引流程
+
+        Args:
+            rebuild: 是否重建（先删除旧数据再重新索引）
+        Returns:
+            IndexStats 索引统计报告
+        """</span>
+        start_time = time.<span class="fn">perf_counter</span>()
+        stats = <span class="cls">IndexStats</span>()
+
+        <span class="cmt"># 1. 重建模式：清空旧数据</span>
+        <span class="kw">if</span> rebuild:
+            logger.<span class="fn">warning</span>(<span class="str">"重建模式：清空旧索引..."</span>)
+            self.store.<span class="fn">delete_collection</span>()
+            self.store = <span class="cls">ChromaVectorStore</span>(
+                self.store.client,  <span class="cmt"># 需要重新创建</span>
+            )
+
+        <span class="cmt"># 2. 加载所有文档</span>
+        logger.<span class="fn">info</span>(<span class="str">"📖 Step 1: 加载文档..."</span>)
+        documents = self.loader.<span class="fn">load_directory</span>()
+        stats.total_documents = <span class="fn">len</span>(documents)
+        <span class="kw">if not</span> documents:
+            logger.<span class="fn">warning</span>(<span class="str">"未找到任何文档！"</span>)
+            <span class="kw">return</span> stats
+
+        <span class="cmt"># 3. 分块</span>
+        logger.<span class="fn">info</span>(<span class="str">"✂️  Step 2: 文档分块..."</span>)
+        all_chunks = []
+        <span class="kw">for</span> doc <span class="kw">in</span> documents:
+            chunks = self.chunker.<span class="fn">split</span>(doc.content, doc.metadata)
+            all_chunks.<span class="fn">extend</span>(chunks)
+            logger.<span class="fn">info</span>(<span class="str">"  %s → %d 个块"</span>, doc.metadata[<span class="str">"filename"</span>], <span class="fn">len</span>(chunks))
+
+        stats.total_chunks = <span class="fn">len</span>(all_chunks)
+        stats.total_chars = <span class="fn">sum</span>(c.char_count <span class="kw">for</span> c <span class="kw">in</span> all_chunks)
+
+        <span class="cmt"># 4. Embedding（批量）</span>
+        logger.<span class="fn">info</span>(<span class="str">"🔢 Step 3: 文本向量化（%d 块）..."</span>, <span class="fn">len</span>(all_chunks))
+        texts = [chunk.text <span class="kw">for</span> chunk <span class="kw">in</span> all_chunks]
+        embeddings = self.embedder.<span class="fn">embed_texts</span>(texts)
+
+        <span class="cmt"># 5. 入库</span>
+        logger.<span class="fn">info</span>(<span class="str">"📦 Step 4: 向量入库..."</span>)
+        ids = [<span class="str">f"doc_{chunk.metadata.get('source', 'unknown')}"
+                <span class="str">f"_chunk_{chunk.chunk_index}"</span>
+                <span class="kw">for</span> chunk <span class="kw">in</span> all_chunks]
+        documents_text = [chunk.text <span class="kw">for</span> chunk <span class="kw">in</span> all_chunks]
+        metadatas = [chunk.metadata <span class="kw">for</span> chunk <span class="kw">in</span> all_chunks]
+
+        self.store.<span class="fn">add_documents</span>(ids, embeddings, documents_text, metadatas)
+
+        <span class="cmt"># 6. 统计</span>
+        stats.elapsed_seconds = time.<span class="fn">perf_counter</span>() - start_time
+        stats.chunks_per_doc = stats.total_chunks / <span class="fn">max</span>(stats.total_documents, <span class="num">1</span>)
+        stats.avg_chunk_size = stats.total_chars / <span class="fn">max</span>(stats.total_chunks, <span class="num">1</span>)
+
+        logger.<span class="fn">info</span>(stats.<span class="fn">summary</span>())
+        <span class="kw">return</span> stats
+  </pre>
+
+  <h3>完整入口脚本</h3>
+
+  <pre>
+<span class="cmt"># scripts/build_index.py</span>
+<span class="cmt">"""手动触发索引构建脚本
+
+用法：
+  python scripts/build_index.py              # 增量索引
+  python scripts/build_index.py --rebuild    # 重建索引
+  python scripts/build_index.py --rebuild --debug  # 调试模式
+"""</span>
+
+<span class="kw">import</span> argparse
+<span class="kw">import</span> logging
+<span class="kw">import</span> os
+<span class="kw">import</span> sys
+
+<span class="cmt"># 把项目根目录加入 sys.path（让 src/ 可被导入）</span>
+sys.path.<span class="fn">insert</span>(<span class="num">0</span>, os.<span class="fn">path</span>.<span class="fn">dirname</span>(os.<span class="fn">path</span>.<span class="fn">abspath</span>(<span class="str">"."</span>)))
+
+
+<span class="kw">def</span> <span class="fn">main</span>():
+    parser = argparse.<span class="fn">ArgumentParser</span>(description=<span class="str">"AMC RAG 索引构建"</span>)
+    parser.<span class="fn">add_argument</span>(<span class="str">"--rebuild"</span>, action=<span class="str">"store_true"</span>, help=<span class="str">"重建索引（清空旧数据）"</span>)
+    parser.<span class="fn">add_argument</span>(<span class="str">"--debug"</span>, action=<span class="str">"store_true"</span>, help=<span class="str">"调试模式"</span>)
+    args = parser.<span class="fn">parse_args</span>()
+
+    <span class="cmt"># 配置日志</span>
+    level = logging.DEBUG <span class="kw">if</span> args.debug <span class="kw">else</span> logging.INFO
+    logging.<span class="fn">basicConfig</span>(
+        level=level,
+        format=<span class="str">"%(asctime)s [%(levelname)s] %(name)s: %(message)s"</span>,
+        datefmt=<span class="str">"%H:%M:%S"</span>,
+    )
+
+    <span class="cmt"># 加载配置</span>
+    <span class="kw">from</span> src.config <span class="kw">import</span> load_config
+    config = <span class="fn">load_config</span>(<span class="str">"config.toml"</span>)
+
+    <span class="cmt"># 创建 Pipeline 并执行</span>
+    <span class="kw">from</span> src.pipeline.index_pipeline <span class="kw">import</span> IndexPipeline
+
+    pipeline = <span class="cls">IndexPipeline</span>(
+        data_dir=config[<span class="str">"app"</span>][<span class="str">"data_dir"</span>],
+        api_key=config[<span class="str">"llm"</span>][<span class="str">"api_key"</span>],
+        persist_dir=config[<span class="str">"vector_store"</span>][<span class="str">"persist_dir"</span>],
+        collection_name=config[<span class="str">"vector_store"</span>][<span class="str">"collection_name"</span>],
+        chunk_size=config[<span class="str">"chunking"</span>][<span class="str">"chunk_size"</span>],
+        chunk_overlap=config[<span class="str">"chunking"</span>][<span class="str">"chunk_overlap"</span>],
+        embedding_model=config[<span class="str">"embedding"</span>][<span class="str">"model"</span>],
+    )
+
+    stats = pipeline.<span class="fn">run</span>(rebuild=args.rebuild)
+    <span class="fn">print</span>(stats.<span class="fn">summary</span>())
+
+
+<span class="kw">if</span> __name__ == <span class="str">"__main__"</span>:
+    <span class="fn">main</span>()
+  </pre>
+
+  <div class="tip-box">
+    <strong>argparse 是 CLI 工具的标准库：</strong>就像 SQL 脚本支持参数化（<span class="inline-code">${hiveconf:DATE}</span>），Python CLI 用 <span class="inline-code">argparse</span> 让脚本可以通过命令行参数控制行为。<span class="inline-code">--rebuild</span> 就是"全量刷新"，不加就是"增量追加"。
+  </div>
+</div>
+
+<!-- ==================== 模拟数据 + 测试 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🧪</span> 模拟数据 + 快速验证
+    <span class="time-tag">10 min</span>
+  </div>
+
+  <p>即使没有真实 API Key，我们也可以用模拟 Embedder 验证分块和管线流程：</p>
+
+  <pre>
+<span class="cmt"># test_pipeline.py — 不需要 API Key 的本地验证</span>
+
+<span class="kw">import</span> random
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+<span class="kw">from</span> pathlib <span class="kw">import</span> Path
+
+<span class="cmt"># === 模拟 Embedder（随机向量，但维度一致） ===</span>
+<span class="kw">class</span> <span class="cls">MockEmbedder</span>:
+    <span class="str">"""模拟 Embedder — 用随机向量代替真实 API 调用"""</span>
+
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, dim: <span class="cls">int</span> = <span class="num">128</span>):
+        self.dim = dim
+        <span class="cmt"># 固定随机种子，保证结果可复现</span>
+        rng = np.random.<span class="cls">RandomState</span>(<span class="num">42</span>)
+
+    <span class="kw">def</span> <span class="fn">embed_texts</span>(self, texts: <span class="cls">list</span>[<span class="cls">str</span>]) -> <span class="cls">list</span>[<span class="cls">list</span>[<span class="cls">float</span>]]:
+        <span class="cmt"># 基于文本长度生成伪向量（相同长度 → 相同向量，保证缓存测试有效）</span>
+        <span class="kw">return</span> [
+            self.<span class="fn">_hash_to_vector</span>(text)
+            <span class="kw">for</span> text <span class="kw">in</span> texts
+        ]
+
+    <span class="kw">def</span> <span class="fn">_hash_to_vector</span>(self, text: <span class="cls">str</span>) -> <span class="cls">list</span>[<span class="cls">float</span>]:
+        <span class="str">"""用文本哈希生成确定性向量"""</span>
+        hash_val = <span class="fn">hash</span>(text)
+        rng = np.random.<span class="cls">RandomState</span>(hash_val % (<span class="num">2</span><span class="op">**</span><span class="num">31</span>))
+        vec = rng.<span class="fn">randn</span>(self.dim).<span class="fn">tolist</span>()
+        <span class="cmt"># 归一化（和真实 Embedding 一样）</span>
+        norm = <span class="fn">sum</span>(v<span class="op">**</span><span class="num">2</span> <span class="kw">for</span> v <span class="kw">in</span> vec) <span class="op">**</span> <span class="num">0.5</span>
+        <span class="kw">return</span> [v / norm <span class="kw">for</span> v <span class="kw">in</span> vec]
+
+
+<span class="cmt"># === 创建模拟文档 ===</span>
+<span class="kw">def</span> <span class="fn">create_sample_docs</span>(output_dir: <span class="cls">str</span> = <span class="str">"./data/raw"</span>):
+    <span class="str">"""创建 AMC 模拟文档用于测试"""</span>
+    Path(output_dir).<span class="fn">mkdir</span>(parents=<span class="kw">True</span>, exist_ok=<span class="kw">True</span>)
+
+    <span class="cmt"># 文档 1：AMC 术语表</span>
+    (Path(output_dir) / <span class="str">"amc_glossary.md"</span>).<span class="fn">write_text</span>(<span class="str">"""
+# AMC 资产管理公司术语表
+
+## 五级分类
+
+不良资产按照风险程度分为五类：正常、关注、次级、可疑、损失。
+其中次级、可疑、损失合称为"不良贷款"（NPL，Non-Performing Loan）。
+
+### 正常类
+借款人能够履行合同，没有足够理由怀疑贷款本息不能按时足额偿还。
+正常类贷款的拨备计提比例为 1%。
+
+### 关注类
+借款人目前有能力偿还，但存在一些可能对偿还产生不利影响的因素。
+关注类贷款的拨备计提比例为 2%。
+
+### 次级类
+借款人的还款能力出现明显问题，完全依靠其正常营业收入无法足额偿还贷款本息。
+次级类贷款的拨备计提比例为 25%。
+
+### 可疑类
+借款人无法足额偿还贷款本息，即使执行担保，也肯定要造成较大损失。
+可疑类贷款的拨备计提比例为 50%。
+
+### 损失类
+在采取所有可能的措施或一切必要的法律程序之后，本息仍然无法收回。
+损失类贷款的拨备计提比例为 100%。
+
+## 不良资产处置方式
+
+常见的不良资产处置方式包括：
+1. 债务重组 — 调整还款期限、利率、本金等条件
+2. 债权转让 — 将不良债权打包出售给 AMC 或投资者
+3. 资产证券化 — 以不良资产为底层资产发行 ABS
+4. 债转股 — 将债权转化为对债务企业的股权
+5. 诉讼追偿 — 通过法律途径追回欠款
+"""</span>, encoding=<span class="str">"utf-8"</span>)
+
+    <span class="cmt"># 文档 2：数据质量规范</span>
+    (Path(output_dir) / <span class="str">"data_quality_guide.md"</span>).<span class="fn">write_text</span>(<span class="str">"""
+# AMC 数据质量规范
+
+## 数据质量四大维度
+
+### 1. 完整性
+确保必填字段不为空。核心字段包括：债务人ID、合同编号、贷款余额、五级分类。
+空值率超过 5% 的字段需要向数据源方反馈。
+
+### 2. 准确性
+数据值必须符合业务规则。例如：
+- 贷款余额不能为负数
+- 五级分类只能是 1-5 的整数
+- 合同起始日期不能晚于终止日期
+- 债务人年龄应在 18-100 岁之间
+
+### 3. 一致性
+跨表关联数据必须一致。例如：
+- 同一债务人ID在客户表和合同表中必须存在
+- 合同总金额 = 各期还款金额之和
+- 汇总数据与明细数据的金额必须对齐
+
+### 4. 及时性
+T+1 日 9:00 前完成前一日数据同步。
+月度报表在次月 5 个工作日内产出。
+"""</span>, encoding=<span class="str">"utf-8"</span>)
+
+    <span class="fn">print</span>(<span class="str">f"✅ 已创建 {output_dir}/ 目录下的模拟文档"</span>)
+
+
+<span class="cmt"># === 运行测试 ===</span>
+<span class="kw">if</span> __name__ == <span class="str">"__main__"</span>:
+    <span class="fn">create_sample_docs</span>()
+
+    <span class="kw">from</span> src.chunking.loader <span class="kw">import</span> DocumentLoader
+    <span class="kw">from</span> src.chunking.recursive <span class="kw">import</span> RecursiveCharacterChunker
+
+    <span class="cmt"># 测试文档加载</span>
+    loader = <span class="cls">DocumentLoader</span>(<span class="str">"./data/raw"</span>)
+    docs = loader.<span class="fn">load_directory</span>()
+    <span class="fn">print</span>(<span class="str">f"\n📖 加载了 {len(docs)} 个文档"</span>)
+    <span class="kw">for</span> doc <span class="kw">in</span> docs:
+        <span class="fn">print</span>(<span class="str">f"  {doc.metadata['filename']}: {doc.metadata['char_count']} 字符, "</span>
+              <span class="str">f"{doc.metadata['paragraph_count']} 段落"</span>)
+
+    <span class="cmt"># 测试分块</span>
+    chunker = <span class="cls">RecursiveCharacterChunker</span>(chunk_size=<span class="num">200</span>, chunk_overlap=<span class="num">30</span>)
+    <span class="fn">print</span>(<span class="str">"\n✂️  分块测试（chunk_size=200）:"</span>)
+    <span class="kw">for</span> doc <span class="kw">in</span> docs:
+        chunks = chunker.<span class="fn">split</span>(doc.content, doc.metadata)
+        <span class="fn">print</span>(<span class="str">f"  {doc.metadata['filename']}: {len(chunks)} 个块"</span>)
+        <span class="kw">for</span> chunk <span class="kw">in</span> chunks[:<span class="num">3</span>]:  <span class="cmt"># 只打印前3块</span>
+            <span class="fn">print</span>(<span class="str">f"    [{chunk.chunk_index}] {chunk.char_count}字符: "</span>
+                  <span class="str">f"{chunk.text[:60]}..."</span>)
+  </pre>
+
+  <h3>预期输出</h3>
+  <pre>
+✅ 已创建 ./data/raw/ 目录下的模拟文档
+
+📖 加载了 2 个文档
+  amc_glossary.md: 612 字符, 14 段落
+  data_quality_guide.md: 435 字符, 8 段落
+
+✂️  分块测试（chunk_size=200）:
+  amc_glossary.md: 12 个块
+    [0] 178字符: # AMC 资产管理公司术语表...
+    [1] 139字符: ## 五级分类 不良资产按照风险程度...
+    [2] 79字符: ### 正常类 借款人能够履行合同...
+  data_quality_guide.md: 8 个块
+    [0] 65字符: # AMC 数据质量规范...
+    ...
+  </pre>
+</div>
+
+<!-- ==================== 常见陷阱 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚠️</span> 常见陷阱 Top 5
+    <span class="time-tag">3 min</span>
+  </div>
+
+  <table>
+    <tr><th>#</th><th>陷阱</th><th>症状</th><th>解法</th></tr>
+    <tr>
+      <td>1</td>
+      <td><strong>chunk_size 过大</strong></td>
+      <td>检索出整个文档，无关信息淹没答案</td>
+      <td>从 256 开始，根据检索效果调到 512-1024</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td><strong>overlap 过大</strong></td>
+      <td>检索结果高度重复，浪费 Token</td>
+      <td>chunk_size 的 10%-20%，不要超过 25%</td>
+    </tr>
+    <tr>
+      <td><span class="highlight">3</span></td>
+      <td><strong>sys.path 导入失败</strong></td>
+      <td><span class="inline-code">ModuleNotFoundError: No module named 'src'</span></td>
+      <td>入口脚本顶部加 <span class="inline-code">sys.path.insert(0, project_root)</span></td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td><strong>ChromaDB upsert ID 冲突</strong></td>
+      <td>不同文档的 chunk 被覆盖</td>
+      <td>ID 包含来源文件名 + chunk_index：<span class="inline-code">f"{source}_chunk_{idx}"</span></td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td><strong>API Key 硬编码</strong></td>
+      <td>代码推到 git，Key 泄漏</td>
+      <td>放 <span class="inline-code">.env</span> 文件，config.toml 用 <span class="inline-code">${VAR}</span> 占位</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ==================== 练习 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">💪</span> 今日练习
+    <span class="time-tag">15 min</span>
+  </div>
+
+  <div class="quiz">
+    <h4>练习 1：实现 Markdown 感知分块器（进阶）</h4>
+    <p>修改 <span class="inline-code">RecursiveCharacterChunker</span>，在分隔符列表中优先按 <span class="inline-code">#</span> 标题分割：</p>
+    <pre>
+<span class="cmt"># 提示：修改 separators 列表，让标题标记优先级最高</span>
+MD_SEPARATORS = [<span class="str">"\n## "</span>, <span class="str">"\n### "</span>, <span class="str">"\n\n"</span>, <span class="str">"\n"</span>, <span class="str">。"</span>, <span class="str">""</span>]
+
+<span class="cmt"># 测试：对 amc_glossary.md 用 MD 分块，看每个 ## 标题是否被正确分段</span>
+    </pre>
+  </div>
+
+  <div class="quiz">
+    <h4>练习 2：分块质量统计工具</h4>
+    <p>编写一个函数，计算分块后的质量指标：</p>
+    <pre>
+<span class="kw">def</span> <span class="fn">evaluate_chunks</span>(chunks: <span class="cls">list</span>[Chunk]) -> <span class="cls">dict</span>:
+    <span class="str">"""统计分块质量指标"""</span>
+    <span class="cmt"># 需要返回：</span>
+    <span class="cmt"># - total_chunks: 总块数</span>
+    <span class="cmt"># - avg_size: 平均块大小（字符数）</span>
+    <span class="cmt"># - min_size / max_size: 最小/最大块</span>
+    <span class="cmt"># - too_small: 小于 50 字符的块数（可能质量差）</span>
+    <span class="cmt"># - too_large: 大于 chunk_size * 1.5 的块数</span>
+    <span class="cmt"># - size_distribution: 块大小的分布统计</span>
+    <span class="cmt"># 用 statistics 模块计算均值/中位数/标准差</span>
+    ...
+  </pre>
+  </div>
+
+  <div class="quiz">
+    <h4>练习 3：LeetCode #70 — 爬楼梯（动态规划入门）</h4>
+    <p>每次可以爬 1 或 2 个台阶，到达第 n 阶有多少种方法？</p>
+    <pre>
+<span class="cmt"># 提示：dp[i] = dp[i-1] + dp[i-2]，和斐波那契一样</span>
+<span class="kw">def</span> <span class="fn">climbStairs</span>(n: <span class="cls">int</span>) -> <span class="cls">int</span>:
+    ...
+  </pre>
+  </div>
+</div>
+
+<!-- ==================== 总结 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📝</span> Day 50 总结
+    <span class="time-tag">2 min</span>
+  </div>
+
+  <h3>今天学到了什么</h3>
+
+  <table>
+    <tr><th>类别</th><th>知识点</th><th>数仓类比</th></tr>
+    <tr>
+      <td rowspan="3"><strong>Python</strong></td>
+      <td>tomllib 配置文件解析</td>
+      <td>ETL 配置表</td>
+    </tr>
+    <tr>
+      <td>标准项目结构 + __init__.py</td>
+      <td>数仓分层架构</td>
+    </tr>
+    <tr>
+      <td>typing.Protocol 接口设计</td>
+      <td>Schema 约束</td>
+    </tr>
+    <tr>
+      <td rowspan="4"><strong>LLM 实战</strong></td>
+      <td>RAG 项目架构设计</td>
+      <td>数仓分层 + ETL 管线</td>
+    </tr>
+    <tr>
+      <td>DocumentLoader 文档加载器</td>
+      <td>ODS 数据接入</td>
+    </tr>
+    <tr>
+      <td>RecursiveCharacterChunker 分块器</td>
+      <td>DWD 数据拆分</td>
+    </tr>
+    <tr>
+      <td>IndexPipeline 离线索引管线</td>
+      <td>ETL 调度执行</td>
+    </tr>
+  </table>
+
+  <h3>Phase 4 项目实战 — Day 50/70</h3>
+
+  <div class="concept-box">
+    <strong>Day 51 预告：</strong>在线问答 Pipeline（Embedding Query → 向量检索 → LLM 生成回答）+ 流式输出 + Reranker 集成。离线索引已经建好，明天让知识库"开口说话"！
+  </div>
+</div>
+
+</body>
+</html>

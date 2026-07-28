@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 48 - LLM 服务监控与压力测试</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#ecfdf5,#eff6ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #a7f3d0; }
+  .header .badge { display:inline-block;background:#dcfce7;color:#16a34a;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--accent2);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--green); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  pre { background:#1e293b;color:#e2e8f0;padding:18px 20px;border-radius:8px;overflow-x:auto;font-size:13.5px;line-height:1.6;margin:14px 0;font-family:'Cascadia Code','Fira Code','JetBrains Mono',Consolas,monospace; }
+  pre .comment { color:#64748b; }
+  pre .keyword { color:#c084fc; }
+  pre .string { color:#34d399; }
+  pre .func { color:#60a5fa; }
+  pre .decorator { color:#fbbf24; }
+  pre .number { color:#fb923c; }
+  pre .type { color:#22d3ee; }
+  pre .builtin { color:#a78bfa; }
+  code { background:var(--surface2);padding:2px 7px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--accent2); }
+  p { margin:10px 0;font-size:15px; }
+  ul,ol { margin:10px 0 10px 24px; }
+  li { margin:5px 0;font-size:15px; }
+  table { width:100%;border-collapse:collapse;margin:14px 0;font-size:14px; }
+  th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border-bottom:2px solid var(--border); }
+  td { padding:9px 14px;border-bottom:1px solid var(--surface3); }
+  tr:hover td { background:var(--surface2); }
+  .compare-grid { display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0; }
+  .compare-card { background:var(--surface2);border-radius:8px;padding:16px;border:1px solid var(--border); }
+  .compare-card h4 { font-size:14px;margin-bottom:8px; }
+  .compare-card p { font-size:13px;color:var(--text2);margin:4px 0; }
+  .tag { display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;margin:0 2px; }
+  .tag-blue { background:#dbeafe;color:#2563eb; }
+  .tag-green { background:#dcfce7;color:#16a34a; }
+  .tag-orange { background:#fff7ed;color:#ea580c; }
+  .tag-red { background:#fef2f2;color:#dc2626; }
+  .tag-purple { background:#f3e8ff;color:#7c3aed; }
+  .quiz { background:linear-gradient(135deg,#faf5ff,#eff6ff);border:1px solid #e9d5ff;border-radius:var(--radius);padding:20px 24px;margin:14px 0; }
+  .quiz h4 { color:var(--accent2);margin-bottom:8px; }
+  .quiz p { font-size:14px;color:var(--text2); }
+  .inline-code { background:var(--surface2);padding:1px 6px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--accent2); }
+  .footer { text-align:center;padding:20px;color:var(--text3);font-size:13px; }
+  .footer a { color:var(--accent);text-decoration:none; }
+</style>
+</head>
+<body>
+
+<!-- ==================== HEADER ==================== -->
+<div class="header">
+  <div class="badge">Phase 3 · Day 48 · 微调部署</div>
+  <h1>🎯 LLM 服务监控与压力测试</h1>
+  <div class="subtitle">让模型上线后「看得见、扛得住」— 监控指标采集 + 自动化压力测试 + AMC 实战</div>
+</div>
+
+<!-- ==================== PROGRESS ==================== -->
+<div class="progress-bar">
+  <span class="label">总体进度</span>
+  <div class="track"><div class="fill" style="width:68.6%"></div></div>
+  <span class="percent">48/70</span>
+</div>
+
+<!-- ==================== SECTION 1: WHY ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏗️</span> 为什么要监控和压测？从数仓视角理解
+    <span class="time-tag">⏱ 5min</span>
+  </div>
+
+  <p>部署完 LLM 服务（Day 46 vLLM、Day 47 Docker）后，就像数仓的 ETL 任务上了生产调度——不监控，出了问题你都不知道。</p>
+
+  <div class="concept-box">
+    <strong>📊 数仓类比：</strong>数仓有 TaskMonitor 监控 ETL 耗时、失败率、数据量波动；LLM 服务同样需要监控 <strong>推理延迟、Token 吞吐量、GPU 显存、错误率</strong>。压测就像数仓的「数据量峰值测试」——上线前先打满流量看看撑不撑得住。
+  </div>
+
+  <p><strong>LLM 服务监控的核心指标（四类）：</strong></p>
+  <table>
+    <tr><th>类别</th><th>指标</th><th>说明</th><th>告警阈值示例</th></tr>
+    <tr><td>延迟类</td><td>TTFT</td><td>首 Token 时间 (Time To First Token)</td><td>&gt; 3s 告警</td></tr>
+    <tr><td>延迟类</td><td>TPOT</td><td>每 Token 生成间隔 (Time Per Output Token)</td><td>&gt; 100ms 告警</td></tr>
+    <tr><td>延迟类</td><td>E2E Latency</td><td>端到端响应时间</td><td>&gt; 30s 告警</td></tr>
+    <tr><td>吞吐类</td><td>Throughput</td><td>每秒输出 Token 数</td><td>&lt; 50 tok/s 告警</td></tr>
+    <tr><td>吞吐类</td><td>QPS</td><td>每秒处理请求数</td><td>按基线偏差</td></tr>
+    <tr><td>资源类</td><td>GPU VRAM</td><td>GPU 显存占用率</td><td>&gt; 90% 告警</td></tr>
+    <tr><td>资源类</td><td>GPU Util</td><td>GPU 计算利用率</td><td>&lt; 30% 持续10min</td></tr>
+    <tr><td>质量类</td><td>Error Rate</td><td>请求失败率</td><td>&gt; 5% 告警</td></tr>
+    <tr><td>质量类</td><td>Timeout Rate</td><td>超时率</td><td>&gt; 2% 告警</td></tr>
+  </table>
+
+  <div class="compare-grid">
+    <div class="compare-card">
+      <h4>🔧 黑盒监控（推荐入门）</h4>
+      <p>从 API 调用侧采集指标</p>
+      <p>✅ 与部署无关，通用性强</p>
+      <p>✅ 用 Python 即可实现</p>
+      <p>❌ 看不到 GPU 内部细节</p>
+    </div>
+    <div class="compare-card">
+      <h4>⚙️ 白盒监控（进阶）</h4>
+      <p>从服务内部采集指标</p>
+      <p>✅ GPU 显存、KV Cache、队列深度</p>
+      <p>✅ 更精准定位瓶颈</p>
+      <p>❌ 需要服务支持（vLLM /metrics）</p>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SECTION 2: PYTHON - METRICS ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span> Python 知识：指标采集基础
+    <span class="time-tag">⏱ 15min</span>
+  </div>
+
+  <p>今天学习三个核心工具：<code>time.perf_counter</code> 高精度计时、<code>statistics</code> 统计库、<code>dataclasses</code> 构建结构化指标记录。</p>
+
+  <pre>
+<span class="comment"># === 1. time.perf_counter 高精度计时（纳秒级） ===</span>
+<span class="keyword">import</span> time
+
+<span class="comment"># perf_counter 返回系统级高精度时间，适合测量短耗时</span>
+<span class="comment"># vs time.time() 只精确到毫秒，且有系统时钟跳变风险</span>
+
+<span class="keyword">with</span> <span class="builtin">open</span>(<span class="string">"large_file.csv"</span>) <span class="keyword">as</span> f:
+    start = time.perf_counter()
+    data = f.readlines()
+    elapsed = time.perf_counter() - start
+    <span class="builtin">print</span>(<span class="string">f"读取 <span class="inline-code">{len(data)}</span> 行，耗时 <span class="inline-code">{elapsed:.4f}</span> 秒"</span>)
+
+<span class="comment"># === 2. Context Manager 封装计时器（代码更优雅）===</span>
+<span class="keyword">from</span> contextlib <span class="keyword">import</span> contextmanager
+
+<span class="decorator">@contextmanager</span>
+<span class="keyword">def</span> <span class="func">timer</span>(name: <span class="type">str</span> = <span class="string">""</span>):
+    <span class="string">"""上下文管理器：自动测量代码块耗时"""</span>
+    start = time.perf_counter()
+    <span class="keyword">yield</span>  <span class="comment"># 这里执行 with 块内的代码</span>
+    elapsed = time.perf_counter() - start
+    <span class="builtin">print</span>(<span class="string">f"[{name}] 耗时: {elapsed:.4f}s"</span>)
+
+<span class="comment"># 使用方式：代码可读性极高</span>
+<span class="keyword">with</span> <span class="func">timer</span>(<span class="string">"Embedding 计算"</span>):
+    embeddings = compute_embeddings(texts)
+
+<span class="keyword">with</span> <span class="func">timer</span>(<span class="string">"向量检索"</span>):
+    results = vector_store.search(query_embedding)
+  </pre>
+
+  <pre>
+<span class="comment"># === 3. statistics 统计库 — 一行算出核心统计量 ===</span>
+<span class="keyword">import</span> statistics
+
+<span class="comment"># 模拟一组请求延迟数据（毫秒）</span>
+latencies = [120, 135, 142, 128, 450, 131, 138, 125, 133, 141]
+
+<span class="comment"># 均值 — 受异常值影响</span>
+avg = statistics.mean(latencies)  <span class="comment"># 154.3ms（被 450 拉高）</span>
+
+<span class="comment"># 中位数 — 更稳定，不受极端值影响</span>
+median = statistics.median(latencies)  <span class="comment"># 134.0ms</span>
+
+<span class="comment"># 标准差 — 波动幅度</span>
+stdev = statistics.stdev(latencies)  <span class="comment"># 95.7ms（波动大说明不稳定）</span>
+
+<span class="comment"># 众数 — 出现最频繁的值</span>
+<span class="comment"># mode = statistics.mode(latencies)</span>
+
+<span class="comment"># 分位数 — 压测最常用 P50/P95/P99</span>
+p50 = sorted(latencies)[<span class="keyword">int</span>(len(latencies) * <span class="number">0.50</span>)]
+p95 = sorted(latencies)[<span class="keyword">int</span>(len(latencies) * <span class="number">0.95</span>)]
+p99 = sorted(latencies)[<span class="keyword">int</span>(len(latencies) * <span class="number">0.99</span>)]
+<span class="comment"># 更精确的分位数计算（处理非整数索引）</span>
+<span class="keyword">def</span> <span class="func">percentile</span>(data: list[<span class="type">float</span>], p: <span class="type">float</span>) -> <span class="type">float</span>:
+    <span class="string">"""计算任意百分位数"""</span>
+    sorted_data = sorted(data)
+    k = (len(sorted_data) - <span class="number">1</span>) * p
+    f = <span class="keyword">int</span>(k)
+    c = k - f
+    <span class="keyword">if</span> f + <span class="number">1</span> < len(sorted_data):
+        <span class="keyword">return</span> sorted_data[f] + c * (sorted_data[f + <span class="number">1</span>] - sorted_data[f])
+    <span class="keyword">return</span> sorted_data[f]
+
+<span class="comment"># === 4. dataclass 构建指标记录 ===</span>
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field, asdict
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="type">MetricRecord</span>:
+    <span class="string">"""单次请求的完整指标记录"""</span>
+    request_id: <span class="type">str</span>
+    endpoint: <span class="type">str</span>
+    status: <span class="type">int</span>          <span class="comment"># HTTP 状态码</span>
+    ttft: <span class="type">float</span>           <span class="comment"># 首 Token 时间 (秒)</span>
+    tpot: <span class="type">float</span>           <span class="comment"># 每 Token 间隔 (秒)</span>
+    e2e_latency: <span class="type">float</span>     <span class="comment"># 端到端延迟 (秒)</span>
+    output_tokens: <span class="type">int</span>     <span class="comment"># 输出 Token 数</span>
+    prompt_tokens: <span class="type">int</span>     <span class="comment"># 输入 Token 数</span>
+    error_msg: <span class="type">str</span> | <span class="type">None</span> = <span class="keyword">None</span>  <span class="comment"># 错误信息（成功时 None）</span>
+    timestamp: <span class="type">float</span> = field(default_factory=time.time)
+
+<span class="comment"># dataclass 自带的 asdict() 方便导出为 JSON</span>
+record = MetricRecord(
+    request_id=<span class="string">"req-001"</span>,
+    endpoint=<span class="string">"/v1/chat/completions"</span>,
+    status=<span class="number">200</span>,
+    ttft=<span class="number">0.35</span>,
+    tpot=<span class="number">0.025</span>,
+    e2e_latency=<span class="number">2.8</span>,
+    output_tokens=<span class="number">100</span>,
+    prompt_tokens=<span class="number">50</span>,
+)
+<span class="builtin">print</span>(asdict(record))
+<span class="comment"># {'request_id': 'req-001', 'endpoint': '/v1/chat/completions', ...}</span>
+  </pre>
+
+  <div class="tip-box">
+    <strong>💡 为什么要用 dataclass？</strong>相比普通 dict，dataclass 有类型提示（IDE 自动补全）、<code>asdict()</code> 序列化、<code>__repr__</code> 自动格式化打印、属性名固定不易拼错——和 Day 19-21 学的 OOP 一脉相承。
+  </div>
+</div>
+
+<!-- ==================== SECTION 3: METRICS COLLECTOR ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📡</span> 实战 1：LLM 服务指标采集器
+    <span class="time-tag">⏱ 20min</span>
+  </div>
+
+  <p>构建一个黑盒监控器，对 LLM API 发请求并采集 TTFT、TPOT、延迟等指标。</p>
+
+  <pre>
+<span class="keyword">import</span> time
+<span class="keyword">import</span> json
+<span class="keyword">import</span> uuid
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field, asdict
+<span class="keyword">from</span> contextlib <span class="keyword">import</span> contextmanager
+<span class="keyword">import</span> requests
+<span class="keyword">from</span> typing <span class="keyword">import</span> Callable
+
+<span class="comment"># === 指标数据模型 ===</span>
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="type">RequestMetric</span>:
+    <span class="string">"""单次 LLM 请求的完整指标"""</span>
+    request_id: <span class="type">str</span>
+    endpoint: <span class="type">str</span>
+    status: <span class="type">int</span>
+    ttft: <span class="type">float</span> | <span class="type">None</span>     <span class="comment"># 首 Token 时间</span>
+    tpot: <span class="type">float</span> | <span class="type">None</span>     <span class="comment"># 每 Token 间隔</span>
+    e2e_latency: <span class="type">float</span>         <span class="comment"># 端到端延迟</span>
+    prompt_tokens: <span class="type">int</span>
+    output_tokens: <span class="type">int</span>
+    error_msg: <span class="type">str</span> | <span class="type">None</span> = <span class="keyword">None</span>
+    timestamp: <span class="type">float</span> = field(default_factory=time.time)
+
+
+<span class="comment"># === 计时上下文管理器 ===</span>
+
+<span class="decorator">@contextmanager</span>
+<span class="keyword">def</span> <span class="func">elapsed_timer</span>():
+    <span class="string">"""返回一个对象，with 块结束后可读取 elapsed"""</span>
+    result = {<span class="string">"elapsed"</span>: <span class="number">0.0</span>}
+    start = time.perf_counter()
+    <span class="keyword">try</span>:
+        <span class="keyword">yield</span> result
+    <span class="keyword">finally</span>:
+        result[<span class="string">"elapsed"</span>] = time.perf_counter() - start
+
+
+<span class="comment"># === Prometheus 格式指标导出器 ===</span>
+
+<span class="keyword">class</span> <span class="type">PrometheusExporter</span>:
+    <span class="string">"""
+    生成 Prometheus /metrics 格式的文本输出
+    Prometheus 是业界标准的监控数据格式，Grafana 可直接消费
+    """</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, prefix: <span class="type">str</span> = <span class="string">"llm"</span>):
+        self.prefix = prefix
+        self._counters: dict[<span class="type">str</span>, <span class="type">float</span>] = {}
+        self._gauges: dict[<span class="type">str</span>, <span class="type">float</span>] = {}
+        self._histograms: dict[<span class="type">str</span>, list[<span class="type">float</span>]] = {}
+
+    <span class="keyword">def</span> <span class="func">counter_inc</span>(self, name: <span class="type">str</span>, value: <span class="type">float</span> = <span class="number">1.0</span>, labels: dict = <span class="keyword">None</span>):
+        <span class="string">"""递增计数器（只增不减，用于请求总数、错误数）"""</span>
+        key = self._make_key(name, labels)
+        self._counters[key] = self._counters.get(key, <span class="number">0</span>) + value
+
+    <span class="keyword">def</span> <span class="func">gauge_set</span>(self, name: <span class="type">str</span>, value: <span class="type">float</span>, labels: dict = <span class="keyword">None</span>):
+        <span class="string">"""设置仪表盘（可升可降，用于当前延迟、队列长度）"""</span>
+        key = self._make_key(name, labels)
+        self._gauges[key] = value
+
+    <span class="keyword">def</span> <span class="func">histogram_observe</span>(self, name: <span class="type">str</span>, value: <span class="type">float</span>, labels: dict = <span class="keyword">None</span>):
+        <span class="string">"""记录直方图观测值（用于延迟分布）"""</span>
+        key = self._make_key(name, labels)
+        <span class="keyword">if</span> key <span class="keyword">not in</span> self._histograms:
+            self._histograms[key] = []
+        self._histograms[key].append(value)
+
+    <span class="keyword">def</span> <span class="func">export</span>(self) -> <span class="type">str</span>:
+        <span class="string">"""导出 Prometheus 文本格式"""</span>
+        lines = []
+        <span class="keyword">for</span> key, val <span class="keyword">in</span> self._counters.items():
+            name, label_str = self._parse_key(key)
+            lines.append(<span class="string">f"# TYPE {name} counter"</span>)
+            lines.append(<span class="string">f"{name}{label_str} {val}"</span>)
+        <span class="keyword">for</span> key, val <span class="keyword">in</span> self._gauges.items():
+            name, label_str = self._parse_key(key)
+            lines.append(<span class="string">f"# TYPE {name} gauge"</span>)
+            lines.append(<span class="string">f"{name}{label_str} {val:.4f}"</span>)
+        <span class="keyword">for</span> key, values <span class="keyword">in</span> self._histograms.items():
+            name, label_str = self._parse_key(key)
+            lines.append(<span class="string">f"# TYPE {name} histogram"</span>)
+            <span class="keyword">for</span> v <span class="keyword">in</span> values:
+                lines.append(<span class="string">f"{name}{label_str} {v:.4f}"</span>)
+        <span class="keyword">return</span> <span class="string">"\n"</span>.join(lines)
+
+    <span class="keyword">def</span> <span class="func">_make_key</span>(self, name, labels):
+        <span class="keyword">if</span> labels:
+            label_str = <span class="string">","</span>.join(<span class="string">f'{k}="{v}"'</span> <span class="keyword">for</span> k, v <span class="keyword">in</span> labels.items())
+            <span class="keyword">return</span> <span class="string">f"{self.prefix}_{name}{{{label_str}}}"</span>
+        <span class="keyword">return</span> <span class="string">f"{self.prefix}_{name}"</span>
+
+    <span class="keyword">def</span> <span class="func">_parse_key</span>(self, key):
+        <span class="string">"""从 key 中分离指标名和标签"""</span>
+        <span class="keyword">if</span> <span class="string">"{"</span> <span class="keyword">in</span> key:
+            name, rest = key.split(<span class="string">"{"</span>, <span class="number">1</span>)
+            <span class="keyword">return</span> name, <span class="string">"{"</span> + rest
+        <span class="keyword">return</span> key, <span class="string">""</span>
+  </pre>
+
+  <pre>
+<span class="comment"># === LLM 监控探针（向 LLM API 发请求并采集指标）===</span>
+
+<span class="keyword">class</span> <span class="type">LLMProbe</span>:
+    <span class="string">"""
+    黑盒监控探针：向 LLM API 发请求，采集 TTFT/TPOT/延迟等指标
+    支持 OpenAI 兼容接口（vLLM/Ollama/智谱等）
+    """</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, base_url: <span class="type">str</span>, api_key: <span class="type">str</span> = <span class="string">"empty"</span>,
+                 model: <span class="type">str</span> = <span class="string">"default"</span>, timeout: <span class="type">float</span> = <span class="number">30.0</span>):
+        self.base_url = base_url.rstrip(<span class="string">"/"</span>)
+        self.api_key = api_key
+        self.model = model
+        self.timeout = timeout
+        self.exporter = PrometheusExporter(prefix=<span class="string">"llm_probe"</span>)
+
+    <span class="keyword">def</span> <span class="func">health_check</span>(self) -> <span class="type">bool</span>:
+        <span class="string">"""简单的健康检查：GET /health 或 /v1/models"""</span>
+        <span class="keyword">try</span>:
+            resp = requests.get(
+                <span class="string">f"{self.base_url}/v1/models"</span>,
+                headers={<span class="string">"Authorization"</span>: <span class="string">f"Bearer {self.api_key}"</span>},
+                timeout=<span class="number">5</span>
+            )
+            <span class="keyword">return</span> resp.status_code == <span class="number">200</span>
+        <span class="keyword">except</span> Exception:
+            <span class="keyword">return</span> <span class="keyword">False</span>
+
+    <span class="keyword">def</span> <span class="func">probe</span>(self, prompt: <span class="type">str</span>, max_tokens: <span class="type">int</span> = <span class="number">50</span>) -> RequestMetric:
+        <span class="string">"""
+        发送请求并采集完整指标
+        使用 stream=True 来精确测量 TTFT
+        """</span>
+        request_id = str(uuid.uuid4())[:<span class="number">8</span>]
+        endpoint = <span class="string">"/v1/chat/completions"</span>
+
+        <span class="comment"># 请求体 — 标准 OpenAI 格式</span>
+        payload = {
+            <span class="string">"model"</span>: self.model,
+            <span class="string">"messages"</span>: [{<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: prompt}],
+            <span class="string">"max_tokens"</span>: max_tokens,
+            <span class="string">"stream"</span>: <span class="keyword">True</span>,  <span class="comment"># 流式获取，才能测 TTFT</span>
+        }
+
+        headers = {
+            <span class="string">"Authorization"</span>: <span class="string">f"Bearer {self.api_key}"</span>,
+            <span class="string">"Content-Type"</span>: <span class="string">"application/json"</span>,
+        }
+
+        <span class="comment"># 记录开始时间</span>
+        start_time = time.perf_counter()
+        ttft = <span class="keyword">None</span>
+        output_tokens = <span class="number">0</span>
+        error_msg = <span class="keyword">None</span>
+        status = <span class="number">0</span>
+        prompt_tokens = <span class="number">0</span>
+
+        <span class="keyword">try</span>:
+            resp = requests.post(
+                <span class="string">f"{self.base_url}{endpoint}"</span>,
+                json=payload,
+                headers=headers,
+                stream=<span class="keyword">True</span>,
+                timeout=self.timeout,
+            )
+            status = resp.status_code
+
+            <span class="comment"># 非流式错误直接返回</span>
+            <span class="keyword">if</span> status != <span class="number">200</span>:
+                error_msg = resp.text[:<span class="number">200</span>]
+                e2e = time.perf_counter() - start_time
+                <span class="keyword">return</span> RequestMetric(
+                    request_id=request_id, endpoint=endpoint,
+                    status=status, ttft=<span class="keyword">None</span>, tpot=<span class="keyword">None</span>,
+                    e2e_latency=e2e, prompt_tokens=<span class="number">0</span>,
+                    output_tokens=<span class="number">0</span>, error_msg=error_msg,
+                )
+
+            <span class="comment"># 流式读取 SSE 事件</span>
+            <span class="keyword">for</span> line <span class="keyword">in</span> resp.iter_lines(decode_unicode=<span class="keyword">True</span>):
+                <span class="keyword">if not</span> line <span class="keyword">or not</span> line.startswith(<span class="string">"data: "</span>):
+                    <span class="keyword">continue</span>
+                data_str = line[<span class="number">6</span>:]  <span class="comment"># 去掉 "data: " 前缀</span>
+                <span class="keyword">if</span> data_str == <span class="string">"[DONE]"</span>:
+                    <span class="keyword">break</span>
+
+                chunk = json.loads(data_str)
+                delta = chunk[<span class="string">"choices"</span>][<span class="number">0</span>][<span class="string">"delta"</span>]
+
+                <span class="comment"># 第一个非空 content 就是首 Token</span>
+                <span class="keyword">if</span> delta.get(<span class="string">"content"</span>) <span class="keyword">and</span> ttft <span class="keyword">is None</span>:
+                    ttft = time.perf_counter() - start_time
+
+                <span class="comment"># 统计输出 token 数</span>
+                <span class="keyword">if</span> delta.get(<span class="string">"content"</span>):
+                    output_tokens += <span class="number">1</span>
+
+                <span class="comment"># 从 usage 获取输入 token 数</span>
+                <span class="keyword">if</span> <span class="string">"usage"</span> <span class="keyword">in</span> chunk:
+                    prompt_tokens = chunk[<span class="string">"usage"</span>].get(<span class="string">"prompt_tokens"</span>, <span class="number">0</span>)
+
+        <span class="keyword">except</span> requests.exceptions.Timeout:
+            error_msg = <span class="string">"请求超时"</span>
+            status = <span class="number">0</span>
+        <span class="keyword">except</span> Exception <span class="keyword">as</span> e:
+            error_msg = str(e)[:<span class="number">200</span>
+
+        e2e_latency = time.perf_counter() - start_time
+
+        <span class="comment"># 计算 TPOT（平均每个输出 Token 的耗时）</span>
+        tpot = <span class="keyword">None</span>
+        <span class="keyword">if</span> ttft <span class="keyword">and</span> output_tokens > <span class="number">1</span>:
+            generation_time = e2e_latency - ttft
+            tpot = generation_time / (output_tokens - <span class="number">1</span>)
+
+        metric = RequestMetric(
+            request_id=request_id,
+            endpoint=endpoint,
+            status=status,
+            ttft=ttft,
+            tpot=tpot,
+            e2e_latency=e2e_latency,
+            prompt_tokens=prompt_tokens,
+            output_tokens=output_tokens,
+            error_msg=error_msg,
+        )
+
+        <span class="comment"># 同步更新 Prometheus 指标</span>
+        self.exporter.counter_inc(
+            <span class="string">"requests_total"</span>,
+            labels={<span class="string">"status"</span>: str(status)}
+        )
+        <span class="keyword">if</span> e2e_latency:
+            self.exporter.histogram_observe(<span class="string">"latency_seconds"</span>, e2e_latency)
+            self.exporter.gauge_set(<span class="string">"last_latency"</span>, e2e_latency)
+
+        <span class="keyword">return</span> metric
+  </pre>
+
+  <div class="concept-box">
+    <strong>🔑 TTFT 测量原理：</strong>TTFT（Time To First Token）是用户体验的核心指标——用户看到第一个字花了多久。只有 <code>stream=True</code> 流式请求才能测 TTFT，因为非流式请求要等全部生成完才返回。
+  </div>
+</div>
+
+<!-- ==================== SECTION 4: STATS ANALYZER ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📊</span> 实战 2：指标统计分析器
+    <span class="time-tag">⏱ 15min</span>
+  </div>
+
+  <p>采集到指标后，需要统计分析：P50/P95/P99 延迟、吞吐量、错误率、告警判断。</p>
+
+  <pre>
+<span class="keyword">import</span> statistics
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="type">StatsReport</span>:
+    <span class="string">"""统计分析报告"""</span>
+    total_requests: <span class="type">int</span>
+    success_count: <span class="type">int</span>
+    error_count: <span class="type">int</span>
+    error_rate: <span class="type">float</span>
+
+    <span class="comment"># 延迟统计（单位：秒）</span>
+    avg_latency: <span class="type">float</span>
+    median_latency: <span class="type">float</span>
+    p95_latency: <span class="type">float</span>
+    p99_latency: <span class="type">float</span>
+    min_latency: <span class="type">float</span>
+    max_latency: <span class="type">float</span>
+    std_latency: <span class="type">float</span>
+
+    <span class="comment"># TTFT 统计</span>
+    avg_ttft: <span class="type">float</span> | <span class="type">None</span>
+    p95_ttft: <span class="type">float</span> | <span class="type">None</span>
+
+    <span class="comment"># 吞吐量</span>
+    throughput_tps: <span class="type">float</span>     <span class="comment"># Token/秒</span>
+    qps: <span class="type">float</span>                 <span class="comment"># 请求/秒</span>
+    total_output_tokens: <span class="type">int</span>
+
+    <span class="comment"># 告警</span>
+    alerts: list[<span class="type">str</span>] = field(default_factory=list)
+
+
+<span class="keyword">class</span> <span class="type">MetricsAnalyzer</span>:
+    <span class="string">"""
+    指标统计分析器
+    输入：一批 RequestMetric
+    输出：StatsReport + 告警列表
+    """</span>
+
+    <span class="comment"># 告警阈值（可配置）</span>
+    DEFAULT_THRESHOLDS = {
+        <span class="string">"error_rate"</span>: <span class="number">0.05</span>,       <span class="comment"># 错误率 &gt; 5%</span>
+        <span class="string">"p99_latency"</span>: <span class="number">30.0</span>,    <span class="comment"># P99 延迟 &gt; 30s</span>
+        <span class="string">"p95_ttft"</span>: <span class="number">3.0</span>,        <span class="comment"># P95 TTFT &gt; 3s</span>
+        <span class="string">"throughput_min"</span>: <span class="number">50</span>,    <span class="comment"># 吞吐量 &lt; 50 tok/s</span>
+    }
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, thresholds: dict | <span class="type">None</span> = <span class="keyword">None</span>):
+        self.thresholds = {**self.DEFAULT_THRESHOLDS, **(thresholds <span class="keyword">or</span> {})}
+        self.alerts: list[<span class="type">str</span>] = []
+
+    <span class="keyword">def</span> <span class="func">analyze</span>(self, metrics: list[RequestMetric]) -> StatsReport:
+        <span class="string">"""分析一批请求指标，生成统计报告"""</span>
+        <span class="keyword">if not</span> metrics:
+            <span class="keyword">raise</span> ValueError(<span class="string">"指标列表为空"</span>)
+
+        <span class="comment"># 基本统计</span>
+        total = len(metrics)
+        successes = [m <span class="keyword">for</span> m <span class="keyword">in</span> metrics <span class="keyword">if</span> m.status == <span class="number">200</span>]
+        errors = [m <span class="keyword">for</span> m <span class="keyword">in</span> metrics <span class="keyword">if</span> m.status != <span class="number">200</span>]
+        error_rate = len(errors) / total
+
+        <span class="comment"># 延迟分布（仅成功的请求）</span>
+        latencies = [m.e2e_latency <span class="keyword">for</span> m <span class="keyword">in</span> successes]
+        ttf_ts = [m.ttft <span class="keyword">for</span> m <span class="keyword">in</span> successes <span class="keyword">if</span> m.ttft <span class="keyword">is not None</span>]
+        total_output = sum(m.output_tokens <span class="keyword">for</span> m <span class="keyword">in</span> successes)
+
+        <span class="comment"># 吞吐量：总 Token 数 / 总耗时</span>
+        time_span = max(m.timestamp <span class="keyword">for</span> m <span class="keyword">in</span> metrics) - min(m.timestamp <span class="keyword">for</span> m <span class="keyword">in</span> metrics)
+        time_span = max(time_span, <span class="number">0.001</span>)  <span class="comment"># 避免除零</span>
+        throughput = total_output / time_span
+        qps = total / time_span
+
+        <span class="comment"># 分位数计算</span>
+        p50 = self._percentile(latencies, <span class="number">0.50</span>)
+        p95 = self._percentile(latencies, <span class="number">0.95</span>)
+        p99 = self._percentile(latencies, <span class="number">0.99</span>)
+
+        report = StatsReport(
+            total_requests=total,
+            success_count=len(successes),
+            error_count=len(errors),
+            error_rate=error_rate,
+            avg_latency=statistics.mean(latencies) <span class="keyword">if</span> latencies <span class="keyword">else</span> <span class="number">0</span>,
+            median_latency=p50,
+            p95_latency=p95,
+            p99_latency=p99,
+            min_latency=min(latencies) <span class="keyword">if</span> latencies <span class="keyword">else</span> <span class="number">0</span>,
+            max_latency=max(latencies) <span class="keyword">if</span> latencies <span class="keyword">else</span> <span class="number">0</span>,
+            std_latency=statistics.stdev(latencies) <span class="keyword">if</span> len(latencies) > <span class="number">1</span> <span class="keyword">else</span> <span class="number">0</span>,
+            avg_ttft=statistics.mean(ttf_ts) <span class="keyword">if</span> ttf_ts <span class="keyword">else</span> <span class="keyword">None</span>,
+            p95_ttft=self._percentile(ttf_ts, <span class="number">0.95</span>) <span class="keyword">if</span> ttf_ts <span class="keyword">else</span> <span class="keyword">None</span>,
+            throughput_tps=throughput,
+            qps=qps,
+            total_output_tokens=total_output,
+        )
+
+        <span class="comment"># 自动告警检测</span>
+        report.alerts = self._check_alerts(report)
+        <span class="keyword">return</span> report
+
+    <span class="keyword">def</span> <span class="func">_percentile</span>(self, data: list[<span class="type">float</span>], p: <span class="type">float</span>) -> <span class="type">float</span>:
+        <span class="string">"""精确分位数（线性插值）"""</span>
+        <span class="keyword">if not</span> data:
+            <span class="keyword">return</span> <span class="number">0.0</span>
+        s = sorted(data)
+        k = (len(s) - <span class="number">1</span>) * p
+        f = <span class="keyword">int</span>(k)
+        c = k - f
+        <span class="keyword">if</span> f + <span class="number">1</span> < len(s):
+            <span class="keyword">return</span> s[f] + c * (s[f + <span class="number">1</span>] - s[f])
+        <span class="keyword">return</span> s[f]
+
+    <span class="keyword">def</span> <span class="func">_check_alerts</span>(self, report: StatsReport) -> list[<span class="type">str</span>]:
+        <span class="string">"""根据阈值生成告警"""</span>
+        alerts = []
+        t = self.thresholds
+
+        <span class="keyword">if</span> report.error_rate > t[<span class="string">"error_rate"</span>]:
+            alerts.append(
+                <span class="string">f"🔴 错误率 {report.error_rate:.1%} 超过阈值 {t['error_rate']:.1%}"</span>
+            )
+        <span class="keyword">if</span> report.p99_latency > t[<span class="string">"p99_latency"</span>]:
+            alerts.append(
+                <span class="string">f"🔴 P99延迟 {report.p99_latency:.1f}s 超过阈值 {t['p99_latency']}s"</span>
+            )
+        <span class="keyword">if</span> report.p95_ttft <span class="keyword">and</span> report.p95_ttft > t[<span class="string">"p95_ttft"</span>]:
+            alerts.append(
+                <span class="string">f"🟡 P95 TTFT {report.p95_ttft:.2f}s 超过阈值 {t['p95_ttft']}s"</span>
+            )
+        <span class="keyword">if</span> report.throughput_tps < t[<span class="string">"throughput_min"</span>]:
+            alerts.append(
+                <span class="string">f"🟡 吞吐量 {report.throughput_tps:.0f} tok/s 低于阈值 {t['throughput_min']} tok/s"</span>
+            )
+        <span class="keyword">return</span> alerts
+
+    <span class="keyword">def</span> <span class="func">print_report</span>(self, report: StatsReport):
+        <span class="string">"""格式化打印报告"""</span>
+        <span class="builtin">print</span>(<span class="string">f"""
+╔══════════════════════════════════════════════════╗
+║           LLM 服务监控报告                       ║
+╠══════════════════════════════════════════════════╣
+║  总请求数:  {report.total_requests:>6}                              ║
+║  成功:  {report.success_count:>6}   失败:  {report.error_count:>6}                 ║
+║  错误率:  {report.error_rate:>6.1%}                            ║
+╠══════════════════════════════════════════════════╣
+║  延迟统计 (秒)                                   ║
+║  平均: {report.avg_latency:>8.3f}  P50: {report.median_latency:>8.3f}           ║
+║  P95: {report.p95_latency:>8.3f}  P99: {report.p99_latency:>8.3f}           ║
+║  最小: {report.min_latency:>8.3f}  最大: {report.max_latency:>8.3f}           ║
+║  标准差: {report.std_latency:>6.3f}                              ║
+╠══════════════════════════════════════════════════╣
+║  TTFT (首Token时间)                              ║
+║  平均: {report.avg_ttft or 0:>8.3f}s  P95: {report.p95_ttft or 0:>8.3f}s       ║
+╠══════════════════════════════════════════════════╣
+║  吞吐量: {report.throughput_tps:>8.1f} tok/s   QPS: {report.qps:>5.1f}          ║
+║  总输出Token: {report.total_output_tokens:>8}                          ║
+╚══════════════════════════════════════════════════╝"""</span>)
+
+        <span class="keyword">if</span> report.alerts:
+            <span class="builtin">print</span>(<span class="string">"\n⚠️  告警:"</span>)
+            <span class="keyword">for</span> alert <span class="keyword">in</span> report.alerts:
+                <span class="builtin">print</span>(f<span class="string">"   {alert}"</span>)
+        <span class="keyword">else</span>:
+            <span class="builtin">print</span>(<span class="string">"\n✅ 所有指标正常"</span>)
+  </pre>
+</div>
+
+<!-- ==================== SECTION 5: LOAD TESTER ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔥</span> 实战 3：异步压力测试引擎
+    <span class="time-tag">⏱ 20min</span>
+  </div>
+
+  <p>压测的核心：模拟并发请求，用 <code>asyncio</code> + <code>aiohttp</code>（Day 24 学过的异步编程）来提升测试效率。</p>
+
+  <pre>
+<span class="keyword">import</span> asyncio
+<span class="keyword">import</span> aiohttp
+<span class="keyword">import</span> time
+<span class="keyword">import</span> uuid
+<span class="keyword">import</span> json
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> asdict
+
+<span class="comment"># === 压测配置 ===</span>
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="type">LoadTestConfig</span>:
+    <span class="string">"""压测参数配置"""</span>
+    base_url: <span class="type">str</span>            <span class="comment"># LLM API 地址</span>
+    model: <span class="type">str</span> = <span class="string">"default"</span>
+    api_key: <span class="type">str</span> = <span class="string">"empty"</span>
+    concurrency: <span class="type">int</span> = <span class="number">5</span>       <span class="comment"># 并发数</span>
+    total_requests: <span class="type">int</span> = <span class="number">20</span>   <span class="comment"># 总请求数</span>
+    prompt: <span class="type">str</span> = <span class="string">"你好，请简单介绍一下不良资产管理。"</span>
+    max_tokens: <span class="type">int</span> = <span class="number">50</span>
+    timeout: <span class="type">float</span> = <span class="number">60.0</span>
+    ramp_up: <span class="type">float</span> = <span class="number">0</span>       <span class="comment"># 预热时间（秒），逐步增加并发</span>
+
+
+<span class="comment"># === 异步压测引擎 ===</span>
+
+<span class="keyword">class</span> <span class="type">LoadTestEngine</span>:
+    <span class="string">"""
+    异步压力测试引擎
+    用 Semaphore 控制并发数（Day 24 学过）
+    """</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, config: LoadTestConfig):
+        self.config = config
+        self.metrics: list[RequestMetric] = []
+
+    <span class="keyword">async def</span> <span class="func">_single_request</span>(self, session: aiohttp.ClientSession,
+                             semaphore: asyncio.Semaphore) -> RequestMetric:
+        <span class="string">"""单次异步请求 + 指标采集"""</span>
+        <span class="keyword">async with</span> semaphore:  <span class="comment"># Semaphore 控制并发上限</span>
+            request_id = str(uuid.uuid4())[:<span class="number">8</span>]
+            start_time = time.perf_counter()
+            ttft = <span class="keyword">None</span>
+            output_tokens = <span class="number">0</span>
+            prompt_tokens = <span class="number">0</span>
+            status = <span class="number">0</span>
+            error_msg = <span class="keyword">None</span>
+
+            payload = {
+                <span class="string">"model"</span>: self.config.model,
+                <span class="string">"messages"</span>: [{<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: self.config.prompt}],
+                <span class="string">"max_tokens"</span>: self.config.max_tokens,
+                <span class="string">"stream"</span>: <span class="keyword">True</span>,
+            }
+
+            <span class="keyword">try</span>:
+                <span class="keyword">async with</span> session.post(
+                    <span class="string">f"{self.config.base_url}/v1/chat/completions"</span>,
+                    json=payload,
+                    headers={<span class="string">"Authorization"</span>: <span class="string">f"Bearer {self.config.api_key}"</span>},
+                    timeout=aiohttp.ClientTimeout(total=self.config.timeout),
+                ) <span class="keyword">as</span> resp:
+                    status = resp.status
+                    <span class="keyword">if</span> status != <span class="number">200</span>:
+                        error_msg = (await resp.text())[:<span class="number">200</span>]
+                    <span class="keyword">else</span>:
+                        <span class="comment"># 异步流式读取 SSE</span>
+                        <span class="keyword">async for</span> line <span class="keyword">in</span> resp.content:
+                            decoded = line.decode(<span class="string">"utf-8"</span>).strip()
+                            <span class="keyword">if not</span> decoded <span class="keyword">or not</span> decoded.startswith(<span class="string">"data: "</span>):
+                                <span class="keyword">continue</span>
+                            data_str = decoded[<span class="number">6</span>:]
+                            <span class="keyword">if</span> data_str == <span class="string">"[DONE]"</span>:
+                                <span class="keyword">break</span>
+                            chunk = json.loads(data_str)
+                            delta = chunk[<span class="string">"choices"</span>][<span class="number">0</span>][<span class="string">"delta"</span>]
+                            <span class="keyword">if</span> delta.get(<span class="string">"content"</span>):
+                                <span class="keyword">if</span> ttft <span class="keyword">is None</span>:
+                                    ttft = time.perf_counter() - start_time
+                                output_tokens += <span class="number">1</span>
+                            <span class="keyword">if</span> <span class="string">"usage"</span> <span class="keyword">in</span> chunk:
+                                prompt_tokens = chunk[<span class="string">"usage"</span>].get(<span class="string">"prompt_tokens"</span>, <span class="number">0</span>)
+
+            <span class="keyword">except</span> asyncio.TimeoutError:
+                error_msg = <span class="string">"请求超时"</span>
+            <span class="keyword">except</span> Exception <span class="keyword">as</span> e:
+                error_msg = str(e)[:<span class="number">200</span>]
+
+            e2e_latency = time.perf_counter() - start_time
+            tpot = <span class="keyword">None</span>
+            <span class="keyword">if</span> ttft <span class="keyword">and</span> output_tokens > <span class="number">1</span>:
+                tpot = (e2e_latency - ttft) / (output_tokens - <span class="number">1</span>)
+
+            <span class="keyword">return</span> RequestMetric(
+                request_id=request_id,
+                endpoint=<span class="string">"/v1/chat/completions"</span>,
+                status=status,
+                ttft=ttft, tpot=tpot,
+                e2e_latency=e2e_latency,
+                prompt_tokens=prompt_tokens,
+                output_tokens=output_tokens,
+                error_msg=error_msg,
+            )
+
+    <span class="keyword">async def</span> <span class="func">run</span>(self) -> list[RequestMetric]:
+        <span class="string">"""执行压测主流程"""</span>
+        cfg = self.config
+        semaphore = asyncio.Semaphore(cfg.concurrency)
+
+        <span class="builtin">print</span>(<span class="string">f"""
+🚀 开始压力测试
+   目标: {cfg.base_url}
+   并发: {cfg.concurrency}  总请求: {cfg.total_requests}
+   Prompt: {cfg.prompt[:50]}...
+"""</span>)
+
+        <span class="keyword">async with</span> aiohttp.ClientSession() <span class="keyword">as</span> session:
+            <span class="comment"># 创建所有任务（受 Semaphore 控制并发）</span>
+            tasks = [
+                self._single_request(session, semaphore)
+                <span class="keyword">for</span> _ <span class="keyword">in</span> range(cfg.total_requests)
+            ]
+            <span class="comment"># asyncio.gather 并发执行所有任务</span>
+            self.metrics = await asyncio.gather(*tasks)
+
+        <span class="builtin">print</span>(<span class="string">f"✅ 压测完成，共 {len(self.metrics)} 个请求"</span>)
+        <span class="keyword">return</span> self.metrics
+
+    <span class="keyword">async def</span> <span class="func">run_with_ramp_up</span>(self) -> list[RequestMetric]:
+        <span class="string">"""带预热阶段的压测（逐步增加并发）"""</span>
+        cfg = self.config
+        all_metrics = []
+        requests_per_step = max(<span class="number">1</span>, cfg.total_requests // <span class="number">5</span>)
+        steps = <span class="number">5</span>
+
+        <span class="keyword">async with</span> aiohttp.ClientSession() <span class="keyword">as</span> session:
+            <span class="keyword">for</span> step <span class="keyword">in</span> range(<span class="number">1</span>, steps + <span class="number">1</span>):
+                current_concurrency = <span class="keyword">int</span>(cfg.concurrency * step / steps)
+                semaphore = asyncio.Semaphore(current_concurrency)
+                <span class="builtin">print</span>(<span class="string">f"  阶段 {step}/{steps}：并发={current_concurrency}，"
+                      <span class="string">f"请求={requests_per_step}"</span>)
+
+                tasks = [
+                    self._single_request(session, semaphore)
+                    <span class="keyword">for</span> _ <span class="keyword">in</span> range(requests_per_step)
+                ]
+                step_metrics = await asyncio.gather(*tasks)
+                all_metrics.extend(step_metrics)
+
+        self.metrics = all_metrics
+        <span class="keyword">return</span> all_metrics
+
+    <span class="keyword">def</span> <span class="func">export_results</span>(self, filepath: <span class="type">str</span> = <span class="string">"load_test_results.json"</span>):
+        <span class="string">"""导出结果为 JSON 文件"""</span>
+        data = [asdict(m) <span class="keyword">for</span> m <span class="keyword">in</span> self.metrics]
+        <span class="keyword">with</span> <span class="builtin">open</span>(filepath, <span class="string">"w"</span>, encoding=<span class="string">"utf-8"</span>) <span class="keyword">as</span> f:
+            json.dump(data, f, ensure_ascii=<span class="keyword">False</span>, indent=<span class="number">2</span>)
+        <span class="builtin">print</span>(<span class="string">f"📁 结果已保存: {filepath}"</span>)
+  </pre>
+</div>
+
+<!-- ==================== SECTION 6: AMC COMBINED ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏦</span> LLM 实战：AMC 智能报告服务完整监控
+    <span class="time-tag">⏱ 10min</span>
+  </div>
+
+  <p>把监控和压测串起来，模拟 AMC 智能报告生成服务的生产场景。</p>
+
+  <pre>
+<span class="keyword">import</span> asyncio
+
+<span class="comment"># === AMC 业务压测 Prompt 模板 ===</span>
+
+AMC_PROMPTS = [
+    <span class="string">"请分析以下不良资产数据：某AMC持有账面价值5000万元的不良贷款，"</span>
+    <span class="string">"债务人经营困难，抵押物为一处工业用地。请评估处置方案和预期回收率。"</span>,
+    <span class="string">"请将以下SQL查询需求转为自然语言描述：SELECT dept_name, COUNT(*) "</span>
+    <span class="string">"FROM amc_department GROUP BY dept_name HAVING COUNT(*) > 5"</span>,
+    <span class="string">"什么是NPL（Non-Performing Loan）？不良资产的五级分类标准是什么？"</span>,
+    <span class="string">"请解释AMC（资产管理公司）的盈利模式，以及与银行处置不良资产的对比。"</span>,
+    <span class="string">"帮我写一段SQL：查询2024年Q1各分支机构新增不良资产金额TOP10。"</span>,
+]
+
+
+<span class="comment"># === 完整压测 + 分析流水线 ===</span>
+
+<span class="keyword">async def</span> <span class="func">amc_load_test_pipeline</span>(
+    base_url: <span class="type">str</span>,
+    model: <span class="type">str</span> = <span class="string">"default"</span>,
+    concurrency: <span class="type">int</span> = <span class="number">3</span>,
+    requests_per_prompt: <span class="type">int</span> = <span class="number">2</span>,
+):
+    <span class="string">"""
+    AMC 业务压测流水线
+    1. 用不同 AMC 业务 Prompt 发起请求
+    2. 采集指标
+    3. 自动分析并输出报告
+    """</span>
+    <span class="comment"># 1. 构建压测任务：每个 prompt 发 N 次请求</span>
+    all_prompts = []
+    <span class="keyword">for</span> prompt <span class="keyword">in</span> AMC_PROMPTS:
+        all_prompts.extend([prompt] * requests_per_prompt)
+
+    config = LoadTestConfig(
+        base_url=base_url,
+        model=model,
+        concurrency=concurrency,
+        total_requests=len(all_prompts),
+        timeout=<span class="number">30.0</span>,
+    )
+
+    <span class="comment"># 2. 执行压测</span>
+    engine = LoadTestEngine(config)
+    <span class="keyword">await</span> engine.run()
+
+    <span class="comment"># 3. 分析结果</span>
+    analyzer = MetricsAnalyzer()
+    report = analyzer.analyze(engine.metrics)
+    analyzer.print_report(report)
+
+    <span class="comment"># 4. 导出原始数据</span>
+    engine.export_results(<span class="string">"amc_load_test_results.json"</span>)
+
+    <span class="keyword">return</span> report
+
+
+<span class="comment"># === 使用示例（替换为实际 LLM 服务地址）===</span>
+
+<span class="comment"># 如果你有 vLLM / Ollama 服务：</span>
+<span class="comment"># asyncio.run(amc_load_test_pipeline(</span>
+<span class="comment">#     base_url="http://localhost:8000",</span>
+<span class="comment">#     model="your-model-name",</span>
+<span class="comment">#     concurrency=5,</span>
+<span class="comment">#     requests_per_prompt=3,</span>
+<span class="comment"># ))</span>
+
+<span class="comment"># 如果没有实际服务，可以先用 mock 测试监控代码：</span>
+<span class="keyword">import</span> random
+
+<span class="keyword">def</span> <span class="func">mock_metrics</span>(n: <span class="type">int</span> = <span class="number">20</span>) -> list[RequestMetric]:
+    <span class="string">"""生成模拟指标（用于测试代码逻辑）"""</span>
+    results = []
+    base = time.time()
+    <span class="keyword">for</span> i <span class="keyword">in</span> range(n):
+        <span class="comment"># 模拟：90% 成功，10% 超时</span>
+        success = random.random() < <span class="number">0.9</span>
+        ttft = random.uniform(<span class="number">0.2</span>, <span class="number">2.5</span>) <span class="keyword">if</span> success <span class="keyword">else</span> <span class="keyword">None</span>
+        e2e = random.uniform(<span class="number">1.0</span>, <span class="number">15.0</span>) <span class="keyword">if</span> success <span class="keyword">else</span> random.uniform(<span class="number">30.0</span>, <span class="number">60.0</span>)
+        output_tok = random.randint(<span class="number">20</span>, <span class="number">80</span>) <span class="keyword">if</span> success <span class="keyword">else</span> <span class="number">0</span>
+        results.append(RequestMetric(
+            request_id=f<span class="string">"mock-{i:04d}"</span>,
+            endpoint=<span class="string">"/v1/chat/completions"</span>,
+            status=<span class="number">200</span> <span class="keyword">if</span> success <span class="keyword">else</span> <span class="number">504</span>,
+            ttft=ttft,
+            tpot=e2e / max(output_tok, <span class="number">1</span>) <span class="keyword">if</span> success <span class="keyword">else</span> <span class="keyword">None</span>,
+            e2e_latency=e2e,
+            prompt_tokens=random.randint(<span class="number">30</span>, <span class="number">100</span>),
+            output_tokens=output_tok,
+            error_msg=<span class="keyword">None</span> <span class="keyword">if</span> success <span class="keyword">else</span> <span class="string">"Gateway Timeout"</span>,
+            timestamp=base + i * <span class="number">0.5</span>,
+        ))
+    <span class="keyword">return</span> results
+
+<span class="comment"># 运行 mock 测试</span>
+<span class="keyword">if</span> __name__ == <span class="string">"__main__"</span>:
+    mock_data = mock_metrics(<span class="number">20</span>)
+    analyzer = MetricsAnalyzer()
+    report = analyzer.analyze(mock_data)
+    analyzer.print_report(report)
+  </pre>
+</div>
+
+<!-- ==================== SECTION 7: PITFALLS ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚡</span> 常见陷阱 Top 5
+    <span class="time-tag">⏱ 3min</span>
+  </div>
+
+  <table>
+    <tr><th>#</th><th>陷阱</th><th>症状</th><th>解法</th></tr>
+    <tr>
+      <td><span class="tag tag-red">1</span></td>
+      <td><strong>压测把生产打挂</strong></td>
+      <td>并发压测导致 GPU OOM，服务雪崩</td>
+      <td>用 Semaphore 限制并发；先小并发测再逐步加大；压测环境与生产隔离</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-orange">2</span></td>
+      <td><strong>TTFT 不准</strong></td>
+      <td>TTFT 包含了网络传输时间</td>
+      <td>尽量在同一网络环境压测；对比「本地 vs 远程」TTFT 差异；首 Token 应以 <code>delta.content</code> 为准，排除 <code>usage</code> 事件</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-orange">3</span></td>
+      <td><strong>P99 被异常值污染</strong></td>
+      <td>1 次超时导致 P99 极高，掩盖真实水位</td>
+      <td>同时看 P50/P95/P99；用「剔除 P100（最大值）」后的 P99 更稳健；关注分布而非单点</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-purple">4</span></td>
+      <td><strong>只压不监控</strong></td>
+      <td>压测跑完只看 QPS，不看延迟分布和错误</td>
+      <td>压测 = 监控 + 统计 + 告警；每次压测都要输出 StatsReport；保存原始 JSON 做历史对比</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-blue">5</span></td>
+      <td><strong>遗忘异步陷阱</strong></td>
+      <td>aiohttp + requests 混用导致阻塞</td>
+      <td>压测全程用 aiohttp；不要在 async 函数里调 requests.get()；Day 24 学的异步规则仍然适用</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ==================== SECTION 8: BEST PRACTICES ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">✅</span> 监控 & 压测最佳实践速查
+    <span class="time-tag">⏱ 2min</span>
+  </div>
+
+  <div class="compare-grid">
+    <div class="compare-card">
+      <h4>🔧 监控 Checklist</h4>
+      <p>✅ TTFT / TPOT / E2E 延迟三件套</p>
+      <p>✅ P50 / P95 / P99 分位数，不只看均值</p>
+      <p>✅ 错误率 + 超时率分别统计</p>
+      <p>✅ Token 吞吐量 (tok/s) 和 QPS</p>
+      <p>✅ 指标持久化（JSON / 日志）</p>
+      <p>✅ 告警阈值 + 自动检测</p>
+      <p>✅ 模拟数据做回归测试</p>
+    </div>
+    <div class="compare-card">
+      <h4>🔥 压测 Checklist</h4>
+      <p>✅ 先单请求验证 → 小并发 → 大并发</p>
+      <p>✅ 用 Semaphore 控制并发上限</p>
+      <p>✅ 多种 Prompt（短/长/复杂）分别测</p>
+      <p>✅ 带 ramp_up 预热阶段</p>
+      <p>✅ 记录每次压测的完整 JSON</p>
+      <p>✅ 压测环境与生产隔离</p>
+      <p>✅ 关注 GPU 显存 + 利用率</p>
+    </div>
+  </div>
+
+  <div class="concept-box">
+    <strong>📈 进阶方向：</strong>生产环境通常用 <strong>Prometheus + Grafana</strong> 做持续监控（vLLM 自带 /metrics 接口），压测工具可用 <strong>locust</strong>（Python 编写的分布式压测框架）。今天的手写版帮你理解了核心原理，迁移到工具链会非常顺畅。
+  </div>
+</div>
+
+<!-- ==================== SECTION 9: SUMMARY ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📝</span> 今日知识点总结
+    <span class="time-tag">⏱ 2min</span>
+  </div>
+
+  <table>
+    <tr><th>领域</th><th>知识点</th><th>关键词</th></tr>
+    <tr>
+      <td><span class="tag tag-blue">监控</span></td>
+      <td>LLM 四类核心指标</td>
+      <td>TTFT / TPOT / E2E / Throughput / Error Rate</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-blue">监控</span></td>
+      <td>Prometheus 指标格式</td>
+      <td>Counter / Gauge / Histogram</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-green">Python</span></td>
+      <td>高精度计时</td>
+      <td>time.perf_counter / @contextmanager timer</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-green">Python</span></td>
+      <td>统计分析</td>
+      <td>statistics.mean / median / stdev / 分位数计算</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-green">Python</span></td>
+      <td>结构化数据</td>
+      <td>dataclass + field + asdict</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-orange">压测</span></td>
+      <td>异步压测引擎</td>
+      <td>aiohttp + Semaphore + asyncio.gather</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-orange">压测</span></td>
+      <td>压测策略</td>
+      <td>ramp_up / concurrency / 多 Prompt 覆盖</td>
+    </tr>
+  </table>
+
+  <div class="tip-box">
+    <strong>🚀 Phase 3 预告：</strong>Day 49 将是 Phase 3 最后一课——<strong>微调部署综合实战</strong>，回顾 LoRA → QLoRA → Ollama → vLLM → Docker 全链路，做一个端到端的 AMC 模型上线项目。Phase 4 将进入 <strong>8 个项目实战</strong>，从理论到真正可交付的成果！
+  </div>
+</div>
+
+<!-- ==================== SECTION 10: EXERCISE ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🧪</span> 练习
+    <span class="time-tag">⏱ 10min</span>
+  </div>
+
+  <div class="quiz">
+    <h4>练习 1：增强 MetricsAnalyzer — 添加 GPU 指标解析</h4>
+    <p>vLLM 的 <code>/metrics</code> 接口返回 Prometheus 格式的 GPU 显存和利用率数据。请为 PrometheusExporter 添加一个 <code>parse_prometheus_text(text: str)</code> 方法，能解析出 <code>gpu_vram_used_bytes</code> 和 <code>gpu_utilization_percent</code> 的值。</p>
+  </div>
+
+  <pre>
+<span class="comment"># 提示：Prometheus 文本格式如下：</span>
+<span class="comment"># gpu_vram_used_bytes{gpu_id="0"} 8589934592</span>
+<span class="comment"># gpu_utilization_percent{gpu_id="0"} 85.5</span>
+
+<span class="comment"># 解析思路：</span>
+<span class="comment"># 1. 按行分割文本</span>
+<span class="comment"># 2. 跳过以 # 开头的注释行和空行</span>
+<span class="comment"># 3. 用 split() 分离指标名（含标签）和值</span>
+<span class="comment"># 4. 用 { 判断是否有标签，提取纯指标名</span>
+
+<span class="keyword">def</span> <span class="func">parse_prometheus_text</span>(self, text: <span class="type">str</span>) -> dict[<span class="type">str</span>, <span class="type">float</span>]:
+    <span class="string">"""解析 Prometheus 格式文本，返回 {指标名: 值}"""</span>
+    result = {}
+    <span class="keyword">for</span> line <span class="keyword">in</span> text.strip().split(<span class="string">"\n"</span>):
+        <span class="keyword">if not</span> line <span class="keyword">or</span> line.startswith(<span class="string">"#"</span>):
+            <span class="keyword">continue</span>
+        <span class="comment"># TODO: 在此完成解析逻辑</span>
+        <span class="keyword">pass</span>
+    <span class="keyword">return</span> result
+  </pre>
+
+  <div class="quiz">
+    <h4>练习 2：添加「心跳检测」功能</h4>
+    <p>为 LLMProbe 添加一个 <code>heartbeat_loop</code> 方法：每隔 N 秒发一次健康检查请求，连续 3 次失败则打印告警。用 <code>asyncio.sleep</code> 控制间隔。</p>
+  </div>
+
+  <div class="quiz">
+    <h4>练习 3：LeetCode #295 — 数据流的中位数（进阶）</h4>
+    <p>设计一个支持以下两种操作的数据结构：<code>addNum(num)</code> 添加一个数，<code>findMedian()</code> 返回当前所有数的中位数。</p>
+    <p>提示：用两个堆（最小堆 + 最大堆），左边大堆存较小的半部分，右边小堆存较大的半部分，保持两边数量平衡。</p>
+  </div>
+</div>
+
+<!-- ==================== FOOTER ==================== -->
+<div class="footer">
+  <p>Day 48 / 70 · Phase 3 微调部署 · LLM 服务监控与压力测试</p>
+  <p>下一天：<strong>Day 49 — 微调部署综合实战（Phase 3 收官）</strong></p>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 49 - 微调部署综合实战：AMC 全链路 LLM 系统（Phase 3 收官）</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#fdf4ff,#eff6ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #e9d5ff; }
+  .header .badge { display:inline-block;background:#fce7f3;color:#be185d;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,#ec4899,var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:#be185d;min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--green); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  pre { background:#1e293b;color:#e2e8f0;padding:18px 22px;border-radius:8px;overflow-x:auto;font-size:13.5px;line-height:1.7;margin:12px 0; }
+  code { font-family:'Cascadia Code','Fira Code','JetBrains Mono',Consolas,monospace; }
+  .inline-code { background:var(--surface2);color:var(--accent2);padding:2px 7px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',monospace; }
+  .highlight-line { background:rgba(99,102,241,0.15);display:block;margin:0 -18px;padding:0 18px;border-left:3px solid var(--accent2); }
+  .comment { color:#94a3b8;font-style:italic; }
+  .keyword { color:#c084fc; }
+  .string { color:#86efac; }
+  .func { color:#67e8f9; }
+  .number { color:#fbbf24; }
+  .param { color:#fda4af; }
+  h3 { font-size:16px;font-weight:700;margin:18px 0 10px;color:var(--text); }
+  h4 { font-size:14.5px;font-weight:600;margin:14px 0 8px;color:var(--accent2); }
+  p { margin:8px 0;font-size:14.5px;color:var(--text2); }
+  ul,ol { margin:8px 0;padding-left:24px;font-size:14px;color:var(--text2); }
+  li { margin:4px 0; }
+  table { width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px; }
+  th { background:var(--surface2);color:var(--text);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border); }
+  td { padding:9px 14px;border:1px solid var(--border);color:var(--text2); }
+  .arch-diagram { background:var(--surface2);border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;margin:14px 0;font-family:'Cascadia Code',monospace;font-size:13px;line-height:1.8;color:var(--text2);white-space:pre;overflow-x:auto; }
+  .milestone-box { background:linear-gradient(135deg,#fdf4ff,#eff6ff);border:2px solid #e9d5ff;border-radius:var(--radius);padding:24px 28px;margin:20px 0; }
+  .milestone-box h3 { color:#9333ea;margin-bottom:12px; }
+  .phase-badge { display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;letter-spacing:.5px; }
+  .phase-done { background:#dcfce7;color:#16a34a; }
+  .phase-current { background:#e0e7ff;color:#4338ca; }
+  .phase-future { background:var(--surface3);color:var(--text3); }
+  .nav-links { display:flex;gap:8px;margin-top:20px;flex-wrap:wrap; }
+  .nav-links a { display:inline-block;padding:8px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--accent2);text-decoration:none;transition:all .2s; }
+  .nav-links a:hover { background:var(--accent2);color:#fff; }
+  .summary-card { background:linear-gradient(135deg,#ecfdf5,#eff6ff);border-radius:var(--radius);padding:20px 24px;margin:16px 0;border:1px solid #a7f3d0; }
+  .summary-card h3 { color:var(--green);margin-bottom:8px; }
+  .summary-card ul { color:var(--text2); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Phase 3 收官 · 微调部署综合实战</div>
+  <h1>Day 49 — AMC 全链路 LLM 系统：从微调到生产</h1>
+  <div class="subtitle">将 D43-D48 全部知识整合为一个完整的 AMC 金融智能系统 · Python CLI 工具 + 工程架构实战</div>
+</div>
+
+<div class="progress-bar">
+  <span class="label">Phase 3 进度</span>
+  <div class="track"><div class="fill" style="width:100%"></div></div>
+  <span class="percent">7/7</span>
+</div>
+
+<!-- ==================== Section 1 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🏗️</span> 全链路架构总览 <span class="time-tag">~5 min</span></div>
+
+  <p>今天是 Phase 3 的收官之战。我们要把过去 7 天学的所有内容——LoRA 微调、QLoRA 优化、Ollama 量化部署、vLLM 高性能推理、Docker 容器化、监控压测——串联成一个<strong>完整可运行的 AMC 金融智能系统</strong>。</p>
+
+  <div class="concept-box">
+    <strong>🎯 今天的目标</strong>：不是学新知识点，而是<strong>整合</strong>。就像数仓工程师把 ODS → DWD → DWS → ADS 串起来一样，我们要把分散的知识点组装成一条完整的 LLM 生产线。
+  </div>
+
+  <h3>系统架构：五大模块串联</h3>
+  <div class="arch-diagram">
+┌─────────────┐     ┌─────────────┐     ┌──────────────┐     ┌─────────────┐     ┌──────────────┐
+│  ① 数据准备  │ ──▶ │  ② LoRA微调 │ ──▶ │ ③ 模型导出   │ ──▶ │ ④ 服务部署  │ ──▶ │ ⑤ 监控运维   │
+│  JSONL构建   │     │  QLoRA训练  │     │ GGUF量化    │     │ vLLM+Docker │     │ 压测+告警    │
+│  质量清洗     │     │  PEFT适配   │     │ Ollama导入  │     │ FastAPI网关 │     │ 指标看板    │
+└─────────────┘     └─────────────┘     └──────────────┘     └─────────────┘     └──────────────┘
+  D43-44 内容         D43-44 内容         D45 内容            D46-47 内容          D48 内容
+  </div>
+
+  <h3>完整项目目录结构</h3>
+<pre><span class="comment"># AMC 全链路 LLM 系统 — 生产级项目结构</span>
+amc-llm-system/
+├── <span class="keyword">configs/</span>                    <span class="comment"># 配置文件</span>
+│   ├── train_config.yaml         <span class="comment"># 微调参数</span>
+│   ├── deploy_config.yaml        <span class="comment"># 部署参数（vLLM/Docker）</span>
+│   └── monitor_config.yaml       <span class="comment"># 监控告警阈值</span>
+├── <span class="keyword">data/</span>                       <span class="comment"># 数据目录</span>
+│   ├── raw/                      <span class="comment"># 原始业务数据</span>
+│   ├── processed/                <span class="comment"># 清洗后的 JSONL</span>
+│   └── eval/                     <span class="comment"># 评估测试集</span>
+├── <span class="keyword">src/</span>                        <span class="comment"># 核心源码</span>
+│   ├── __init__.py
+│   ├── <span class="keyword">data_prep/</span>               <span class="comment"># ① 数据准备模块</span>
+│   │   ├── cleaner.py            <span class="comment"># 数据清洗</span>
+│   │   ├── formatter.py          <span class="comment"># 格式化工具</span>
+│   │   └── splitter.py           <span class="comment"># 数据集拆分</span>
+│   ├── <span class="keyword">finetune/</span>                <span class="comment"># ② 微调模块</span>
+│   │   ├── trainer.py            <span class="comment"># LoRA/QLoRA 训练器</span>
+│   │   └── evaluator.py          <span class="comment"># 微调效果评估</span>
+│   ├── <span class="keyword">export/</span>                  <span class="comment"># ③ 模型导出模块</span>
+│   │   ├── merger.py             <span class="comment"># LoRA 权重合并</span>
+│   │   └── quantizer.py          <span class="comment"># GGUF 量化导出</span>
+│   ├── <span class="keyword">serve/</span>                   <span class="comment"># ④ 服务部署模块</span>
+│   │   ├── app.py                <span class="comment"># FastAPI 主应用</span>
+│   │   ├── llm_client.py         <span class="comment"># vLLM 客户端封装</span>
+│   │   └── routes.py             <span class="comment"># AMC 业务路由</span>
+│   └── <span class="keyword">monitor/</span>                 <span class="comment"># ⑤ 监控运维模块</span>
+│       ├── probe.py              <span class="comment"># 黑盒探针</span>
+│       ├── load_test.py          <span class="comment"># 压力测试</span>
+│       └── dashboard.py          <span class="comment"># 指标聚合</span>
+├── <span class="keyword">deploy/</span>                      <span class="comment"># 部署文件</span>
+│   ├── Dockerfile                <span class="comment"># 多阶段构建</span>
+│   ├── docker-compose.yaml       <span class="comment"># 服务编排</span>
+│   └── entrypoint.sh             <span class="comment"># 启动脚本</span>
+├── <span class="keyword">tests/</span>                      <span class="comment"># 测试</span>
+│   ├── test_data_prep.py
+│   ├── test_serve.py
+│   └── conftest.py
+├── <span class="keyword">scripts/</span>                    <span class="comment"># 一键运行脚本</span>
+│   └── run_pipeline.py           <span class="comment"># 全链路一键执行</span>
+├── requirements.txt
+├── pyproject.toml
+└── README.md</pre>
+
+  <div class="tip-box">
+    <strong>💡 数仓工程师视角</strong>：这个结构你应该很熟悉——<code class="inline-code">configs/</code> 类似数仓的配置表，<code class="inline-code">data/</code> 分 raw/processed 类似 ODS/DWD 分层，<code class="inline-code">src/</code> 按功能模块分目录类似数仓按主题域分包。<strong>分层思维是通用的工程能力</strong>。
+  </div>
+</div>
+
+<!-- ==================== Section 2: Python知识点 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🐍</span> Python 知识：argparse CLI + 结构化日志 + __main__.py <span class="time-tag">~20 min</span></div>
+
+  <p>今天的 Python 知识聚焦于<strong>工程化工具链</strong>——把你的 Python 程序变成一个专业的命令行工具。</p>
+
+  <h3>1. argparse — 命令行参数解析</h3>
+  <p>当你的程序需要不同参数来控制行为（比如选微调 / 部署 / 压测模式），<code class="inline-code">argparse</code> 是标准库中最专业的方案。</p>
+
+<pre><span class="comment"># src/cli.py — AMC LLM 系统的命令行入口</span>
+<span class="keyword">import</span> argparse
+
+<span class="keyword">def</span> <span class="func">build_parser</span>() -> argparse.ArgumentParser:
+    <span class="string">"""构建 CLI 参数解析器 — 支持 pipeline 的五个子命令"""</span>
+    parser = argparse.ArgumentParser(
+        prog=<span class="string">"amc-llm"</span>,
+        description=<span class="string">"AMC 金融智能 LLM 系统 — 全链路管理工具"</span>,
+        formatter_class=argparse.RawDescriptionHelpFormatter,  <span class="comment"># 保留格式</span>
+        epilog=<span class="string">"""示例:
+  amc-llm prepare   --input data/raw/ --output data/processed/
+  amc-llm finetune  --config configs/train_config.yaml
+  amc-llm export    --model ./output/lora_amc --format gguf
+  amc-llm serve     --host 0.0.0.0 --port 8000
+  amc-llm monitor   --mode load-test --concurrency 10
+"""</span>
+    )
+
+    <span class="comment"># ====== 子命令系统 ======</span>
+    subparsers = parser.add_subparsers(dest=<span class="string">"command"</span>, help=<span class="string">"可用子命令"</span>)
+
+    <span class="comment"># --- prepare: 数据准备 ---</span>
+    prep = subparsers.add_parser(<span class="string">"prepare"</span>, help=<span class="string">"数据准备与清洗"</span>)
+    prep.add_argument(<span class="string">"--input"</span>, required=<span class="keyword">True</span>, help=<span class="string">"原始数据目录"</span>)
+    prep.add_argument(<span class="string">"--output"</span>, required=<span class="keyword">True</span>, help=<span class="string">"输出 JSONL 路径"</span>)
+    prep.add_argument(<span class="string">"--split"</span>, type=<span class="keyword">float</span>, default=<span class="number">0.1</span>,
+                      help=<span class="string">"验证集比例 (默认 0.1)"</span>)
+    prep.add_argument(<span class="string">"--clean"</span>, action=<span class="string">"store_true"</span>, help=<span class="string">"启用数据清洗"</span>)
+
+    <span class="comment"># --- finetune: 模型微调 ---</span>
+    ft = subparsers.add_parser(<span class="string">"finetune"</span>, help=<span class="string">"LoRA/QLoRA 微调训练"</span>)
+    ft.add_argument(<span class="string">"--config"</span>, default=<span class="string">"configs/train_config.yaml"</span>,
+                    help=<span class="string">"训练配置文件路径"</span>)
+    ft.add_argument(<span class="string">"--data"</span>, default=<span class="string">"data/processed/"</span>,
+                    help=<span class="string">"训练数据目录"</span>)
+    ft.add_argument(<span class="string">"--output"</span>, default=<span class="string">"./output/lora_amc"</span>,
+                    help=<span class="string">"模型输出目录"</span>)
+    ft.add_argument(<span class="string">"--quantize"</span>, choices=[<span class="string">"4bit"</span>, <span class="string">"8bit"</span>, <span class="string">"none"</span>],
+                    default=<span class="string">"4bit"</span>, help=<span class="string">"QLoRA 量化级别"</span>)
+<span class="highlight-line">    ft.add_argument(<span class="string">"--dry-run"</span>, action=<span class="string">"store_true"</span>,</span>
+<span class="highlight-line">                    help=<span class="string">"只打印训练参数，不执行"</span>)  <span class="comment"># action="store_true" 是最常用的参数类型</span></span>
+
+    <span class="comment"># --- export: 模型导出 ---</span>
+    exp = subparsers.add_parser(<span class="string">"export"</span>, help=<span class="string">"导出与量化模型"</span>)
+    exp.add_argument(<span class="string">"--model"</span>, required=<span class="keyword">True</span>, help=<span class="string">"LoRA 模型路径"</span>)
+    exp.add_argument(<span class="string">"--format"</span>, choices=[<span class="string">"gguf"</span>, <span class="string">"merged"</span>],
+                      default=<span class="string">"merged"</span>, help=<span class="string">"导出格式"</span>)
+    exp.add_argument(<span class="string">"--quant-level"</span>, choices=[<span class="string">"q4_k_m"</span>, <span class="string">"q5_k_m"</span>, <span class="string">"q8_0"</span>],
+                      default=<span class="string">"q4_k_m"</span>)
+
+    <span class="comment"># --- serve: 启动服务 ---</span>
+    srv = subparsers.add_parser(<span class="string">"serve"</span>, help=<span class="string">"启动 API 服务"</span>)
+    srv.add_argument(<span class="string">"--host"</span>, default=<span class="string">"0.0.0.0"</span>)
+    srv.add_argument(<span class="string">"--port"</span>, type=<span class="keyword">int</span>, default=<span class="number">8000</span>)
+    srv.add_argument(<span class="string">"--workers"</span>, type=<span class="keyword">int</span>, default=<span class="number">1</span>,
+                      help=<span class="string">"uvicorn worker 数量"</span>)
+<span class="highlight-line">    srv.add_argument(<span class="string">"--gpu-memory"</span>, type=<span class="keyword">int</span>, default=<span class="number">4096</span>,</span>
+<span class="highlight-line">                      help=<span class="string">"vLLM GPU 显存分配 (MB)"</span>)</span>
+    srv.add_argument(<span class="string">"--reload"</span>, action=<span class="string">"store_true"</span>, help=<span class="string">"开发模式热重载"</span>)
+
+    <span class="comment"># --- monitor: 监控与压测 ---</span>
+    mon = subparsers.add_parser(<span class="string">"monitor"</span>, help=<span class="string">"监控与压力测试"</span>)
+    mon.add_argument(<span class="string">"--mode"</span>, choices=[<span class="string">"probe"</span>, <span class="string">"load-test"</span>, <span class="string">"report"</span>],
+                      default=<span class="string">"probe"</span>)
+    mon.add_argument(<span class="string">"--concurrency"</span>, type=<span class="keyword">int</span>, default=<span class="number">5</span>)
+    mon.add_argument(<span class="string">"--duration"</span>, type=<span class="keyword">int</span>, default=<span class="number">60</span>,
+                      help=<span class="string">"压测持续秒数"</span>)
+    mon.add_argument(<span class="string">"--threshold"</span>, type=<span class="keyword">float</span>, default=<span class="number">2.0</span>,
+                      help=<span class="string">"TTFT 告警阈值 (秒)"</span>)
+
+    <span class="keyword">return</span> parser
+
+
+<span class="comment"># 使用示例</span>
+<span class="keyword">if</span> __name__ == <span class="string">"__main__"</span>:
+    parser = build_parser()
+    args = parser.parse_args()
+
+    <span class="comment"># args.command 就是子命令名字</span>
+    <span class="keyword">if</span> args.command == <span class="string">"finetune"</span>:
+        print(<span class="string">f"开始微调: config={args.config}, data={args.data}"</span>)
+        print(<span class="string">f"量化: {args.quantize}, dry_run={args.dry_run}"</span>)
+    <span class="keyword">elif</span> args.command == <span class="string">"serve"</span>:
+        print(<span class="string">f"启动服务: {args.host}:{args.port}"</span>)
+    <span class="keyword">else</span>:
+        parser.print_help()  <span class="comment"># 没有子命令时打印帮助</span>
+</pre>
+
+  <div class="tip-box">
+    <strong>💡 argparse 核心要点</strong><br>
+    • <code class="inline-code">add_subparsers(dest="command")</code> — 创建 git-style 子命令体系<br>
+    • <code class="inline-code">choices=[...]</code> — 限制可选值，比手动 if-else 更安全<br>
+    • <code class="inline-code">action="store_true"</code> — 布尔开关，不加就是 False，加了就是 True<br>
+    • <code class="inline-code">type=int</code> / <code class="inline-code">type=float</code> — 自动类型转换 + 校验<br>
+    • <code class="inline-code">default=...</code> — 默认值，让命令更简洁
+  </div>
+
+  <h3>2. 结构化 JSON 日志 — logging 的生产级用法</h3>
+  <p>生产环境的日志要能被 ELK / Grafana Loki 等系统解析。<strong>JSON 格式日志</strong>是行业标准。</p>
+
+<pre><span class="keyword">import</span> logging
+<span class="keyword">import</span> json
+<span class="keyword">from</span> datetime <span class="keyword">import</span> datetime, timezone
+<span class="keyword">from</span> pathlib <span class="keyword">import</span> Path
+
+
+<span class="keyword">class</span> <span class="func">JSONFormatter</span>(logging.Formatter):
+    <span class="string">"""把 log record 转成 JSON — 方志 ELK/Loki 解析"""</span>
+
+    <span class="keyword">def</span> <span class="func">format</span>(self, record: logging.LogRecord) -> <span class="keyword">str</span>:
+        <span class="comment"># 提取核心字段</span>
+        log_entry = {
+            <span class="string">"timestamp"</span>: datetime.now(timezone.utc).isoformat(),
+            <span class="string">"level"</span>: record.levelname,
+            <span class="string">"module"</span>: record.module,
+            <span class="string">"message"</span>: record.getMessage(),
+        }
+
+        <span class="comment"># 附加上下文信息（如果有的话）</span>
+        <span class="keyword">if</span> hasattr(record, <span class="string">"extra"</span>):
+            log_entry[<span class="string">"context"</span>] = record.extra
+
+        <span class="comment"># 异常信息</span>
+        <span class="keyword">if</span> record.exc_info <span class="keyword">and</span> record.exc_info[<span class="number">0</span>] <span class="keyword">is not</span> <span class="keyword">None</span>:
+            log_entry[<span class="string">"exception"</span>] = self.formatException(record.exc_info)
+
+        <span class="keyword">return</span> json.dumps(log_entry, ensure_ascii=<span class="keyword">False</span>)
+
+
+<span class="keyword">def</span> <span class="func">setup_logging</span>(log_file: <span class="keyword">str</span> = <span class="string">"logs/amc-llm.jsonl"</span>,
+                 level: <span class="keyword">str</span> = <span class="string">"INFO"</span>) -> logging.Logger:
+    <span class="string">"""初始化结构化日志 — 同时输出到文件和控制台"""</span>
+    logger = logging.getLogger(<span class="string">"amc-llm"</span>)
+    logger.setLevel(getattr(logging, level.upper()))
+
+    <span class="comment"># 日志文件路径自动创建父目录</span>
+    log_path = Path(log_file)
+    log_path.parent.mkdir(parents=<span class="keyword">True</span>, exist_ok=<span class="keyword">True</span>)
+
+    <span class="comment"># ① JSON 文件 Handler — 给 ELK/Loki 解析</span>
+    file_handler = logging.FileHandler(log_file, encoding=<span class="string">"utf-8"</span>)
+    file_handler.setFormatter(JSONFormatter())
+    logger.addHandler(file_handler)
+
+    <span class="comment"># ② 控制台 Handler — 给人看，保持可读性</span>
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(
+        logging.Formatter(<span class="string">"%(asctime)s [%(levelname)s] %(message)s"</span>)
+    )
+    logger.addHandler(console_handler)
+
+    <span class="keyword">return</span> logger
+
+
+<span class="comment"># ====== 使用示例 ======</span>
+logger = setup_logging()
+
+<span class="comment"># 基本日志</span>
+logger.info(<span class="string">"数据准备开始"</span>)
+
+<span class="comment"># 带上下文的日志（使用 extra 参数）</span>
+<span class="keyword">try</span>:
+    result = process_data(<span class="string">"amc_reports.csv"</span>)
+<span class="highlight-line">    logger.info(<span class="string">"数据处理完成"</span>, extra={</span>
+<span class="highlight-line">        <span class="string">"extra"</span>: {<span class="string">"file"</span>: <span class="string">"amc_reports.csv"</span>, <span class="string">"rows"</span>: <span class="number">1523</span>, <span class="string">"duration_s"</span>: <span class="number">2.3</span>}</span>
+<span class="highlight-line">    })</span>
+<span class="keyword">except</span> Exception <span class="keyword">as</span> e:
+    logger.error(<span class="string">"数据处理失败"</span>, exc_info=<span class="keyword">True</span>)
+    <span class="comment"># exc_info=True 会自动记录异常堆栈到 JSON</span>
+
+<span class="comment"># JSONL 文件输出示例：</span>
+<span class="comment"># {"timestamp":"2026-07-24T01:50:00+00:00","level":"INFO","module":"data_prep","message":"数据处理完成","context":{"file":"amc_reports.csv","rows":1523,"duration_s":2.3}}</span>
+</pre>
+
+  <h3>3. __main__.py — 让包可以 python -m 运行</h3>
+  <p>在 <code class="inline-code">src/</code> 目录下放一个 <code class="inline-code">__main__.py</code>，就能用 <code class="inline-code">python -m src</code> 直接运行整个包。这是 Python 项目的标准入口模式。</p>
+
+<pre><span class="comment"># src/__main__.py — 包入口</span>
+<span class="string">"""
+AMC 金融智能 LLM 系统
+用法:
+    python -m src finetune --config configs/train_config.yaml
+    python -m src serve --port 8000
+    python -m src monitor --mode load-test
+"""</span>
+<span class="keyword">from</span> .cli <span class="keyword">import</span> build_parser
+<span class="keyword">from</span> .logging_setup <span class="keyword">import</span> setup_logging
+
+
+<span class="keyword">def</span> <span class="func">main</span>():
+    parser = build_parser()
+    args = parser.parse_args()
+
+    <span class="comment"># 初始化日志</span>
+    logger = setup_logging()
+    logger.info(<span class="string">f"AMC-LLM 系统启动, 命令={args.command}"</span>)
+
+    <span class="keyword">if not</span> args.command:
+        parser.print_help()
+        <span class="keyword">return</span>
+
+    <span class="comment"># 路由到各模块</span>
+    commands = {
+        <span class="string">"prepare"</span>: <span class="string">"src.data_prep.main"</span>,
+        <span class="string">"finetune"</span>: <span class="string">"src.finetune.main"</span>,
+        <span class="string">"export"</span>: <span class="string">"src.export.main"</span>,
+        <span class="string">"serve"</span>: <span class="string">"src.serve.main"</span>,
+        <span class="string">"monitor"</span>: <span class="string">"src.monitor.main"</span>,
+    }
+
+    <span class="keyword">if</span> args.command <span class="keyword">in</span> commands:
+        <span class="comment"># 动态导入对应模块（避免全部加载）</span>
+        module_path = commands[args.command]
+        parts = module_path.split(<span class="string">"."</span>)
+        mod = __import__(module_path, fromlist=[<span class="string">"main"</span>])
+        mod.main(args)  <span class="comment"># 把 args 传给子模块</span>
+    <span class="keyword">else</span>:
+        parser.print_help()
+
+
+<span class="keyword">if</span> __name__ == <span class="string">"__main__"</span>:
+    main()
+</pre>
+
+  <div class="concept-box">
+    <strong>📌 __main__.py 的价值</strong>：把 <code class="inline-code">python -m src serve</code> 和 <code class="inline-code">python src/__main__.py serve</code> 等价。好处是：<br>
+    ① Python 的 <code class="inline-code">import</code> 路径自动包含当前目录，模块导入不会出错<br>
+    ② 与 <code class="inline-code">pip install -e .</code> 无缝配合，装完直接 <code class="inline-code">amc-llm serve</code><br>
+    ③ 子命令路由模式 = 策略模式 + 动态导入，扩展新命令只需加文件
+  </div>
+</div>
+
+<!-- ==================== Section 3: 全链路 Pipeline ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🔗</span> 全链路 Pipeline：一键从数据到服务 <span class="time-tag">~25 min</span></div>
+
+  <h3>模块 ① 数据准备 — 复盘 D43-44</h3>
+  <pre><span class="comment"># src/data_prep/main.py — 数据准备子命令入口</span>
+<span class="keyword">import</span> json
+<span class="keyword">from</span> pathlib <span class="keyword">import</span> Path
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+
+
+<span class="keyword">@dataclass</span>
+<span class="keyword">class</span> <span class="func">PrepConfig</span>:
+    <span class="string">"""数据准备配置 — 对应 prepare 子命令参数"""</span>
+    input_dir: <span class="keyword">str</span>
+    output_dir: <span class="keyword">str</span>
+    val_split: <span class="keyword">float</span> = <span class="number">0.1</span>
+    enable_clean: <span class="keyword">bool</span> = <span class="keyword">True</span>
+    min_length: <span class="keyword">int</span> = <span class="number">10</span>
+    max_length: <span class="keyword">int</span> = <span class="number">2048</span>
+
+
+<span class="keyword">def</span> <span class="func">clean_sample</span>(text: <span class="keyword">str</span>, config: PrepConfig) -> <span class="keyword">str</span> | <span class="keyword">None</span>:
+    <span class="string">"""单条数据清洗 — 过长/过短/空行过滤"""</span>
+    text = text.strip()
+    <span class="keyword">if</span> len(text) < config.min_length:
+        <span class="keyword">return</span> <span class="keyword">None</span>
+    <span class="keyword">if</span> len(text) > config.max_length:
+        <span class="keyword">return</span> text[:config.max_length]  <span class="comment"># 截断而非丢弃</span>
+    <span class="keyword">return</span> text
+
+
+<span class="keyword">def</span> <span class="func">load_and_clean</span>(input_dir: <span class="keyword">str</span>, config: PrepConfig) -> list[dict]:
+    <span class="string">"""加载原始数据 → 清洗 → 返回有效列表"""</span>
+    raw_path = Path(input_dir)
+    samples = []
+
+    <span class="keyword">for</span> file <span class="keyword">in</span> raw_path.glob(<span class="string">"*.jsonl"</span>):
+        <span class="keyword">with</span> open(file, <span class="string">"r"</span>, encoding=<span class="string">"utf-8"</span>) <span class="keyword">as</span> f:
+            <span class="keyword">for</span> line <span class="keyword">in</span> f:
+                <span class="keyword">try</span>:
+                    data = json.loads(line.strip())
+                    <span class="comment"># 清洗 instruction 和 output</span>
+                    <span class="keyword">if</span> config.enable_clean:
+                        cleaned = clean_sample(data.get(<span class="string">"instruction"</span>, <span class="string">""</span>), config)
+                        <span class="keyword">if</span> cleaned <span class="keyword">is</span> <span class="keyword">None</span>:
+                            <span class="keyword">continue</span>
+                        data[<span class="string">"instruction"</span>] = cleaned
+                    samples.append(data)
+                <span class="keyword">except</span> json.JSONDecodeError:
+                    <span class="keyword">continue</span>  <span class="comment"># 跳过格式错误行</span>
+
+    <span class="keyword">return</span> samples
+
+
+<span class="keyword">def</span> <span class="func">split_dataset</span>(samples: list[dict], val_ratio: <span class="keyword">float</span>) -> tuple:
+    <span class="string">"""随机拆分训练/验证集 — 保证可复现"""</span>
+    <span class="keyword">import</span> random
+    random.seed(<span class="number">42</span>)  <span class="comment"># 固定随机种子</span>
+    shuffled = samples.copy()
+    random.shuffle(shuffled)
+
+    split_idx = <span class="keyword">int</span>(len(shuffled) * (<span class="number">1</span> - val_ratio))
+    <span class="keyword">return</span> shuffled[:split_idx], shuffled[split_idx:]
+
+
+<span class="keyword">def</span> <span class="func">save_jsonl</span>(data: list[dict], path: <span class="keyword">str</span>):
+    <span class="string">"""保存为 JSONL 格式"""</span>
+    Path(path).parent.mkdir(parents=<span class="keyword">True</span>, exist_ok=<span class="keyword">True</span>)
+    <span class="keyword">with</span> open(path, <span class="string">"w"</span>, encoding=<span class="string">"utf-8"</span>) <span class="keyword">as</span> f:
+        <span class="keyword">for</span> item <span class="keyword">in</span> data:
+            f.write(json.dumps(item, ensure_ascii=<span class="keyword">False</span>) + <span class="string">"\n"</span>)
+
+
+<span class="keyword">def</span> <span class="func">main</span>(args):
+    <span class="string">"""数据准备主流程"""</span>
+    config = PrepConfig(
+        input_dir=args.input,
+        output_dir=args.output,
+        val_split=args.split,
+        enable_clean=args.clean,
+    )
+
+    <span class="comment"># ① 加载 + 清洗</span>
+    samples = load_and_clean(args.input, config)
+    print(<span class="string">f"[数据准备] 加载 {len(samples)} 条有效数据"</span>)
+
+    <span class="comment"># ② 拆分</span>
+    train, val = split_dataset(samples, config.val_split)
+    print(<span class="string">f"[数据准备] 训练集 {len(train)} / 验证集 {len(val)}"</span>)
+
+    <span class="comment"># ③ 保存</span>
+    save_jsonl(train, <span class="keyword">str</span>(Path(args.output) / <span class="string">"train.jsonl"</span>))
+    save_jsonl(val, <span class="keyword">str</span>(Path(args.output) / <span class="string">"val.jsonl"</span>))
+    print(<span class="string">f"[数据准备] 已保存到 {args.output}/"</span>)
+</pre>
+
+  <h3>模块 ②③④⑤ 聚合 — 全链路一键脚本</h3>
+  <pre><span class="comment"># scripts/run_pipeline.py — 全链路一键执行器</span>
+<span class="string">"""
+AMC LLM 全链路 Pipeline
+从数据准备 → 微调 → 导出 → 部署 → 压测 的完整自动化
+"""</span>
+<span class="keyword">import</span> subprocess
+<span class="keyword">import</span> sys
+<span class="keyword">import</span> time
+<span class="keyword">from</span> pathlib <span class="keyword">import</span> Path
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> enum <span class="keyword">import</span> Enum
+
+
+<span class="keyword">class</span> <span class="func">StageStatus</span>(Enum):
+    PENDING = <span class="string">"待执行"</span>
+    RUNNING = <span class="string">"执行中"</span>
+    SUCCESS = <span class="string">"✅ 成功"</span>
+    FAILED  = <span class="string">"❌ 失败"</span>
+    SKIPPED = <span class="string">"⏭️ 跳过"</span>
+
+
+<span class="keyword">@dataclass</span>
+<span class="keyword">class</span> <span class="func">PipelineStage</span>:
+    <span class="string">"""Pipeline 中的一个阶段"""</span>
+    name: <span class="keyword">str</span>
+    command: <span class="keyword">str</span>
+    status: StageStatus = StageStatus.PENDING
+    duration: <span class="keyword">float</span> = <span class="number">0.0</span>
+    depends_on: list[<span class="keyword">str</span>] = field(default_factory=list)  <span class="comment"># 前置依赖</span>
+
+
+<span class="keyword">class</span> <span class="func">Pipeline</span>:
+    <span class="string">"""全链路 Pipeline 编排器"""</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self):
+        self.stages: dict[<span class="keyword">str</span>, PipelineStage] = {}
+        self.results: list[dict] = []
+
+    <span class="keyword">def</span> <span class="func">add_stage</span>(self, name: <span class="keyword">str</span>, command: <span class="keyword">str</span>,
+                 depends_on: list[<span class="keyword">str</span>] | <span class="keyword">None</span> = <span class="keyword">None</span>) -> <span class="string">"Pipeline"</span>:
+        <span class="string">"""添加阶段（链式调用）"""</span>
+        self.stages[name] = PipelineStage(
+            name=name,
+            command=command,
+            depends_on=depends_on <span class="keyword">or</span> [],
+        )
+        <span class="keyword">return</span> self  <span class="comment"># 支持链式 .add().add().add()</span>
+
+<span class="highlight-line">    <span class="keyword">def</span> <span class="func">run</span>(self, target: <span class="keyword">str</span> | <span class="keyword">None</span> = <span class="keyword">None</span>):</span>
+<span class="highlight-line">        <span class="string">"""执行 pipeline — target 指定执行到哪个阶段（含）"""</span></span>
+        stage_order = list(self.stages.keys())
+        <span class="keyword">if</span> target <span class="keyword">and</span> target <span class="keyword">in</span> stage_order:
+            idx = stage_order.index(target)
+            stage_order = stage_order[:idx + <span class="number">1</span>]
+
+        <span class="keyword">for</span> stage_name <span class="keyword">in</span> stage_order:
+            stage = self.stages[stage_name]
+
+            <span class="comment"># 检查依赖是否全部成功</span>
+            <span class="keyword">for</span> dep <span class="keyword">in</span> stage.depends_on:
+                dep_stage = self.stages[dep]
+                <span class="keyword">if</span> dep_stage.status != StageStatus.SUCCESS:
+                    stage.status = StageStatus.SKIPPED
+                    print(<span class="string">f"  ⏭️ [{stage_name}] 跳过（依赖 {dep} 未成功）"</span>)
+                    <span class="keyword">continue</span>
+
+            <span class="comment"># 执行</span>
+            stage.status = StageStatus.RUNNING
+            print(<span class="string">f"\n{'='*50}"</span>)
+            print(<span class="string">f"  🚀 执行: {stage_name}"</span>)
+            print(<span class="string">f"{'='*50}"</span>)
+
+            start = time.perf_counter()
+            <span class="keyword">try</span>:
+                result = subprocess.run(
+                    stage.command, shell=<span class="keyword">True</span>,
+                    capture_output=<span class="keyword">True</span>, text=<span class="keyword">True</span>,
+                    timeout=<span class="number">3600</span>,  <span class="comment"># 1小时超时</span>
+                )
+                stage.duration = time.perf_counter() - start
+
+                <span class="keyword">if</span> result.returncode == <span class="number">0</span>:
+                    stage.status = StageStatus.SUCCESS
+                <span class="keyword">else</span>:
+                    stage.status = StageStatus.FAILED
+                    print(<span class="string">f"  ❌ 错误: {result.stderr[:500]}"</span>)
+            <span class="keyword">except</span> subprocess.TimeoutExpired:
+                stage.status = StageStatus.FAILED
+                print(<span class="string">f"  ❌ 超时 (>1h)"</span>)
+            <span class="keyword">except</span> Exception <span class="keyword">as</span> e:
+                stage.status = StageStatus.FAILED
+                print(<span class="string">f"  ❌ 异常: {e}"</span>)
+
+            <span class="comment"># 记录结果</span>
+            self.results.append({
+                <span class="string">"stage"</span>: stage_name,
+                <span class="string">"status"</span>: stage.status.value,
+                <span class="string">"duration"</span>: round(stage.duration, <span class="number">2</span>),
+            })
+
+        self._print_summary()
+
+    <span class="keyword">def</span> <span class="func">_print_summary</span>(self):
+        <span class="string">"""打印 Pipeline 执行摘要"""</span>
+        print(<span class="string">f"\n{'='*50}"</span>)
+        print(<span class="string">"  📊 Pipeline 执行摘要"</span>)
+        print(<span class="string">f"{'='*50}"</span>)
+        total_time = <span class="number">0</span>
+        <span class="keyword">for</span> r <span class="keyword">in</span> self.results:
+            icon = <span class="string">"✅"</span> <span class="keyword">if</span> <span class="string">"成功"</span> <span class="keyword">in</span> r[<span class="string">"status"</span>] <span class="keyword">else</span> <span class="string">"❌"</span>
+            print(<span class="string">f"  {icon} {r['stage']:<20} {r['status']:<10} {r['duration']:.1f}s"</span>)
+            total_time += r[<span class="string">"duration"</span>]
+        print(<span class="string">f"  ─────────────────────────────────────"</span>)
+        print(<span class="string">f"  总耗时: {total_time:.1f}s"</span>)
+
+
+<span class="comment"># ====== 构建 AMC Pipeline ======</span>
+<span class="keyword">def</span> <span class="func">build_amc_pipeline</span>() -> Pipeline:
+    <span class="string">"""构建 AMC 全链路 Pipeline"""</span>
+    p = Pipeline()
+    p.add_stage(<span class="string">"数据准备"</span>,
+        <span class="string">"python -m src prepare --input data/raw/ --output data/processed/ --clean"</span>)
+    p.add_stage(<span class="string">"LoRA 微调"</span>,
+        <span class="string">"python -m src finetune --config configs/train_config.yaml --quantize 4bit"</span>,
+        depends_on=[<span class="string">"数据准备"</span>])
+    p.add_stage(<span class="string">"模型导出"</span>,
+        <span class="string">"python -m src export --model ./output/lora_amc --format gguf --quant-level q4_k_m"</span>,
+        depends_on=[<span class="string">"LoRA 微调"</span>])
+    p.add_stage(<span class="string">"服务部署"</span>,
+        <span class="string">"python -m src serve --host 0.0.0.0 --port 8000"</span>,
+        depends_on=[<span class="string">"模型导出"</span>])
+    p.add_stage(<span class="string">"压力测试"</span>,
+        <span class="string">"python -m src monitor --mode load-test --concurrency 10 --duration 60"</span>,
+        depends_on=[<span class="string">"服务部署"</span>])
+    <span class="keyword">return</span> p
+
+
+<span class="keyword">if</span> __name__ == <span class="string">"__main__"</span>:
+    target = sys.argv[<span class="number">1</span>] <span class="keyword">if</span> len(sys.argv) > <span class="number">1</span> <span class="keyword">else</span> <span class="keyword">None</span>
+    pipeline = build_amc_pipeline()
+    pipeline.run(target=target)
+    <span class="comment"># 用法:</span>
+    <span class="comment">#   python scripts/run_pipeline.py              — 全部执行</span>
+    <span class="comment">#   python scripts/run_pipeline.py "LoRA 微调" — 只执行到微调</span>
+</pre>
+
+  <div class="tip-box">
+    <strong>💡 Pipeline 设计要点</strong><br>
+    • <code class="inline-code">depends_on</code> 实现依赖检查——上游失败自动跳过下游（类似 Airflow 的任务依赖）<br>
+    • <code class="inline-code">target</code> 参数支持只执行到某个阶段——调试时不用每次跑全量<br>
+    • <code class="inline-code">subprocess.run(timeout=3600)</code> 防止挂死<br>
+    • <strong>数仓类比</strong>：Pipeline = ETL 调度，Stage = Task，depends_on = 任务依赖 DAG
+  </div>
+</div>
+
+<!-- ==================== Section 4: 配置驱动 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">⚙️</span> 配置驱动：YAML + pydantic-settings 全局管理 <span class="time-tag">~10 min</span></div>
+
+<pre><span class="comment"># configs/train_config.yaml — 微调配置（YAML 格式）</span>
+<span class="comment"># AMC 金融术语微调参数配置</span>
+model:
+  base_model: <span class="string">"Qwen/Qwen2.5-7B-Instruct"</span>  <span class="comment"># 基座模型</span>
+  output_dir: <span class="string">"./output/lora_amc"</span>
+
+lora:
+  r: <span class="number">16</span>                 <span class="comment"># LoRA 秩</span>
+  alpha: <span class="number">32</span>             <span class="comment"># 缩放因子 (通常 = 2 * r)</span>
+  dropout: <span class="number">0.05</span>         <span class="comment"># Dropout 率</span>
+  target_modules:      <span class="comment"># 目标模块（按模型自动选择）</span>
+    - <span class="string">"q_proj"</span>
+    - <span class="string">"k_proj"</span>
+    - <span class="string">"v_proj"</span>
+    - <span class="string">"o_proj"</span>
+
+quantization:
+  load_in_4bit: <span class="keyword">true</span>   <span class="comment"># QLoRA 4-bit 量化</span>
+  bnb_4bit_compute_dtype: <span class="string">"float16"</span>
+
+training:
+  num_train_epochs: <span class="number">3</span>
+  per_device_train_batch_size: <span class="number">4</span>
+  gradient_accumulation_steps: <span class="number">4</span>  <span class="comment"># 等效 batch = 4*4=16</span>
+  learning_rate: <span class="number">2.0e-4</span>
+  lr_scheduler_type: <span class="string">"cosine"</span>
+  warmup_ratio: <span class="number">0.1</span>
+  max_seq_length: <span class="number">2048</span>
+  save_strategy: <span class="string">"epoch"</span>
+  logging_steps: <span class="number">10</span>
+
+evaluation:
+  val_split: <span class="number">0.1</span>
+  eval_strategy: <span class="string">"epoch"</span>
+</pre>
+
+<pre><span class="comment"># src/config.py — Pydantic 配置模型（类型安全 + 自动校验）</span>
+<span class="keyword">from</span> pydantic <span class="keyword">import</span> BaseModel, Field
+<span class="keyword">from</span> typing <span class="keyword">import</span> Literal
+<span class="keyword">import</span> yaml
+
+
+<span class="keyword">class</span> <span class="func">ModelConfig</span>(BaseModel):
+    base_model: <span class="keyword">str</span> = Field(description=<span class="string">"基座模型 HuggingFace ID"</span>)
+    output_dir: <span class="keyword">str</span> = Field(default=<span class="string">"./output"</span>)
+
+
+<span class="keyword">class</span> <span class="func">LoRAConfig</span>(BaseModel):
+    r: <span class="keyword">int</span> = Field(default=<span class="number">16</span>, ge=<span class="number">1</span>, le=<span class="number">256</span>, description=<span class="string">"LoRA 秩"</span>)
+    alpha: <span class="keyword">int</span> = Field(default=<span class="number">32</span>, ge=<span class="number">1</span>)
+    dropout: <span class="keyword">float</span> = Field(default=<span class="number">0.05</span>, ge=<span class="number">0</span>, le=<span class="number">1</span>)
+    target_modules: list[<span class="keyword">str</span>] = Field(
+        default_factory=<span class="keyword">lambda</span>: [<span class="string">"q_proj"</span>, <span class="string">"v_proj"</span>]
+    )
+
+
+<span class="keyword">class</span> <span class="func">TrainingConfig</span>(BaseModel):
+    num_train_epochs: <span class="keyword">int</span> = Field(default=<span class="number">3</span>, ge=<span class="number">1</span>)
+    per_device_train_batch_size: <span class="keyword">int</span> = Field(default=<span class="number">4</span>, ge=<span class="number">1</span>)
+    gradient_accumulation_steps: <span class="keyword">int</span> = Field(default=<span class="number">4</span>, ge=<span class="number">1</span>)
+    learning_rate: <span class="keyword">float</span> = Field(default=<span class="number">2e-4</span>, gt=<span class="number">0</span>)
+    lr_scheduler_type: Literal[<span class="string">"cosine"</span>, <span class="string">"linear"</span>, <span class="string">"constant"</span>] = <span class="string">"cosine"</span>
+    warmup_ratio: <span class="keyword">float</span> = Field(default=<span class="number">0.1</span>, ge=<span class="number">0</span>, le=<span class="number">1</span>)
+    max_seq_length: <span class="keyword">int</span> = Field(default=<span class="number">2048</span>, le=<span class="number">32768</span>)
+
+    <span class="comment"># 计算属性：等效 batch size</span>
+    @property
+    <span class="keyword">def</span> <span class="func">effective_batch_size</span>(self) -> <span class="keyword">int</span>:
+<span class="highlight-line">        <span class="keyword">return</span> self.per_device_train_batch_size * self.gradient_accumulation_steps</span>
+
+
+<span class="keyword">class</span> <span class="func">TrainPipelineConfig</span>(BaseModel):
+    <span class="string">"""顶层配置 — 聚合所有子配置"""</span>
+    model: ModelConfig
+    lora: LoRAConfig = Field(default_factory=LoRAConfig)
+    quantization: dict = Field(default_factory=<span class="keyword">dict</span>)
+    training: TrainingConfig = Field(default_factory=TrainingConfig)
+    evaluation: dict = Field(default_factory=<span class="keyword">dict</span>)
+
+    @classmethod
+    <span class="keyword">def</span> <span class="func">from_yaml</span>(cls, path: <span class="keyword">str</span>) -> <span class="string">"TrainPipelineConfig"</span>:
+        <span class="string">"""从 YAML 文件加载配置"""</span>
+        <span class="keyword">with</span> open(path, <span class="string">"r"</span>, encoding=<span class="string">"utf-8"</span>) <span class="keyword">as</span> f:
+            data = yaml.safe_load(f)
+        <span class="keyword">return</span> cls.model_validate(data)
+
+
+<span class="comment"># 使用</span>
+config = TrainPipelineConfig.from_yaml(<span class="string">"configs/train_config.yaml"</span>)
+<span class="comment"># 自动校验！如果 lr=-1 会直接报 ValidationError</span>
+print(<span class="string">f"基座模型: {config.model.base_model}"</span>)
+print(<span class="string">f"LoRA 秩: {config.lora.r}, alpha: {config.lora.alpha}"</span>)
+print(<span class="string">f"等效 Batch Size: {config.training.effective_batch_size}"</span>)
+</pre>
+
+  <div class="warn-box">
+    <strong>⚠️ 配置安全原则</strong>：永远不要把 API Key / 密码写在 YAML 里。用 <code class="inline-code">.env</code> 文件 + <code class="inline-code">os.environ</code> 管理。YAML 只存非敏感参数（超参数、路径、阈值等）。
+  </div>
+</div>
+
+<!-- ==================== Section 5: 微调核心代码 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🧠</span> 微调核心：QLoRA 训练器封装 <span class="time-tag">~15 min</span></div>
+
+<pre><span class="comment"># src/finetune/trainer.py — QLoRA 微调训练器（Day 43-44 知识整合）</span>
+<span class="keyword">from</span> transformers <span class="keyword">import</span> (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    BitsAndBytesConfig,
+    TrainingArguments,
+)
+<span class="keyword">from</span> peft <span class="keyword">import</span> LoraConfig, get_peft_model, prepare_model_for_kbit_training, TaskType
+<span class="keyword">from</span> trl <span class="keyword">import</span> SFTTrainer, SFTConfig
+<span class="keyword">from</span> datasets <span class="keyword">import</span> load_dataset
+<span class="keyword">import</span> torch
+
+
+<span class="keyword">def</span> <span class="func">format_chatml</span>(example: dict) -> dict:
+    <span class="string">"""
+    将 JSONL 样本转为 ChatML 格式（Qwen 等主流模型的对话模板）
+    输入: {"instruction": "...", "output": "..."}
+    输出: {"text": "<|im_start|>system\n...\n<|im_start|>user\n...\n<|im_start|>assistant\n..."}
+    """</span>
+    system_msg = <span class="string">"你是AMC不良资产管理领域的专家助手，擅长金融术语解释、风险分析和报表生成。"</span>
+    text = (
+        <span class="string">f"&lt;|im_start|&gt;system\n{system_msg}&lt;|im_end|&gt;\n"</span>
+        <span class="string">f"&lt;|im_start|&gt;user\n{example['instruction']}&lt;|im_end|&gt;\n"</span>
+        <span class="string">f"&lt;|im_start|&gt;assistant\n{example['output']}&lt;|im_end|&gt;"</span>
+    )
+    <span class="keyword">return</span> {<span class="string">"text"</span>: text}
+
+
+<span class="keyword">def</span> <span class="func">build_bnb_config</span>(bits: <span class="keyword">int</span> = <span class="number">4</span>) -> BitsAndBytesConfig:
+    <span class="string">"""构建量化配置（QLoRA 核心）"""</span>
+    <span class="keyword">if</span> bits == <span class="number">4</span>:
+        <span class="keyword">return</span> BitsAndBytesConfig(
+            load_in_4bit=<span class="keyword">True</span>,
+            bnb_4bit_compute_dtype=torch.float16,
+            bnb_4bit_quant_type=<span class="string">"nf4"</span>,           <span class="comment"># 正态分布量化（Day 44 重点）</span>
+            bnb_4bit_use_double_quant=<span class="keyword">True</span>,      <span class="comment"># 双重量化（省显存）</span>
+        )
+    <span class="keyword">elif</span> bits == <span class="number">8</span>:
+        <span class="keyword">return</span> BitsAndBytesConfig(load_in_8bit=<span class="keyword">True</span>)
+    <span class="keyword">else</span>:
+        <span class="keyword">return</span> <span class="keyword">None</span>
+
+
+<span class="keyword">def</span> <span class="func">finetune</span>(config: <span class="string">"TrainPipelineConfig"</span>):
+    <span class="string">"""
+    QLoRA 微调主流程 — 整合 Day 43-44 全部知识点
+    """</span>
+    <span class="comment"># ① 加载量化配置</span>
+    bnb_config = build_bnb_config(bits=<span class="number">4</span>)
+
+    <span class="comment"># ② 加载 Tokenizer + 模型</span>
+    tokenizer = AutoTokenizer.from_pretrained(config.model.base_model)
+    tokenizer.pad_token = tokenizer.eos_token  <span class="comment"># 设置 pad token</span>
+
+    model = AutoModelForCausalLM.from_pretrained(
+        config.model.base_model,
+        quantization_config=bnb_config,
+        device_map=<span class="string">"auto"</span>,  <span class="comment"># 自动分配 GPU/CPU</span>
+        torch_dtype=torch.float16,
+    )
+
+    <span class="comment"># ③ 准备 k-bit 训练（添加可训练的 input embedding）</span>
+    model = prepare_model_for_kbit_training(model)
+
+    <span class="comment"># ④ 配置 LoRA</span>
+    lora_config = LoraConfig(
+        r=config.lora.r,
+        lora_alpha=config.lora.alpha,
+        lora_dropout=config.lora.dropout,
+        target_modules=config.lora.target_modules,
+        task_type=TaskType.CAUSAL_LM,  <span class="comment"># 因果语言模型</span>
+        bias=<span class="string">"none"</span>,
+    )
+
+    <span class="comment"># ⑤ 获取 PEFT 模型（只训练 LoRA 参数）</span>
+    model = get_peft_model(model, lora_config)
+    model.print_trainable_parameters()
+    <span class="comment"># 输出示例: trainable params: 4.2M || all params: 7.0B || trainable%: 0.06</span>
+
+    <span class="comment"># ⑥ 加载数据集</span>
+    dataset = load_dataset(<span class="string">"json"</span>, data_files={
+        <span class="string">"train"</span>: <span class="string">"data/processed/train.jsonl"</span>,
+        <span class="string">"test"</span>: <span class="string">"data/processed/val.jsonl"</span>,
+    })
+    dataset = dataset.map(format_chatml)
+
+    <span class="comment"># ⑦ 训练参数</span>
+    training_args = SFTConfig(
+        output_dir=config.model.output_dir,
+        num_train_epochs=config.training.num_train_epochs,
+        per_device_train_batch_size=config.training.per_device_train_batch_size,
+        gradient_accumulation_steps=config.training.gradient_accumulation_steps,
+        learning_rate=config.training.learning_rate,
+        lr_scheduler_type=config.training.lr_scheduler_type,
+        warmup_ratio=config.training.warmup_ratio,
+        max_seq_length=config.training.max_seq_length,
+        logging_steps=config.training.logging_steps,
+        save_strategy=<span class="string">"epoch"</span>,
+        eval_strategy=<span class="string">"epoch"</span>,
+        bf16=<span class="keyword">True</span>,               <span class="comment"># BF16 混合精度</span>
+        gradient_checkpointing=<span class="keyword">True</span>, <span class="comment"># 省显存</span>
+        optim=<span class="string">"paged_adamw_8bit"</span>,  <span class="comment"># 分页优化器（Day 44 重点）</span>
+        report_to=<span class="string">"none"</span>,           <span class="comment"># 不上传 wandb</span>
+    )
+
+    <span class="comment"># ⑧ 启动训练</span>
+    trainer = SFTTrainer(
+        model=model,
+        args=training_args,
+        train_dataset=dataset[<span class="string">"train"</span>],
+        eval_dataset=dataset[<span class="string">"test"</span>],
+        processing_class=tokenizer,
+    )
+
+    print(<span class="string">"🚀 开始 QLoRA 微调训练..."</span>)
+    trainer.train()
+
+    <span class="comment"># ⑨ 保存 LoRA 权重</span>
+    trainer.save_model(config.model.output_dir)
+    tokenizer.save_pretrained(config.model.output_dir)
+    print(<span class="string">f"✅ 模型已保存到 {config.model.output_dir}"</span>)
+
+    <span class="keyword">return</span> trainer
+</pre>
+
+  <h3>模型导出与合并 — 复盘 D45</h3>
+<pre><span class="comment"># src/export/merger.py — LoRA 权重合并</span>
+<span class="keyword">from</span> transformers <span class="keyword">import</span> AutoModelForCausalLM, AutoTokenizer
+<span class="keyword">from</span> peft <span class="keyword">import</span> PeftModel
+
+
+<span class="keyword">def</span> <span class="func">merge_lora</span>(base_model_id: <span class="keyword">str</span>, lora_path: <span class="keyword">str</span>, output_path: <span class="keyword">str</span>):
+    <span class="string">"""
+    合并 LoRA 权重到基座模型 → 生成完整模型
+    Day 43 核心操作: merge_and_unload()
+    """</span>
+    <span class="comment"># 加载基座</span>
+    base = AutoModelForCausalLM.from_pretrained(base_model_id, torch_dtype=<span class="keyword">"auto"</span>)
+    <span class="comment"># 加载 LoRA 适配器</span>
+    model = PeftModel.from_pretrained(base, lora_path)
+    <span class="comment"># 合并 + 卸载 PEFT 包装器</span>
+    merged = model.merge_and_unload()
+
+    <span class="comment"># 保存</span>
+    merged.save_pretrained(output_path)
+    AutoTokenizer.from_pretrained(lora_path).save_pretrained(output_path)
+    print(<span class="string">f"✅ 合并完成 → {output_path}"</span>)
+    print(<span class="string">f"   合并后可直接用 vLLM / Ollama 部署"</span>)
+</pre>
+
+  <div class="concept-box">
+    <strong>📌 merge_and_unload() 为什么重要？</strong><br>
+    LoRA 微调只保存了增量权重（ΔW = B × A），推理时需要基座 + LoRA 两步计算。<code class="inline-code">merge_and_unload()</code> 把 ΔW 合并进原模型，生成一个<strong>独立完整模型</strong>，部署时不再需要 PEFT 库，推理更快更简单。
+  </div>
+</div>
+
+<!-- ==================== Section 6: 部署+监控 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🚀</span> 部署 + 监控：FastAPI 网关 + vLLM 推理 <span class="time-tag">~10 min</span></div>
+
+<pre><span class="comment"># src/serve/llm_client.py — vLLM 客户端封装（Day 46 知识整合）</span>
+<span class="keyword">from</span> openai <span class="keyword">import</span> OpenAI
+<span class="keyword">from</span> pydantic <span class="keyword">import</span> BaseModel, Field
+<span class="keyword">from</span> typing <span class="keyword">import</span> Literal
+<span class="keyword">import</span> time
+
+
+<span class="keyword">class</span> <span class="func">ChatRequest</span>(BaseModel):
+    <span class="string">"""AMC 业务请求体"""</span>
+    message: <span class="keyword">str</span> = Field(min_length=<span class="number">1</span>, max_length=<span class="number">2000</span>)
+    mode: Literal[<span class="string">"chat"</span>, <span class="string">"report"</span>, <span class="string">"analyze"</span>] = <span class="string">"chat"</span>
+    temperature: <span class="keyword">float</span> = Field(default=<span class="number">0.7</span>, ge=<span class="number">0</span>, le=<span class="number">2</span>)
+    max_tokens: <span class="keyword">int</span> = Field(default=<span class="number">512</span>, le=<span class="number">4096</span>)
+
+
+<span class="keyword">class</span> <span class="func">ChatResponse</span>(BaseModel):
+    <span class="string">"""统一响应格式"""</span>
+    reply: <span class="keyword">str</span>
+    mode: <span class="keyword">str</span>
+    ttft: <span class="keyword">float</span>   <span class="comment"># 首字延迟（秒）</span>
+    total_time: <span class="keyword">float</span>
+
+
+<span class="keyword">class</span> <span class="func">LLMClient</span>:
+    <span class="string">"""vLLM OpenAI 兼容客户端 — Day 46 核心"""</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, base_url: <span class="keyword">str</span> = <span class="string">"http://localhost:8000"</span>):
+        self.client = OpenAI(
+            base_url=base_url + <span class="string">"/v1"</span>,
+            api_key=<span class="string">"not-needed"</span>,  <span class="comment"># vLLM 不需要真实 key</span>
+        )
+        self.model_name = <span class="keyword">None</span>  <span class="comment"># 启动后自动获取</span>
+
+    <span class="keyword">def</span> <span class="func">chat</span>(self, request: ChatRequest) -> ChatResponse:
+        <span class="string">"""发送聊天请求 + 测量 TTFT"""</span>
+        start = time.perf_counter()
+        first_token_time = <span class="keyword">None</span>
+
+        <span class="comment"># 构建系统提示词</span>
+        system_prompts = {
+            <span class="string">"chat"</span>: <span class="string">"你是AMC不良资产管理领域的专家助手。"</span>,
+            <span class="string">"report"</span>: <span class="string">"你负责生成AMC不良资产分析报告，需包含数据摘要、风险评级和建议。"</span>,
+            <span class="string">"analyze"</span>: <span class="string">"你对AMC数据进行深度分析，找出异常模式和风险信号。"</span>,
+        }
+
+        <span class="comment"># 流式请求以精确测量 TTFT</span>
+        stream = self.client.chat.completions.create(
+            model=self.model_name <span class="keyword">or</span> <span class="string">"default"</span>,
+            messages=[
+                {<span class="string">"role"</span>: <span class="string">"system"</span>, <span class="string">"content"</span>: system_prompts[request.mode]},
+                {<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: request.message},
+            ],
+            temperature=request.temperature,
+            max_tokens=request.max_tokens,
+            stream=<span class="keyword">True</span>,  <span class="comment"># 流式获取 TTFT</span>
+        )
+
+        reply_parts = []
+        <span class="keyword">for</span> chunk <span class="keyword">in</span> stream:
+            <span class="keyword">if</span> chunk.choices[<span class="number">0</span>].delta.content:
+                <span class="keyword">if</span> first_token_time <span class="keyword">is None</span>:
+                    first_token_time = time.perf_counter()  <span class="comment"># 记录首字时间</span>
+                reply_parts.append(chunk.choices[<span class="number">0</span>].delta.content)
+
+        total_time = time.perf_counter() - start
+        <span class="keyword">return</span> ChatResponse(
+            reply=<span class="string">""</span>.join(reply_parts),
+            mode=request.mode,
+            ttft=first_token_time - start <span class="keyword">if</span> first_token_time <span class="keyword">else</span> total_time,
+            total_time=total_time,
+        )
+</pre>
+
+<pre><span class="comment"># src/serve/app.py — FastAPI 主应用（Day 25-27 知识整合）</span>
+<span class="keyword">from</span> fastapi <span class="keyword">import</span> FastAPI
+<span class="keyword">from</span> fastapi.middleware.cors <span class="keyword">import</span> CORSMiddleware
+<span class="keyword">from</span> contextlib <span class="keyword">import</span> asynccontextmanager
+<span class="keyword">from</span> .llm_client <span class="keyword">import</span> LLMClient, ChatRequest, ChatResponse
+
+
+<span class="keyword">@asynccontextmanager</span>
+<span class="keyword">async</span> <span class="keyword">def</span> <span class="func">lifespan</span>(app: FastAPI):
+    <span class="string">"""应用生命周期 — 启动/关闭时初始化/清理资源"""</span>
+    app.state.llm = LLMClient(base_url=<span class="string">"http://vllm:8000"</span>)
+    <span class="keyword">yield</span>
+    <span class="comment"># 清理资源（如需要）</span>
+
+
+app = FastAPI(
+    title=<span class="string">"AMC 智能分析 API"</span>,
+    version=<span class="string">"1.0.0"</span>,
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[<span class="string">"*"</span>],
+    allow_methods=[<span class="string">"*"</span>],
+    allow_headers=[<span class="string">"*"</span>],
+)
+
+
+<span class="keyword">@app.post</span>(<span class="string">"/api/chat"</span>, response_model=ChatResponse)
+<span class="keyword">async</span> <span class="keyword">def</span> <span class="func">chat</span>(request: ChatRequest):
+    <span class="string">"""AMC 智能问答接口"""</span>
+    <span class="keyword">return</span> app.state.llm.chat(request)
+
+
+<span class="keyword">@app.get</span>(<span class="string">"/health"</span>)
+<span class="keyword">async</span> <span class="keyword">def</span> <span class="func">health_check</span>():
+    <span class="string">"""健康检查 — Day 48 监控探针目标"""</span>
+    <span class="keyword">return</span> {<span class="string">"status"</span>: <span class="string">"healthy"</span>, <span class="string">"service"</span>: <span class="string">"amc-llm"</span>}
+</pre>
+
+  <h3>Docker Compose 全栈编排 — 复盘 D47</h3>
+<pre><span class="comment"># deploy/docker-compose.yaml — 四服务编排</span>
+<span class="comment"># AMC LLM 系统完整部署编排</span>
+version: <span class="string">"3.9"</span>
+
+services:
+  <span class="comment"># vLLM 推理引擎（Day 46）</span>
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: amc-vllm
+    ports:
+      - <span class="string">"8001:8000"</span>
+    volumes:
+      - ./models:/models            <span class="comment"># 挂载模型文件</span>
+    command: >
+      --model /models/amc-merged
+      --host 0.0.0.0
+      --port 8000
+      --gpu-memory-utilization 0.85
+      --max-model-len 2048
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    healthcheck:
+      test: [<span class="string">"CMD"</span>, <span class="string">"curl"</span>, <span class="string">"-f"</span>, <span class="string">"http://localhost:8000/health"</span>]
+      interval: 30s
+      retries: 3
+
+  <span class="comment"># FastAPI 业务网关（Day 25-27）</span>
+  api:
+    build: .
+    container_name: amc-api
+    ports:
+      - <span class="string">"8000:8000"</span>
+    environment:
+      - VLLM_URL=http://vllm:8000
+    depends_on:
+      vllm:
+        condition: service_healthy  <span class="comment"># 等 vLLM 健康后再启动</span>
+
+  <span class="comment"># Redis 缓存（API 配额 / 会话缓存）</span>
+  redis:
+    image: redis:7-alpine
+    container_name: amc-redis
+    ports:
+      - <span class="string">"6379:6379"</span>
+
+  <span class="comment"># Nginx 反向代理（Day 47）</span>
+  nginx:
+    image: nginx:alpine
+    container_name: amc-nginx
+    ports:
+      - <span class="string">"80:80"</span>
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - api
+</pre>
+
+  <div class="tip-box">
+    <strong>💡 一键部署命令</strong><br>
+    <code class="inline-code">docker compose up -d</code> — 后台启动所有服务<br>
+    <code class="inline-code">docker compose logs -f</code> — 实时查看日志<br>
+    <code class="inline-code">docker compose down</code> — 停止并删除容器<br>
+    <code class="inline-code">docker compose up -d --scale api=3</code> — API 扩容到 3 个实例
+  </div>
+</div>
+
+<!-- ==================== Section 7: 监控压测 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">📊</span> 监控与压测：Day 48 知识整合 <span class="time-tag">~5 min</span></div>
+
+<pre><span class="comment"># src/monitor/load_test.py — 压测 AMC API（Day 48 知识整合）</span>
+<span class="keyword">import</span> asyncio
+<span class="keyword">import</span> aiohttp
+<span class="keyword">import</span> time
+<span class="keyword">import</span> json
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+
+
+<span class="keyword">@dataclass</span>
+<span class="keyword">class</span> <span class="func">LoadTestResult</span>:
+    <span class="string">"""单次请求的压测记录"""</span>
+    request_id: <span class="keyword">int</span>
+    status_code: <span class="keyword">int</span>
+    ttft: <span class="keyword">float</span>          <span class="comment"># 首字延迟</span>
+    total_time: <span class="keyword">float</span>     <span class="comment"># 总耗时</span>
+    success: <span class="keyword">bool</span>
+    error: <span class="keyword">str</span> | <span class="keyword">None</span> = <span class="keyword">None</span>
+
+
+<span class="keyword">@dataclass</span>
+<span class="keyword">class</span> <span class="func">LoadTestReport</span>:
+    <span class="string">"""压测报告"""</span>
+    concurrency: <span class="keyword">int</span>
+    total_requests: <span class="keyword">int</span>
+    duration: <span class="keyword">float</span>
+    success_rate: <span class="keyword">float</span>
+    avg_ttft: <span class="keyword">float</span>
+    p50_ttft: <span class="keyword">float</span>
+    p99_ttft: <span class="keyword">float</span>
+    avg_total: <span class="keyword">float</span>
+    throughput: <span class="keyword">float</span>     <span class="comment"># req/s</span>
+    results: list[LoadTestResult] = field(default_factory=list)
+
+
+<span class="keyword">async def</span> <span class="func">send_request</span>(
+    session: aiohttp.ClientSession,
+    url: <span class="keyword">str</span>, req_id: <span class="keyword">int</span>,
+    semaphore: asyncio.Semaphore,
+    prompts: list[<span class="keyword">str</span>],
+) -> LoadTestResult:
+    <span class="string">"""发送单次压测请求（带并发限制）"""</span>
+    <span class="keyword">async with</span> semaphore:  <span class="comment"># Semaphore 限流 — Day 24 异步知识</span>
+        payload = {
+            <span class="string">"message"</span>: prompts[req_id % len(prompts)],
+            <span class="string">"mode"</span>: <span class="string">"chat"</span>,
+            <span class="string">"max_tokens"</span>: <span class="number">128</span>,  <span class="comment"># 压测用短 token 加速</span>
+        }
+        start = time.perf_counter()
+        <span class="keyword">try</span>:
+            <span class="keyword">async with</span> session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=<span class="number">30</span>)) <span class="keyword">as</span> resp:
+                data = <span class="keyword">await</span> resp.json()
+                total = time.perf_counter() - start
+                <span class="keyword">return</span> LoadTestResult(
+                    request_id=req_id,
+                    status_code=resp.status,
+                    ttft=data.get(<span class="string">"ttft"</span>, total),
+                    total_time=total,
+                    success=resp.status == <span class="number">200</span>,
+                )
+        <span class="keyword">except</span> Exception <span class="keyword">as</span> e:
+            <span class="keyword">return</span> LoadTestResult(
+                request_id=req_id, status_code=<span class="number">0</span>,
+                ttft=<span class="number">0</span>, total_time=time.perf_counter()-start,
+                success=<span class="keyword">False</span>, error=<span class="keyword">str</span>(e),
+            )
+
+
+<span class="keyword">async def</span> <span class="func">run_load_test</span>(
+    url: <span class="keyword">str</span> = <span class="string">"http://localhost:8000/api/chat"</span>,
+    concurrency: <span class="keyword">int</span> = <span class="number">10</span>,
+    total_requests: <span class="keyword">int</span> = <span class="number">50</span>,
+) -> LoadTestReport:
+    <span class="string">"""执行压力测试"""</span>
+    prompts = [
+        <span class="string">"解释一下不良资产包的概念"</span>,
+        <span class="string">"AMC的风险评级分为哪几级？"</span>,
+        <span class="string">"什么是NPL？如何计算不良贷款率？"</span>,
+        <span class="string">"催收流程中的合规要求有哪些？"</span>,
+    ]
+
+    semaphore = asyncio.Semaphore(concurrency)
+    results = []
+
+    <span class="keyword">async with</span> aiohttp.ClientSession() <span class="keyword">as</span> session:
+        start = time.perf_counter()
+        tasks = [
+            send_request(session, url, i, semaphore, prompts)
+            <span class="keyword">for</span> i <span class="keyword">in</span> range(total_requests)
+        ]
+        results = <span class="keyword">await</span> asyncio.gather(*tasks)
+        duration = time.perf_counter() - start
+
+    <span class="comment"># 统计分析</span>
+    successes = [r <span class="keyword">for</span> r <span class="keyword">in</span> results <span class="keyword">if</span> r.success]
+    ttfts = sorted([r.ttft <span class="keyword">for</span> r <span class="keyword">in</span> successes])
+    n = len(ttfts)
+
+    <span class="keyword">return</span> LoadTestReport(
+        concurrency=concurrency,
+        total_requests=total_requests,
+        duration=duration,
+        success_rate=len(successes) / total_requests * <span class="number">100</span>,
+        avg_ttft=sum(ttfts) / n <span class="keyword">if</span> n <span class="keyword">else</span> <span class="number">0</span>,
+        p50_ttft=ttfts[n//<span class="number">2</span>] <span class="keyword">if</span> n <span class="keyword">else</span> <span class="number">0</span>,
+        p99_ttft=ttfts[<span class="keyword">int</span>(n*<span class="number">0.99</span>)] <span class="keyword">if</span> n > <span class="number">1</span> <span class="keyword">else</span> <span class="number">0</span>,
+        avg_total=sum(r.total_time <span class="keyword">for</span> r <span class="keyword">in</span> successes) / n <span class="keyword">if</span> n <span class="keyword">else</span> <span class="number">0</span>,
+        throughput=total_requests / duration <span class="keyword">if</span> duration > <span class="number">0</span> <span class="keyword">else</span> <span class="number">0</span>,
+        results=list(results),
+    )
+</pre>
+</div>
+
+<!-- ==================== Section 8: Phase 3 总结 ==================== -->
+<div class="milestone-box">
+  <h3>🏆 Phase 3 完结总结 — 微调部署全链路</h3>
+
+  <table>
+    <tr>
+      <th>天数</th><th>主题</th><th>核心能力</th><th>Python 知识</th>
+    </tr>
+    <tr>
+      <td><strong>D43</strong></td><td>LoRA 微调入门</td><td>低秩适配原理 + PEFT 训练</td><td>numpy 矩阵运算、dataclass</td>
+    </tr>
+    <tr>
+      <td><strong>D44</strong></td><td>PEFT 进阶</td><td>QLoRA 三大支柱 + 数据集工程</td><td>JSONL 处理、数据增强策略</td>
+    </tr>
+    <tr>
+      <td><strong>D45</strong></td><td>Ollama 部署</td><td>GGUF 量化 + 本地推理</td><td>struct 二进制、OpenAI 兼容</td>
+    </tr>
+    <tr>
+      <td><strong>D46</strong></td><td>vLLM 推理</td><td>PagedAttention + 连续批处理</td><td>subprocess 进程管理</td>
+    </tr>
+    <tr>
+      <td><strong>D47</strong></td><td>Docker 容器化</td><td>镜像构建 + Compose 编排</td><td>PyYAML、os.environ</td>
+    </tr>
+    <tr>
+      <td><strong>D48</strong></td><td>监控与压测</td><td>TTFT/Throughput + 异步压测</td><td>perf_counter、statistics</td>
+    </tr>
+    <tr>
+      <td><strong>D49</strong></td><td>综合实战</td><td>全链路整合 + CLI 工具链</td><td>argparse、JSON日志、__main__.py</td>
+    </tr>
+  </table>
+
+  <h3>总进度一览</h3>
+  <table>
+    <tr>
+      <th>阶段</th><th>天数</th><th>主题</th><th>状态</th>
+    </tr>
+    <tr>
+      <td><strong>Phase 1A</strong></td><td>D6-D18</td><td>Python 核心 + LLM API</td>
+      <td><span class="phase-badge phase-done">✅ 完成</span></td>
+    </tr>
+    <tr>
+      <td><strong>Phase 1B</strong></td><td>D19-D28</td><td>工程进阶（OOP/FastAPI/工程化）</td>
+      <td><span class="phase-badge phase-done">✅ 完成</span></td>
+    </tr>
+    <tr>
+      <td><strong>Phase 2</strong></td><td>D29-D42</td><td>RAG + Agent 全链路</td>
+      <td><span class="phase-badge phase-done">✅ 完成</span></td>
+    </tr>
+    <tr>
+      <td><strong>Phase 3</strong></td><td>D43-D49</td><td>微调部署全链路</td>
+      <td><span class="phase-badge phase-done">✅ 完成</span></td>
+    </tr>
+    <tr>
+      <td><strong>Phase 4</strong></td><td>D50-D70</td><td>项目实战（8 个项目）</td>
+      <td><span class="phase-badge phase-current">即将开始</span></td>
+    </tr>
+  </table>
+
+  <div class="summary-card">
+    <h3>🎯 Phase 3 核心收获</h3>
+    <ul>
+      <li><strong>微调能力</strong>：能独立完成 LoRA/QLoRA 微调全流程（数据准备→训练→评估→导出）</li>
+      <li><strong>部署能力</strong>：掌握三种部署方案（Ollama 本地 / vLLM 高性能 / Docker 容器化）</li>
+      <li><strong>运维能力</strong>：能搭建监控（TTFT/Throughput）+ 压测（异步并发）体系</li>
+      <li><strong>工程能力</strong>：CLI 工具（argparse）、结构化日志（JSON）、模块化项目结构</li>
+      <li><strong>数仓迁移能力</strong>：将 ETL/分层/调度/监控的思维方式迁移到 LLM 工程中</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ==================== Section 9: 常见陷阱 + 练习 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">⚠️</span> 全链路常见陷阱 Top 5 <span class="time-tag">~5 min</span></div>
+
+  <table>
+    <tr><th>#</th><th>陷阱</th><th>后果</th><th>解决方案</th></tr>
+    <tr>
+      <td>1</td>
+      <td><strong>微调数据泄露</strong></td>
+      <td>验证集包含训练集样本，评估指标虚高</td>
+      <td>按债务人ID/日期拆分，而非随机拆分</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td><strong>合并后仍用 PEFT 推理</strong></td>
+      <td>多一步计算，推理变慢</td>
+      <td><code class="inline-code">merge_and_unload()</code> 后用纯 Transformers/vLLM</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td><strong>Docker 里 GPU 不可用</strong></td>
+      <td>vLLM 回退到 CPU，慢 100 倍</td>
+      <td>确认 NVIDIA Container Toolkit + <code class="inline-code">nvidia-smi</code> 可用</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td><strong>压测直接打满生产</strong></td>
+      <td>服务雪崩，影响真实用户</td>
+      <td>先低并发 ramp_up，逐步加压，设超时</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td><strong>配置硬编码</strong></td>
+      <td>换环境要改代码</td>
+      <td>YAML + pydantic-settings + .env 三层配置</td>
+    </tr>
+  </table>
+</div>
+
+<div class="section">
+  <div class="section-title"><span class="icon">✍️</span> 今日练习 <span class="time-tag">~15 min</span></div>
+
+  <h3>练习 1：扩展 CLI — 添加 evaluate 子命令</h3>
+  <p>在 <code class="inline-code">build_parser()</code> 中添加一个 <code class="inline-code">evaluate</code> 子命令，支持：<code class="inline-code">--model</code>（模型路径）、<code class="inline-code">--data</code>（测试集路径）、<code class="inline-code">--metrics</code>（选择评估指标：loss/accuracy/bleu）。</p>
+
+  <h3>练习 2：Pipeline 阶段添加健康检查</h3>
+  <p>修改 <code class="inline-code">Pipeline.run()</code> 方法：在 "服务部署" 阶段执行完成后，自动发送 3 次健康检查请求（间隔 5 秒），全部成功才标记为 SUCCESS。</p>
+
+  <h3>练习 3：LeetCode #239 — 滑动窗口最大值（回顾）</h3>
+  <p>用 <code class="inline-code">collections.deque</code>（Day 38 学过的双端队列）实现 O(n) 的滑动窗口最大值算法。这道题串联了：deque 高级用法 + 单调队列思想。</p>
+
+<pre><span class="comment"># LeetCode #239 — 滑动窗口最大值</span>
+<span class="comment"># 题目：给定数组 nums 和窗口大小 k，返回每个窗口的最大值</span>
+<span class="keyword">from</span> collections <span class="keyword">import</span> deque
+<span class="keyword">from</span> typing <span class="keyword">import</span> List
+
+
+<span class="keyword">def</span> <span class="func">maxSlidingWindow</span>(nums: List[<span class="keyword">int</span>], k: <span class="keyword">int</span>) -> List[<span class="keyword">int</span>]:
+    <span class="string">"""
+    单调递减队列解法 — O(n)
+    核心思想：deque 中维护「候选最大值」的下标
+    """</span>
+    result = []
+    dq = deque()  <span class="comment"># 存储 nums 的下标，值单调递减</span>
+
+    <span class="keyword">for</span> i, num <span class="keyword">in</span> enumerate(nums):
+        <span class="comment"># ① 移除 deque 中比当前元素小的（它们不可能成为最大值了）</span>
+        <span class="keyword">while</span> dq <span class="keyword">and</span> nums[dq[-<span class="number">1</span>]] < num:
+            dq.pop()
+
+        <span class="comment"># ② 加入当前下标</span>
+        dq.append(i)
+
+        <span class="comment"># ③ 移除超出窗口范围的下标</span>
+        <span class="keyword">if</span> dq[<span class="number">0</span>] <= i - k:
+            dq.popleft()
+
+        <span class="comment"># ④ 窗口形成后，记录最大值（deque 头部就是最大值）</span>
+        <span class="keyword">if</span> i >= k - <span class="number">1</span>:
+            result.append(nums[dq[<span class="number">0</span>]])
+
+    <span class="keyword">return</span> result
+
+
+<span class="comment"># 测试</span>
+print(maxSlidingWindow([<span class="number">1,3,-1</span>,-<span class="number">3</span>,<span class="number">5,3,6,7</span>], <span class="number">3</span>))
+<span class="comment"># 输出: [3, 3, 5, 5, 6, 7]</span>
+
+<span class="comment"># 走一遍过程（k=3）：</span>
+<span class="comment"># i=0, nums[0]=1 → dq=[0]</span>
+<span class="comment"># i=1, nums[1]=3 → 弹出0, dq=[1]</span>
+<span class="comment"># i=2, nums[2]=-1 → dq=[1,2] → 窗口形成 → result=[3]</span>
+<span class="comment"># i=3, nums[3]=-3 → dq=[1,2,3] → 1不在窗口内, popleft → dq=[2,3] → result=[3,3]</span>
+<span class="comment"># ...</span>
+</pre>
+
+  <div class="concept-box">
+    <strong>📌 单调队列核心思想</strong>：deque 维护一个<strong>单调递减</strong>的序列。<br>
+    • 新来一个大数 → 把比它小的全弹出（它们没机会当最大值了）<br>
+    • 新来一个小数 → 直接追加（它可能是未来窗口的最大值）<br>
+    • 窗口滑动 → 过期的下标从左边弹出<br>
+    • deque 头部永远是当前窗口的最大值 → O(1) 获取
+  </div>
+</div>
+
+<!-- ==================== 下一步 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🚀</span> 下一步预告：Phase 4 — 项目实战</div>
+
+  <div class="concept-box">
+    <strong>Phase 4（D50-D70）项目实战路线</strong>：用 8 个真实项目串联所有知识点，每个项目 2-3 天。<br><br>
+    📋 <strong>项目规划</strong>：<br>
+    • 项目 1-2：RAG 知识库问答系统（完整 RAG 管线 + 评估）<br>
+    • 项目 3-4：Agent 工作流自动化（AMC 报表生成 + 多Agent协作）<br>
+    • 项目 5-6：微调 + 部署全链路（AMC 术语微调模型上线）<br>
+    • 项目 7：LLM 应用监控平台（Metrics + Dashboard + Alert）<br>
+    • 项目 8：综合毕业项目（全栈 AMC 智能分析平台）<br><br>
+    <strong>每个项目都将是一个完整可运行的 Python 应用</strong>，从设计到实现到部署，全方位锻炼工程能力。
+  </div>
+</div>
+
+<div class="nav-links">
+  <a href="day48.html">← Day 48: 服务监控与压测</a>
+  <a href="day50.html">Day 50: 项目实战 →</a>
+</div>
+
+</body>
+</html>
