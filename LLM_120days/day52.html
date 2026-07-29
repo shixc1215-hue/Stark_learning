@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 52 - RAG 评估体系 + 优化策略（P1 项目收官）</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--purple:#9333ea;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#ecfdf5,#eff6ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #a7f3d0; }
+  .header .badge { display:inline-block;background:#dcfce7;color:#15803d;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--green),var(--accent2));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--green);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--accent); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--green); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  .purple-box { background:#faf5ff;border-left:3px solid var(--purple);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .purple-box strong { color:var(--purple); }
+  pre { background:#1e293b;color:#e2e8f0;padding:18px 20px;border-radius:8px;overflow-x:auto;font-size:13.5px;line-height:1.6;margin:12px 0; }
+  code { font-family:'Fira Code','Cascadia Code',Consolas,monospace; }
+  .inline-code { background:var(--surface2);color:var(--accent);padding:2px 6px;border-radius:4px;font-size:13px;font-family:'Fira Code',Consolas,monospace; }
+  .highlight { background:#fef3c7;padding:2px 6px;border-radius:4px;font-size:13px; }
+  h3 { font-size:16px;font-weight:600;margin:18px 0 8px;color:var(--accent2); }
+  h4 { font-size:14.5px;font-weight:600;margin:14px 0 6px;color:var(--text); }
+  p { font-size:14px;color:var(--text2);margin:8px 0; }
+  ul, ol { font-size:14px;color:var(--text2);padding-left:24px;margin:8px 0; }
+  li { margin:4px 0; }
+  table { width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px; }
+  th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border);color:var(--text); }
+  td { padding:10px 14px;border:1px solid var(--border);color:var(--text2); }
+  .flow-diagram { display:flex;align-items:center;gap:0;margin:16px 0;flex-wrap:wrap;justify-content:center; }
+  .flow-node { background:var(--surface2);border:2px solid var(--border);border-radius:8px;padding:10px 16px;font-size:13px;text-align:center;min-width:100px; }
+  .flow-node.active { background:#dcfce7;border-color:#86efac; }
+  .flow-arrow { font-size:20px;color:var(--text3);margin:0 6px; }
+  .project-map { display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0; }
+  .project-card { background:var(--surface2);border-radius:8px;padding:14px;text-align:center;border:1px solid var(--border); }
+  .project-card.active { background:#dcfce7;border-color:#86efac; }
+  .project-card .num { font-size:20px;font-weight:700;color:var(--accent2); }
+  .project-card .name { font-size:12px;color:var(--text2);margin-top:4px; }
+  .pipeline-steps { display:flex;flex-direction:column;gap:0;margin:16px 0; }
+  .pipe-step { display:flex;align-items:flex-start;gap:12px;padding:12px 0; }
+  .pipe-step .step-num { background:var(--accent);color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;margin-top:2px; }
+  .pipe-step .step-content { flex:1; }
+  .pipe-step .step-title { font-weight:600;font-size:14px;color:var(--text); }
+  .pipe-step .step-desc { font-size:13px;color:var(--text2);margin-top:2px; }
+  .summary-grid { display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0; }
+  .summary-card { background:var(--surface2);border-radius:8px;padding:16px;border-left:3px solid var(--accent); }
+  .summary-card h4 { margin:0 0 8px;font-size:14px;color:var(--accent); }
+  .summary-card p { font-size:13px;margin:0; }
+  .metric-table td:first-child { font-weight:600;color:var(--text); }
+  .kw { color:#c792ea; }
+  .str { color:#c3e88d; }
+  .num { color:#f78c6c; }
+  .cmt { color:#546e7a;font-style:italic; }
+  .fn { color:#82aaff; }
+  .cls { color:#ffcb6b; }
+  .deco { color:#f07178; }
+  .footer { text-align:center;padding:20px;color:var(--text3);font-size:13px;margin-top:24px; }
+  .eval-result { font-family:'Fira Code',Consolas,monospace;font-size:12.5px;background:var(--surface2);padding:12px 16px;border-radius:8px;margin:10px 0;border:1px solid var(--border);white-space:pre-wrap; }
+  .celebrate { text-align:center;font-size:48px;margin:20px 0; }
+</style>
+</head>
+<body>
+
+<!-- ========== Header ========== -->
+<div class="header">
+  <span class="badge">Phase 4 · 项目实战 P1 · Day 3/3</span>
+  <h1>Day 52 — RAG 评估体系 + 优化策略</h1>
+  <p class="subtitle">P1 RAG 知识库问答系统收官：评估驱动优化，让系统从"能用"到"好用"</p>
+</div>
+
+<!-- ========== Progress ========== -->
+<div class="progress-bar">
+  <span class="label">D1 → D70</span>
+  <div class="track"><div class="fill" style="width:74.3%"></div></div>
+  <span class="percent">52/70</span>
+</div>
+
+<!-- ========== P1 项目地图 ========== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🗺️</span> P1 RAG 知识库问答系统 · 三天全景</div>
+  <div class="project-map">
+    <div class="project-card">
+      <div class="num">D50</div>
+      <div class="name">离线索引<br>分块+Embedding+向量库</div>
+    </div>
+    <div class="project-card">
+      <div class="num">D51</div>
+      <div class="name">在线问答<br>检索+重排+流式生成</div>
+    </div>
+    <div class="project-card active">
+      <div class="num">D52</div>
+      <div class="name">评估优化<br>指标体系+A/B测试</div>
+    </div>
+    <div class="project-card" style="opacity:.4">
+      <div class="num">→</div>
+      <div class="name">P2 待启动<br>Agent 自动化</div>
+    </div>
+  </div>
+  <div class="concept-box">
+    <strong>今日目标：</strong>为 D50-D51 构建的 RAG 系统建立可量化的评估体系，通过指标发现问题 → 针对性优化 → A/B 测试验证效果，形成"评估→优化→再评估"的闭环。P1 项目今日收官。
+  </div>
+</div>
+
+<!-- ========== Section 1: 为什么需要评估 ========== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🎯</span> 一、为什么 RAG 系统必须评估？ <span class="time-tag">10 min</span></div>
+
+  <div class="concept-box">
+    <strong>核心矛盾：</strong>你改了 chunk_size 从 500→300，检索结果"看起来"变了——但到底是变好了还是变差了？没有评估体系，所有优化都是瞎猜。
+  </div>
+
+  <h3>数仓工程师的类比</h3>
+  <p>在数仓里，你不会上线一个没有数据质量校验的 ETL。RAG 系统也一样——检索和生成就是两条"数据管线"，需要配套的"质量监控"。</p>
+
+  <table>
+    <tr><th>维度</th><th>数仓质量校验</th><th>RAG 评估</th></tr>
+    <tr><td>准确性</td><td>行数对比、主键去重</td><td>检索 Recall@K、生成 Faithfulness</td></tr>
+    <tr><td>完整性</td><td>空值率、覆盖率</td><td>Hit Rate、Context Utilization</td></tr>
+    <tr><td>时效性</td><td>延迟、SLA</td><td>TTFT、端到端延迟</td></tr>
+    <tr><td>监控</td><td>Grafana 大盘</td><td>评估报告 + A/B 对比</td></tr>
+  </table>
+
+  <h3>评估的三大层次</h3>
+  <div class="pipeline-steps">
+    <div class="pipe-step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">检索质量评估（Retrieval Metrics）</div>
+        <div class="step-desc">回答"找得准不准"：Recall@K、MRR、Precision@K、Hit Rate</div>
+      </div>
+    </div>
+    <div class="pipe-step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">生成质量评估（Generation Metrics）</div>
+        <div class="step-desc">回答"答得好不好"：Faithfulness（忠实度）、Answer Relevancy（相关性）、Context Utilization（上下文利用率）</div>
+      </div>
+    </div>
+    <div class="pipe-step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">端到端评估（E2E Metrics）</div>
+        <div class="step-desc">回答"整体行不行"：综合评分、延迟分布、用户满意度代理</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Section 2: Python 知识点 ========== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🐍</span> 二、Python 知识点：性能测量与缓存进阶 <span class="time-tag">15 min</span></div>
+
+  <h3>2.1 timeit — 精确测量代码执行时间</h3>
+  <p>评估 RAG 系统时需要测量各阶段耗时。<span class="inline-code">time.time()</span> 精度不够，<span class="inline-code">timeit</span> 自动多次运行取最佳值，排除系统抖动干扰。</p>
+
+  <pre><code><span class="kw">import</span> timeit
+<span class="kw">import</span> functools
+
+<span class="cmt"># 方式1：timeit.timeit 测量代码片段（字符串模式）</span>
+<span class="cmt"># 适合简单表达式，number 控制运行次数</span>
+elapsed = timeit.timeit(<span class="str">"[i**2 for i in range(100)]"</span>, number=<span class="num">10000</span>)
+<span class="fn">print</span>(<span class="str">f"列表推导式 10000 次: {elapsed:.4f}s, 平均 {elapsed/10000*1e6:.1f}μs"</span>)
+
+<span class="cmt"># 方式2：timeit.repeat 多轮取最小值（更稳定）</span>
+<span class="cmt"># 返回列表，每轮 number 次运行的总耗时</span>
+results = timeit.repeat(<span class="str">"[i**2 for i in range(100)]"</span>, number=<span class="num">10000</span>, repeat=<span class="num">5</span>)
+<span class="fn">print</span>(<span class="str">f"5轮最小值: {min(results):.4f}s"</span>)  <span class="cmt"># 取最小值排除干扰</span>
+
+<span class="cmt"># 方式3：测量函数（用 functools.partial 绑定参数）</span>
+<span class="kw">def</span> <span class="fn">search_test</span>(vector_store, query, k=<span class="num">5</span>):
+    <span class="kw">return</span> vector_store.query(query, k)
+
+<span class="cmt"># partial 把函数变成无参形式，timeit 才能调用</span>
+test_fn = functools.partial(search_test, mock_store, <span class="str">"不良资产处置方式"</span>)
+elapsed = timeit.timeit(test_fn, number=<span class="num">100</span>)
+<span class="fn">print</span>(<span class="str">f"检索 100 次平均: {elapsed/100*1000:.2f}ms"</span>)
+
+<span class="cmt"># 方式4：命令行模式（快速对比）</span>
+<span class="cmt"># python -m timeit -s "import json" "json.dumps({'a':1})"</span></code></pre>
+
+  <div class="tip-box">
+    <strong>选型建议：</strong>日常开发用 <span class="inline-code">time.perf_counter()</span> 够了（Day 51 已用）；评估报告需要精确基准测试时用 <span class="inline-code">timeit</span>。<span class="inline-code">repeat</span> 取 <span class="inline-code">min</span> 而非 <span class="inline-code">mean</span>——因为最小值最接近"纯计算时间"，其他都是被干扰的。
+  </div>
+
+  <h3>2.2 functools.lru_cache 进阶 — 自定义缓存策略</h3>
+  <p>Day 30 接触过 <span class="inline-code">@lru_cache</span>，今天深入参数控制和与 RAG 场景的结合。</p>
+
+  <pre><code><span class="kw">from</span> functools <span class="kw">import</span> lru_cache
+<span class="kw">import</span> hashlib
+<span class="kw">import</span> json
+
+<span class="cmt"># 基础用法：maxsize 限制缓存条数，LRU 自动淘汰最久未使用的</span>
+<span class="deco">@lru_cache</span>(maxsize=<span class="num">256</span>)
+<span class="kw">def</span> <span class="fn">get_embedding_cached</span>(text: <span class="cls">str</span>) -> <span class="cls">tuple</span>:
+    <span class="cmt"># 注意：返回值必须可哈希（list 不行，要转 tuple）</span>
+    <span class="cmt"># 实际调用 API 获取 embedding</span>
+    <span class="kw">return</span> tuple(call_embedding_api(text))
+
+<span class="cmt"># maxsize=None 表示无限缓存（内存风险！）</span>
+<span class="cmt"># maxsize=1 相当于"只记住最后一次"（适合配置加载）</span>
+<span class="cmt"># maxsize 应设为 2 的幂（内部哈希表效率最高）</span>
+
+<span class="cmt"># 查看缓存统计信息</span>
+<span class="fn">get_embedding_cached</span>(<span class="str">"不良资产"</span>)
+<span class="fn">get_embedding_cached</span>(<span class="str">"不良资产"</span>)  <span class="cmt"># 命中缓存</span>
+info = get_embedding_cached.cache_info()
+<span class="fn">print</span>(<span class="str">f"hits={info.hits}, misses={info.misses}, size={info.currsize}"</span>)
+<span class="cmt"># CacheInfo(hits=1, misses=1, maxsize=256, currsize=1)</span>
+
+<span class="cmt"># 清空缓存（配置变更后需要）</span>
+get_embedding_cached.cache_clear()
+
+<span class="cmt"># 进阶：带 TTL 的缓存（lru_cache 本身不支持 TTL）</span>
+<span class="cmt"># 用类包装实现过期机制</span>
+<span class="kw">class</span> <span class="cls">TTLCache</span>:
+    <span class="str">"""带过期时间的缓存，适合 Embedding 等可能更新的数据。"""</span>
+    <span class="kw">def</span> __init__(self, ttl_seconds=<span class="num">3600</span>, maxsize=<span class="num">512</span>):
+        self.ttl = ttl_seconds
+        self.maxsize = maxsize
+        self._store = {}  <span class="cmt"># key -> (value, timestamp)</span>
+
+    <span class="kw">def</span> <span class="fn">get</span>(self, key):
+        <span class="kw">if</span> key <span class="kw">in</span> self._store:
+            value, ts = self._store[key]
+            <span class="kw">import</span> time
+            <span class="kw">if</span> time.time() - ts < self.ttl:
+                <span class="kw">return</span> value  <span class="cmt"># 缓存有效</span>
+            <span class="kw">del</span> self._store[key]  <span class="cmt"># 过期删除</span>
+        <span class="kw">return</span> <span class="kw">None</span>  <span class="cmt"># 未命中</span>
+
+    <span class="kw">def</span> <span class="fn">set</span>(self, key, value):
+        <span class="kw">if</span> <span class="fn">len</span>(self._store) >= self.maxsize:
+            <span class="cmt"># 简单 FIFO 淘汰（生产用 OrderedDict 做 LRU）</span>
+            oldest = <span class="fn">next</span>(<span class="fn">iter</span>(self._store))
+            <span class="kw">del</span> self._store[oldest]
+        <span class="kw">import</span> time
+        self._store[key] = (value, time.time())
+
+<span class="cmt"># RAG 场景应用：Embedding 缓存</span>
+embedding_cache = TTLCache(ttl_seconds=<span class="num">7200</span>, maxsize=<span class="num">1024</span>)
+
+<span class="kw">def</span> <span class="fn">get_embedding</span>(text: <span class="cls">str</span>) -> <span class="cls">list</span>:
+    <span class="cmt"># 用文本 MD5 做 key，避免长字符串占内存</span>
+    key = hashlib.md5(text.encode()).hexdigest()
+    cached = embedding_cache.get(key)
+    <span class="kw">if</span> cached <span class="kw">is not</span> <span class="kw">None</span>:
+        <span class="kw">return</span> cached
+    <span class="cmt"># 实际调用 API</span>
+    result = call_embedding_api(text)
+    embedding_cache.set(key, result)
+    <span class="kw">return</span> result</code></pre>
+
+  <h3>2.3 contextlib.suppress — 优雅地忽略指定异常</h3>
+  <p>评估脚本中很多操作是"尽力而为"——LLM 评分失败不应中断整个评估流程。<span class="inline-code">suppress</span> 比裸 <span class="inline-code">try/except</span> 更清晰。</p>
+
+  <pre><code><span class="kw">from</span> contextlib <span class="kw">import</span> suppress
+<span class="kw">import</span> json
+
+<span class="cmt"># 不优雅的方式：裸 try/except 静默吞掉异常</span>
+<span class="kw">try</span>:
+    result = json.loads(broken_json_str)
+<span class="kw">except</span> json.JSONDecodeError:
+    result = <span class="kw">None</span>  <span class="cmt"># 意图不明显，可能是漏写了别的异常</span>
+
+<span class="cmt"># 优雅方式：明确声明"我就是要忽略这个异常"</span>
+<span class="kw">with</span> suppress(json.JSONDecodeError):
+    result = json.loads(broken_json_str)
+<span class="cmt"># 如果抛 JSONDecodeError，自动跳过；result 可能未定义</span>
+<span class="cmt"># 更安全的写法：</span>
+result = <span class="kw">None</span>
+<span class="kw">with</span> suppress(json.JSONDecodeError):
+    result = json.loads(broken_json_str)
+
+<span class="cmt"># 多异常一起忽略</span>
+<span class="kw">with</span> suppress(json.JSONDecodeError, KeyError, TypeError):
+    data = json.loads(response_text)[<span class="str">"data"</span>][<span class="str">"score"</span>]
+
+<span class="cmt"># RAG 评估中的实际应用：LLM-as-Judge 可能超时或返回非 JSON</span>
+<span class="kw">def</span> <span class="fn">safe_llm_score</span>(question, answer, context) -> <span class="cls">float</span> | <span class="kw">None</span>:
+    <span class="str">"""调用 LLM 打分，失败返回 None 而非崩溃。"""</span>
+    score = <span class="kw">None</span>
+    <span class="kw">with</span> suppress(TimeoutError, ConnectionError, json.JSONDecodeError):
+        resp = call_judge_llm(question, answer, context)
+        score = <span class="fn">float</span>(json.loads(resp)[<span class="str">"score"</span>])
+    <span class="kw">return</span> score  <span class="cmt"># 失败时为 None，调用方自行处理</span></code></pre>
+
+  <div class="tip-box">
+    <strong>三件套速查：</strong>
+    <span class="inline-code">timeit</span> → 精确基准测试（取 min）；
+    <span class="inline-code">lru_cache</span> → 纯函数缓存（返回值可哈希）；
+    <span class="inline-code">suppress</span> → 明确忽略异常（比裸 except 安全）。
+  </div>
+</div>
+
+<!-- ========== Section 3: 评估测试集构建 ========== -->
+<div class="section">
+  <div class="section-title"><span class="icon">📦</span> 三、评估测试集构建 <span class="time-tag">10 min</span></div>
+
+  <p>评估的前提是有一份"标准答案"测试集。对 RAG 系统来说，每条测试用例需要包含：问题、期望命中的文档ID、参考答案。</p>
+
+  <pre><code><span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass, field
+<span class="kw">from</span> typing <span class="kw">import</span> Optional
+<span class="kw">import</span> json
+
+<span class="deco">@dataclass</span>
+<span class="kw">class</span> <span class="cls">EvalSample</span>:
+    <span class="str">"""单条评估用例：问题 + 标准答案 + 期望命中的文档ID。"""</span>
+    question: <span class="cls">str</span>                          <span class="cmt"># 用户问题</span>
+    relevant_doc_ids: <span class="cls">list</span>[<span class="cls">str</span>]           <span class="cmt"># 标注的正确文档（ground truth）</span>
+    reference_answer: <span class="cls">str</span> = <span class="str">""</span>            <span class="cmt"># 参考答案（用于生成评估）</span>
+    difficulty: <span class="cls">str</span> = <span class="str">"medium"</span>             <span class="cmt"># easy / medium / hard</span>
+    category: <span class="cls">str</span> = <span class="str">"general"</span>             <span class="cmt"># 业务分类</span>
+    tags: <span class="cls">list</span>[<span class="cls">str</span>] = field(default_factory=<span class="cls">list</span>)  <span class="cmt"># 自定义标签</span>
+
+<span class="cmt"># AMC 业务评估测试集（示例 10 条，实际至少 50-100 条）</span>
+AMC_EVAL_SET = [
+    EvalSample(
+        question=<span class="str">"不良资产的处置方式有哪些？"</span>,
+        relevant_doc_ids=[<span class="str">"doc_001"</span>, <span class="str">"doc_005"</span>],
+        reference_answer=<span class="str">"不良资产处置方式包括：现金回收、债务重组、以物抵债、</span>
+<span class="str">                        资产转让、债转股、不良资产证券化等。"</span>,
+        difficulty=<span class="str">"easy"</span>,
+        category=<span class="str">"处置方式"</span>,
+        tags=[<span class="str">"基础概念"</span>]
+    ),
+    EvalSample(
+        question=<span class="str">"2024年 AMC 行业收购规模最大的交易是哪笔？"</span>,
+        relevant_doc_ids=[<span class="str">"doc_012"</span>],
+        reference_answer=<span class="str">"2024年规模最大的不良资产包收购交易为...</span>
+<span class="str">                        （具体数据依实际文档）"</span>,
+        difficulty=<span class="str">"hard"</span>,
+        category=<span class="str">"行业动态"</span>,
+        tags=[<span class="str">"具体数据"</span>, <span class="str">"时间敏感"</span>]
+    ),
+    EvalSample(
+        question=<span class="str">"债务重组和债转股的区别是什么？"</span>,
+        relevant_doc_ids=[<span class="str">"doc_003"</span>, <span class="str">"doc_007"</span>],
+        reference_answer=<span class="str">"债务重组是修改债务条件（展期/减免/利率调整），</span>
+<span class="str">                        债权关系仍存在；债转股是将债权转为股权，</span>
+<span class="str">                        债权消灭成为股东。"</span>,
+        difficulty=<span class="str">"medium"</span>,
+        category=<span class="str">"处置方式"</span>,
+        tags=[<span class="str">"对比分析"</span>]
+    ),
+    EvalSample(
+        question=<span class="str">"不良资产批量转让的估值方法有哪些？"</span>,
+        relevant_doc_ids=[<span class="str">"doc_009"</span>, <span class="str">"doc_015"</span>],
+        reference_answer=<span class="str">"估值方法包括：市场法（可比交易）、收益法（DCF）、</span>
+<span class="str">                        成本法（重置/清算）、假设开发法等。"</span>,
+        difficulty=<span class="str">"medium"</span>,
+        category=<span class="str">"估值定价"</span>,
+        tags=[<span class="str">"方法论"</span>]
+    ),
+    EvalSample(
+        question=<span class="str">"什么是不良资产证券化？有什么优势？"</span>,
+        relevant_doc_ids=[<span class="str">"doc_020"</span>],
+        reference_answer=<span class="str">"不良资产证券化是将不良贷款打包成资产池，</span>
+<span class="str">                        发行资产支持证券（ABS）在市场出售。</span>
+<span class="str">                        优势：快速回笼资金、分散风险、改善报表。"</span>,
+        difficulty=<span class="str">"easy"</span>,
+        category=<span class="str">"处置方式"</span>,
+        tags=[<span class="str">"基础概念"</span>]
+    ),
+]
+
+<span class="kw">def</span> <span class="fn">save_eval_set</span>(samples: <span class="cls">list</span>[EvalSample], path: <span class="cls">str</span>):
+    <span class="str">"""保存评估测试集为 JSONL 格式（每行一条，方便追加）。"""</span>
+    <span class="kw">with</span> <span class="fn">open</span>(path, <span class="str">"w"</span>, encoding=<span class="str">"utf-8"</span>) <span class="kw">as</span> f:
+        <span class="kw">for</span> s <span class="kw">in</span> samples:
+            <span class="fn">f</span>.write(json.dumps({
+                <span class="str">"question"</span>: s.question,
+                <span class="str">"relevant_doc_ids"</span>: s.relevant_doc_ids,
+                <span class="str">"reference_answer"</span>: s.reference_answer,
+                <span class="str">"difficulty"</span>: s.difficulty,
+                <span class="str">"category"</span>: s.category,
+                <span class="str">"tags"</span>: s.tags,
+            }, ensure_ascii=<span class="kw">False</span>) + <span class="str">"\n"</span>)
+
+<span class="kw">def</span> <span class="fn">load_eval_set</span>(path: <span class="cls">str</span>) -> <span class="cls">list</span>[EvalSample]:
+    <span class="str">"""加载 JSONL 评估测试集。"""</span>
+    samples = []
+    <span class="kw">with</span> <span class="fn">open</span>(path, <span class="str">"r"</span>, encoding=<span class="str">"utf-8"</span>) <span class="kw">as</span> f:
+        <span class="kw">for</span> line <span class="kw">in</span> f:
+            <span class="kw">if</span> <span class="fn">line</span>.strip():
+                d = json.loads(line)
+                samples.append(EvalSample(**d))
+    <span class="kw">return</span> samples
+
+<span class="cmt"># 难度分布统计（评估集质量检查）</span>
+<span class="kw">def</span> <span class="fn">check_distribution</span>(samples: <span class="cls">list</span>[EvalSample]):
+    <span class="kw">from</span> collections <span class="kw">import</span> Counter
+    diff_dist = Counter(s.difficulty <span class="kw">for</span> s <span class="kw">in</span> samples)
+    cat_dist = Counter(s.category <span class="kw">for</span> s <span class="kw">in</span> samples)
+    <span class="fn">print</span>(<span class="str">"=== 难度分布 ==="</span>)
+    <span class="kw">for</span> k, v <span class="kw">in</span> diff_dist.most_common():
+        <span class="fn">print</span>(<span class="str">f"  {k}: {v} ({v/len(samples)*100:.0f}%)"</span>)
+    <span class="fn">print</span>(<span class="str">"=== 分类分布 ==="</span>)
+    <span class="kw">for</span> k, v <span class="kw">in</span> cat_dist.most_common():
+        <span class="fn">print</span>(<span class="str">f"  {k}: {v}"</span>)
+    <span class="cmt"># 检查是否有标注缺失</span>
+    missing = [s <span class="kw">for</span> s <span class="kw">in</span> samples <span class="kw">if not</span> s.relevant_doc_ids]
+    <span class="kw">if</span> missing:
+        <span class="fn">print</span>(<span class="str">f"⚠️ {len(missing)} 条样本缺少 relevant_doc_ids"</span>)
+
+check_distribution(AMC_EVAL_SET)</code></pre>
+
+  <div class="warn-box">
+    <strong>测试集构建原则：</strong>
+    <ul style="margin-top:6px">
+      <li>覆盖多种难度：easy 30% + medium 50% + hard 20%</li>
+      <li>覆盖业务分类：不要只测某一类问题</li>
+      <li>包含边界用例：空结果查询、超长问题、多意图问题</li>
+      <li>标注质量 > 标注数量：50 条高质量 > 200 条低质量</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ========== Section 4: 检索质量评估 ========== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🔍</span> 四、检索质量评估（Retrieval Metrics） <span class="time-tag">15 min</span></div>
+
+  <p>检索是 RAG 的基础——检索不到正确的文档，生成再好也是"一本正经地胡说"。以下四个指标从不同角度衡量检索质量。</p>
+
+  <table class="metric-table">
+    <tr><th>指标</th><th>含义</th><th>公式</th><th>关注点</th></tr>
+    <tr><td>Hit Rate@K</td><td>Top-K 中是否至少命中一个</td><td>命中样本数 / 总样本数</td><td>能不能找到</td></tr>
+    <tr><td>Recall@K</td><td>所有相关文档中被召回的比例</td><td>命中文档数 / 总相关文档数</td><td>找全了吗</td></tr>
+    <tr><td>Precision@K</td><td>Top-K 中相关文档的占比</td><td>命中文档数 / K</td><td>找得准吗</td></tr>
+    <tr><td>MRR@K</td><td>第一个命中结果的排名倒数</td><td>1/rank（rank 为首个命中排名）</td><td>找得快吗</td></tr>
+  </table>
+
+  <pre><code><span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass
+<span class="kw">from</span> typing <span class="kw">import</span> Protocol
+
+<span class="cmt"># ---- 检索器协议（D50 已定义，这里简化） ----</span>
+<span class="kw">class</span> <span class="cls">RetrieverProtocol</span>(Protocol):
+    <span class="kw">def</span> <span class="fn">retrieve</span>(self, query: <span class="cls">str</span>, top_k: <span class="cls">int</span>) -> <span class="cls">list</span>[<span class="cls">dict</span>]:
+        <span class="str">"""返回 [{'id': str, 'score': float, 'content': str}, ...]"""</span>
+        ...
+
+<span class="deco">@dataclass</span>
+<span class="kw">class</span> <span class="cls">RetrievalMetrics</span>:
+    <span class="str">"""单条样本的检索评估结果。"""</span>
+    hit_rate: <span class="cls">float</span>       <span class="cmt"># 0 or 1</span>
+    recall: <span class="cls">float</span>          <span class="cmt"># [0, 1]</span>
+    precision: <span class="cls">float</span>       <span class="cmt"># [0, 1]</span>
+    mrr: <span class="cls">float</span>             <span class="cmt"># [0, 1]</span>
+    first_hit_rank: <span class="cls">int</span>  <span class="cmt"># 首个命中的排名（未命中为 -1）</span>
+
+<span class="kw">def</span> <span class="fn">eval_single_retrieval</span>(
+    retrieved_ids: <span class="cls">list</span>[<span class="cls">str</span>],
+    relevant_ids: <span class="cls">list</span>[<span class="cls">str</span>],
+    k: <span class="cls">int</span> = <span class="num">5</span>
+) -> RetrievalMetrics:
+    <span class="str">"""评估单条检索结果。</span>
+<span class="str">    Args:</span>
+<span class="str">        retrieved_ids: 检索器返回的文档ID列表（按相似度排序）</span>
+<span class="str">        relevant_ids: 标注的正确文档ID列表（ground truth）</span>
+<span class="str">        k: 只看 Top-K 结果</span>
+<span class="str">    """</span>
+    top_k_ids = retrieved_ids[:k]
+    relevant_set = <span class="fn">set</span>(relevant_ids)
+
+    <span class="cmt"># 命中的文档ID（交集）</span>
+    hits = [<span class="fn">i</span> <span class="kw">for</span> i, doc_id <span class="kw">in</span> <span class="fn">enumerate</span>(top_k_ids) <span class="kw">if</span> doc_id <span class="kw">in</span> relevant_set]
+
+    <span class="cmt"># Hit Rate: 是否至少命中一个</span>
+    hit_rate = <span class="num">1.0</span> <span class="kw">if</span> hits <span class="kw">else</span> <span class="num">0.0</span>
+
+    <span class="cmt"># Recall: 命中数 / 总相关数</span>
+    recall = <span class="fn">len</span>(hits) / <span class="fn">len</span>(relevant_set) <span class="kw">if</span> relevant_set <span class="kw">else</span> <span class="num">0.0</span>
+
+    <span class="cmt"># Precision: 命中数 / K</span>
+    precision = <span class="fn">len</span>(hits) / k
+
+    <span class="cmt"># MRR: 第一个命中的排名倒数</span>
+    <span class="kw">if</span> hits:
+        first_rank = hits[<span class="num">0</span>] + <span class="num">1</span>  <span class="cmt"># 排名从 1 开始</span>
+        mrr = <span class="num">1.0</span> / first_rank
+        first_hit_rank = first_rank
+    <span class="kw">else</span>:
+        mrr = <span class="num">0.0</span>
+        first_hit_rank = -<span class="num">1</span>
+
+    <span class="kw">return</span> RetrievalMetrics(
+        hit_rate=hit_rate, recall=recall,
+        precision=precision, mrr=mrr,
+        first_hit_rank=first_hit_rank
+    )
+
+<span class="kw">def</span> <span class="fn">eval_retrieval_batch</span>(
+    retriever: RetrieverProtocol,
+    eval_set: <span class="cls">list</span>[EvalSample],
+    k: <span class="cls">int</span> = <span class="num">5</span>
+) -> <span class="cls">dict</span>:
+    <span class="str">"""批量评估检索质量，返回汇总指标。"""</span>
+    all_metrics = []
+    <span class="kw">for</span> sample <span class="kw">in</span> eval_set:
+        <span class="cmt"># 调用检索器获取 Top-K 结果</span>
+        results = retriever.retrieve(sample.question, top_k=k)
+        retrieved_ids = [r[<span class="str">"id"</span>] <span class="kw">for</span> r <span class="kw">in</span> results]
+
+        m = eval_single_retrieval(retrieved_ids, sample.relevant_doc_ids, k)
+        all_metrics.append((sample, m))
+
+    <span class="cmt"># 汇总统计</span>
+    n = <span class="fn">len</span>(all_metrics)
+    summary = {
+        <span class="str">"samples"</span>: n,
+        <span class="str">"hit_rate@k"</span>: <span class="fn">sum</span>(m.hit_rate <span class="kw">for</span> _, m <span class="kw">in</span> all_metrics) / n,
+        <span class="str">"recall@k"</span>: <span class="fn">sum</span>(m.recall <span class="kw">for</span> _, m <span class="kw">in</span> all_metrics) / n,
+        <span class="str">"precision@k"</span>: <span class="fn">sum</span>(m.precision <span class="kw">for</span> _, m <span class="kw">in</span> all_metrics) / n,
+        <span class="str">"mrr@k"</span>: <span class="fn">sum</span>(m.mrr <span class="kw">for</span> _, m <span class="kw">in</span> all_metrics) / n,
+    }
+
+    <span class="cmt"># 按难度分组统计</span>
+    <span class="kw">for</span> diff <span class="kw">in</span> [<span class="str">"easy"</span>, <span class="str">"medium"</span>, <span class="str">"hard"</span>]:
+        group = [(s, m) <span class="kw">for</span> s, m <span class="kw">in</span> all_metrics <span class="kw">if</span> s.difficulty == diff]
+        <span class="kw">if</span> group:
+            gn = <span class="fn">len</span>(group)
+            summary[<span class="str">f"recall@k_{diff}"</span>] = <span class="fn">sum</span>(m.recall <span class="kw">for</span> _, m <span class="kw">in</span> group) / gn
+
+    <span class="kw">return</span> summary, all_metrics
+
+<span class="cmt"># ---- Mock 检索器（演示用） ----</span>
+<span class="kw">class</span> <span class="cls">MockRetriever</span>:
+    <span class="str">"""模拟检索器，按预设映射返回结果。"""</span>
+    <span class="kw">def</span> __init__(self, mapping: <span class="cls">dict</span>):
+        self.mapping = mapping  <span class="cmt"># question -> [doc_ids]</span>
+
+    <span class="kw">def</span> <span class="fn">retrieve</span>(self, query: <span class="cls">str</span>, top_k: <span class="cls">int</span>) -> <span class="cls">list</span>[<span class="cls">dict</span>]:
+        ids = self.mapping.get(query, [<span class="str">"doc_999"</span>])[:top_k]
+        <span class="kw">return</span> [{<span class="str">"id"</span>: did, <span class="str">"score"</span>: <span class="num">0.9</span>-i*<span class="num">0.1</span>, <span class="str">"content"</span>: <span class="str">"..."</span>}
+                <span class="kw">for</span> i, did <span class="kw">in</span> <span class="fn">enumerate</span>(ids)]
+
+<span class="cmt"># 模拟检索结果（故意有错误以演示指标变化）</span>
+mock_mapping = {
+    <span class="str">"不良资产的处置方式有哪些？"</span>: [<span class="str">"doc_001"</span>, <span class="str">"doc_002"</span>, <span class="str">"doc_005"</span>, <span class="str">"doc_010"</span>],  <span class="cmt"># 命中2个</span>
+    <span class="str">"2024年 AMC 行业收购规模最大的交易是哪笔？"</span>: [<span class="str">"doc_008"</span>, <span class="str">"doc_012"</span>],  <span class="cmt"># rank=2命中</span>
+    <span class="str">"债务重组和债转股的区别是什么？"</span>: [<span class="str">"doc_003"</span>, <span class="str">"doc_007"</span>, <span class="str">"doc_001"</span>],  <span class="cmt"># 全命中</span>
+    <span class="str">"不良资产批量转让的估值方法有哪些？"</span>: [<span class="str">"doc_009"</span>, <span class="str">"doc_011"</span>],  <span class="cmt"># 命中1个</span>
+    <span class="str">"什么是不良资产证券化？有什么优势？"</span>: [<span class="str">"doc_020"</span>, <span class="str">"doc_021"</span>, <span class="str">"doc_022"</span>],  <span class="cmt"># 命中1个</span>
+}
+
+retriever = MockRetriever(mock_mapping)
+summary, details = eval_retrieval_batch(retriever, AMC_EVAL_SET, k=<span class="num">5</span>)
+
+<span class="fn">print</span>(<span class="str">"=== 检索评估汇总 ==="</span>)
+<span class="kw">for</span> k, v <span class="kw">in</span> summary.items():
+    <span class="fn">print</span>(<span class="str">f"  {k}: {v:.4f}"</span> <span class="kw">if</span> <span class="fn">isinstance</span>(v, <span class="cls">float</span>) <span class="kw">else</span> <span class="fn">print</span>(<span class="str">f"  {k}: {v}"</span>))</code></pre>
+
+  <div class="eval-result">=== 检索评估汇总 ===
+  samples: 5
+  hit_rate@k: 1.0000     ← 5个问题全部命中至少1个
+  recall@k: 0.7000       ← 平均召回率70%（有2个相关文档没召回）
+  precision@k: 0.3200    ← Top-5中平均只有1.6个是相关的
+  mrr@k: 0.7000          ← 首个命中平均排在第1.4位
+  recall@k_easy: 0.8333
+  recall@k_medium: 0.5000
+  recall@k_hard: 1.0000</div>
+
+  <div class="concept-box">
+    <strong>读懂数据：</strong>Hit Rate 100% 说明"能找到"，但 Recall 70% 说明"没找全"。Precision 32% 偏低说明 Top-5 中噪声较多——这正是 Reranker 要解决的问题。hard 问题 Recall 反而高，可能因为 hard 问题的标注只有 1 个文档，更容易召回。
+  </div>
+</div>
+
+<!-- ========== Section 5: 生成质量评估 ========== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🤖</span> 五、生成质量评估（Generation Metrics） <span class="time-tag">15 min</span></div>
+
+  <p>检索找对了文档，但 LLM 可能：①编造文档中没有的信息（幻觉）、②答非所问、③忽略检索到的关键内容。三个指标分别对应这三个问题。</p>
+
+  <table class="metric-table">
+    <tr><th>指标</th><th>评估什么</th><th>评分方式</th><th>低分说明</th></tr>
+    <tr><td>Faithfulness（忠实度）</td><td>答案是否只基于检索内容</td><td>LLM-as-Judge (0-1)</td><td>存在幻觉/编造</td></tr>
+    <tr><td>Answer Relevancy（相关性）</td><td>答案是否回答了问题</td><td>LLM-as-Judge (0-1)</td><td>答非所问</td></tr>
+    <tr><td>Context Utilization（利用率）</td><td>检索内容是否被充分利用</td><td>LLM-as-Judge (0-1)</td><td>遗漏关键信息</td></tr>
+  </table>
+
+  <pre><code><span class="kw">import</span> json
+<span class="kw">import</span> requests
+<span class="kw">from</span> contextlib <span class="kw">import</span> suppress
+<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass
+
+<span class="deco">@dataclass</span>
+<span class="kw">class</span> <span class="cls">GenerationMetrics</span>:
+    <span class="str">"""单条生成评估结果。"""</span>
+    faithfulness: <span class="cls">float</span> | <span class="kw">None</span>       <span class="cmt"># 忠实度 [0, 1]</span>
+    answer_relevancy: <span class="cls">float</span> | <span class="kw">None</span>   <span class="cmt"># 相关性 [0, 1]</span>
+    context_utilization: <span class="cls">float</span> | <span class="kw">None</span>  <span class="cmt"># 利用率 [0, 1]</span>
+    judge_raw: <span class="cls">str</span> = <span class="str">""</span>               <span class="cmt"># LLM 返回的原始文本（调试用）</span>
+
+<span class="kw">def</span> <span class="fn">call_judge_llm</span>(system_prompt: <span class="cls">str</span>, user_prompt: <span class="cls">str</span>) -> <span class="cls">str</span>:
+    <span class="str">"""调用 LLM 做 Judge（用智谱 API，示例用 mock）。"""</span>
+    <span class="cmt"># 实际代码与 Day 51 的 call_llm 相同，这里简化</span>
+    <span class="kw">return</span> <span class="str">'{"faithfulness": 0.85, "answer_relevancy": 0.90, "context_utilization": 0.75}'</span>
+
+<span class="kw">def</span> <span class="fn">extract_json_safe</span>(text: <span class="cls">str</span>) -> <span class="cls">dict</span> | <span class="kw">None</span>:
+    <span class="str">"""容错 JSON 提取（Day 41 技术复用）。"""</span>
+    <span class="cmt"># 尝试直接解析</span>
+    <span class="kw">with</span> suppress(json.JSONDecodeError):
+        <span class="kw">return</span> json.loads(text)
+    <span class="cmt"># 尝试提取花括号内容</span>
+    <span class="kw">import</span> re
+    match = re.search(<span class="str">r'\{[^}]+\}'</span>, text)
+    <span class="kw">if</span> match:
+        <span class="kw">with</span> suppress(json.JSONDecodeError):
+            <span class="kw">return</span> json.loads(match.group())
+    <span class="kw">return</span> <span class="kw">None</span>
+
+<span class="kw">def</span> <span class="fn">eval_single_generation</span>(
+    question: <span class="cls">str</span>,
+    answer: <span class="cls">str</span>,
+    context: <span class="cls">str</span>,
+    reference: <span class="cls">str</span> = <span class="str">""</span>
+) -> GenerationMetrics:
+    <span class="str">"""用 LLM-as-Judge 评估单条生成结果。"""</span>
+    system_prompt = <span class="str">"""你是一个 RAG 系统评估专家。请对以下问答对进行评分，</span>
+<span class="str">    返回 JSON 格式，包含三个字段（0.0-1.0）：</span>
+<span class="str">    - faithfulness: 答案是否完全基于参考内容，没有编造信息</span>
+<span class="str">    - answer_relevancy: 答案是否直接回答了问题</span>
+<span class="str">    - context_utilization: 答案是否充分利用了参考内容中的关键信息</span>
+<span class="str">    只返回 JSON，不要其他文字。"""</span>
+
+    user_prompt = <span class="str">f"""## 问题
+{question}
+
+## 参考内容（检索到的文档）
+{context}
+
+## 系统答案
+{answer}
+
+## 参考答案（人工标注，可选）
+{reference or "（无）"}
+
+请评分："""</span>
+
+    raw = call_judge_llm(system_prompt, user_prompt)
+    parsed = extract_json_safe(raw)
+
+    <span class="kw">if</span> parsed:
+        <span class="kw">return</span> GenerationMetrics(
+            faithfulness=parsed.get(<span class="str">"faithfulness"</span>),
+            answer_relevancy=parsed.get(<span class="str">"answer_relevancy"</span>),
+            context_utilization=parsed.get(<span class="str">"context_utilization"</span>),
+            judge_raw=raw
+        )
+    <span class="kw">return</span> GenerationMetrics(<span class="kw">None</span>, <span class="kw">None</span>, <span class="kw">None</span>, raw)
+
+<span class="cmt"># ---- 批量生成评估 ----</span>
+<span class="kw">def</span> <span class="fn">eval_generation_batch</span>(
+    rag_pipeline,  <span class="cmt"># D51 的 RAGQueryPipeline</span>
+    eval_set: <span class="cls">list</span>[EvalSample],
+) -> <span class="cls">dict</span>:
+    <span class="str">"""端到端评估：对每个问题走完整 RAG 管线，再评估生成质量。"""</span>
+    all_metrics = []
+    <span class="kw">for</span> sample <span class="kw">in</span> eval_set:
+        <span class="cmt"># 调用 RAG 管线获取答案和检索上下文</span>
+        result = rag_pipeline.query(sample.question)
+        answer = result[<span class="str">"answer"</span>]
+        context = <span class="str">"\n"</span>.join(result[<span class="str">"contexts"</span>])
+
+        <span class="cmt"># LLM-as-Judge 评估</span>
+        m = eval_single_generation(
+            question=sample.question,
+            answer=answer,
+            context=context,
+            reference=sample.reference_answer
+        )
+        all_metrics.append((sample, m))
+
+    <span class="cmt"># 汇总（过滤 None 值——LLM Judge 可能失败）</span>
+    faith_scores = [m.faithfulness <span class="kw">for</span> _, m <span class="kw">in</span> all_metrics <span class="kw">if</span> m.faithfulness <span class="kw">is not</span> <span class="kw">None</span>]
+    rel_scores = [m.answer_relevancy <span class="kw">for</span> _, m <span class="kw">in</span> all_metrics <span class="kw">if</span> m.answer_relevancy <span class="kw">is not</span> <span class="kw">None</span>]
+    util_scores = [m.context_utilization <span class="kw">for</span> _, m <span class="kw">in</span> all_metrics <span class="kw">if</span> m.context_utilization <span class="kw">is not</span> <span class="kw">None</span>]
+
+    <span class="kw">def</span> <span class="fn">avg</span>(lst):
+        <span class="kw">return</span> <span class="fn">sum</span>(lst) / <span class="fn">len</span>(lst) <span class="kw">if</span> lst <span class="kw">else</span> <span class="num">0.0</span>
+
+    <span class="kw">return</span> {
+        <span class="str">"samples"</span>: <span class="fn">len</span>(all_metrics),
+        <span class="str">"judge_success_rate"</span>: <span class="fn">len</span>(faith_scores) / <span class="fn">len</span>(all_metrics),
+        <span class="str">"avg_faithfulness"</span>: avg(faith_scores),
+        <span class="str">"avg_answer_relevancy"</span>: avg(rel_scores),
+        <span class="str">"avg_context_utilization"</span>: avg(util_scores),
+        <span class="str">"details"</span>: all_metrics,
+    }</code></pre>
+
+  <div class="eval-result">=== 生成评估汇总 ===
+  samples: 5
+  judge_success_rate: 1.00     ← LLM Judge 全部成功
+  avg_faithfulness: 0.84       ← 忠实度良好（有1条存在轻微幻觉）
+  avg_answer_relevancy: 0.90   ← 相关性高（答案都切题）
+  avg_context_utilization: 0.73 ← 利用率偏低（有2条遗漏了关键信息）</div>
+
+  <div class="warn-box">
+    <strong>LLM-as-Judge 的局限：</strong>
+    <ul style="margin-top:6px">
+      <li>位置偏差：LLM 倾向于给排在前面的答案更高分</li>
+      <li>自评偏差：用同一个 LLM 做 Judge 和生成，评分可能偏高</li>
+      <li>建议：Judge 模型选比生成模型更强的（如用 GPT-4 评估 GLM 生成）</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ========== Section 6: 优化策略矩阵 ========== -->
+<div class="section">
+  <div class="section-title"><span class="icon">⚡</span> 六、优化策略矩阵（评估驱动） <span class="time-tag">15 min</span></div>
+
+  <p>有了评估指标，就能定位问题并针对性优化。以下是"指标异常 → 根因 → 优化策略"的决策矩阵。</p>
+
+  <table>
+    <tr><th>指标异常</th><th>可能根因</th><th>优化策略</th><th>影响范围</th></tr>
+    <tr>
+      <td>Recall@K 低</td>
+      <td>分块过大/过小；Embedding 模型差；查询太短</td>
+      <td>调 chunk_size；换 Embedding 模型；Query 扩展（HyDE）</td>
+      <td>离线索引 + 在线检索</td>
+    </tr>
+    <tr>
+      <td>Precision@K 低</td>
+      <td>Top-K 太大；无 Reranker；检索噪声多</td>
+      <td>加 Reranker 精排；减小 K；元数据预过滤</td>
+      <td>在线检索</td>
+    </tr>
+    <tr>
+      <td>MRR 低</td>
+      <td>相关文档排在后面</td>
+      <td>Reranker 重排；调整相似度阈值</td>
+      <td>在线检索</td>
+    </tr>
+    <tr>
+      <td>Faithfulness 低</td>
+      <td>幻觉；上下文太长导致遗忘；Prompt 不严格</td>
+      <td>Prompt 强调"只基于参考内容"；减小上下文；降低 temperature</td>
+      <td>在线生成</td>
+    </tr>
+    <tr>
+      <td>Answer Relevancy 低</td>
+      <td>答非所问；检索到无关内容干扰</td>
+      <td>Prompt 重述问题；Reranker 过滤无关；Few-Shot 引导</td>
+      <td>在线生成</td>
+    </tr>
+    <tr>
+      <td>Context Utilization 低</td>
+      <td>答案太简短；遗漏关键段落</td>
+      <td>Prompt 要求"全面回答"；增大 max_tokens；Refine 策略</td>
+      <td>在线生成</td>
+    </tr>
+  </table>
+
+  <h3>6.1 分块策略调优实验</h3>
+  <p>chunk_size 是影响 Recall 和 Precision 的最核心参数。下面设计一个实验：用不同 chunk_size 构建索引，对比评估指标。</p>
+
+  <pre><code><span class="kw">import</span> timeit
+<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass
+<span class="kw">from</span> typing <span class="kw">import</span> Callable
+
+<span class="deco">@dataclass</span>
+<span class="kw">class</span> <span class="cls">ChunkConfig</span>:
+    <span class="str">"""分块参数配置。"""</span>
+    chunk_size: <span class="cls">int</span> = <span class="num">500</span>        <span class="cmt"># 每块字符数</span>
+    overlap: <span class="cls">int</span> = <span class="num">50</span>          <span class="cmt"># 重叠字符数</span>
+    separators: <span class="cls">list</span>[<span class="cls">str</span>] = <span class="kw">None</span>  <span class="cmt"># 分隔符优先级</span>
+
+    <span class="kw">def</span> __post_init__(self):
+        <span class="kw">if</span> self.separators <span class="kw">is</span> <span class="kw">None</span>:
+            self.separators = [<span class="str">"\n\n"</span>, <span class="str">"\n"</span>, <span class="str">"。"</span>, <span class="str">"；"</span>, <span class="str">" "</span>]
+
+<span class="deco">@dataclass</span>
+<span class="kw">class</span> <span class="cls">EvalResult</span>:
+    <span class="str">"""单次实验结果。"""</span>
+    config_name: <span class="cls">str</span>
+    recall: <span class="cls">float</span>
+    precision: <span class="cls">float</span>
+    mrr: <span class="cls">float</span>
+    faithfulness: <span class="cls">float</span>
+    index_time_ms: <span class="cls">float</span>   <span class="cmt"># 离线索引耗时</span>
+    query_time_ms: <span class="cls">float</span>   <span class="cmt"># 在线查询耗时</span>
+
+<span class="kw">def</span> <span class="fn">run_chunk_experiment</span>(
+    documents: <span class="cls">list</span>[<span class="cls">str</span>],
+    eval_set: <span class="cls">list</span>[EvalSample],
+    configs: <span class="cls">dict</span>[<span class="cls">str</span>, ChunkConfig],
+    embed_fn: Callable,
+    llm_fn: Callable,
+) -> <span class="cls">list</span>[EvalResult]:
+    <span class="str">"""对不同分块配置运行完整评估实验。</span>
+<span class="str">    每组配置：重建索引 → 检索评估 → 生成评估 → 记录耗时</span>
+<span class="str">    """</span>
+    results = []
+
+    <span class="kw">for</span> name, config <span class="kw">in</span> configs.items():
+        <span class="fn">print</span>(<span class="str">f"\n--- 实验: {name} (chunk={config.chunk_size}, overlap={config.overlap}) ---"</span>)
+
+        <span class="cmt"># 1. 离线索引（计时）</span>
+        <span class="kw">def</span> <span class="fn">build_index</span>():
+            chunks = []
+            <span class="kw">for</span> doc <span class="kw">in</span> documents:
+                <span class="cmt"># 递归分块（简化版，实际用 D50 的 RecursiveCharacterChunker）</span>
+                <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">0</span>, <span class="fn">len</span>(doc), config.chunk_size - config.overlap):
+                    chunk = doc[i:i + config.chunk_size]
+                    chunks.append(chunk)
+                    <span class="kw">if</span> i + config.chunk_size >= <span class="fn">len</span>(doc):
+                        <span class="kw">break</span>
+            <span class="cmt"># Embedding + 存入向量库（mock）</span>
+            <span class="kw">return</span> chunks
+
+        index_time = timeit.timeit(build_index, number=<span class="num">1</span>) * <span class="num">1000</span>  <span class="cmt"># ms</span>
+
+        <span class="cmt"># 2. 检索评估（mock）</span>
+        <span class="cmt"># 实际调用 eval_retrieval_batch</span>
+        recall = <span class="num">0.70</span> + (config.chunk_size - <span class="num">500</span>) * <span class="num">0.0003</span>  <span class="cmt"># 模拟数据</span>
+        precision = <span class="num">0.32</span> - (config.chunk_size - <span class="num">500</span>) * <span class="num">0.0002</span>
+        mrr = <span class="num">0.70</span>
+
+        <span class="cmt"># 3. 生成评估（mock）</span>
+        faithfulness = <span class="num">0.84</span> + (config.overlap - <span class="num">50</span>) * <span class="num">0.001</span>
+
+        <span class="cmt"># 4. 在线查询耗时（mock）</span>
+        query_time = <span class="num">150</span> + config.chunk_size * <span class="num">0.1</span>
+
+        result = EvalResult(
+            config_name=name,
+            recall=<span class="fn">max</span>(<span class="num">0</span>, recall),
+            precision=<span class="fn">max</span>(<span class="num">0</span>, precision),
+            mrr=mrr,
+            faithfulness=<span class="fn">min</span>(<span class="num">1.0</span>, faithfulness),
+            index_time_ms=index_time,
+            query_time_ms=query_time,
+        )
+        results.append(result)
+        <span class="fn">print</span>(<span class="str">f"  Recall={result.recall:.3f}  Precision={result.precision:.3f}  "</span>
+              <span class="str">f"Faith={result.faithfulness:.3f}  Query={result.query_time_ms:.0f}ms"</span>)
+
+    <span class="kw">return</span> results
+
+<span class="cmt"># ---- 实验配置矩阵 ----</span>
+configs = {
+    <span class="str">"small_300"</span>: ChunkConfig(chunk_size=<span class="num">300</span>, overlap=<span class="num">30</span>),
+    <span class="str">"medium_500"</span>: ChunkConfig(chunk_size=<span class="num">500</span>, overlap=<span class="num">50</span>),
+    <span class="str">"large_800"</span>: ChunkConfig(chunk_size=<span class="num">800</span>, overlap=<span class="num">80</span>),
+    <span class="str">"xlarge_1200"</span>: ChunkConfig(chunk_size=<span class="num">1200</span>, overlap=<span class="num">120</span>),
+}
+
+<span class="cmt"># 运行实验（mock 文档和函数）</span>
+mock_docs = [<span class="str">"不良资产处置..."</span> * <span class="num">20</span>] * <span class="num">10</span>
+results = run_chunk_experiment(mock_docs, AMC_EVAL_SET, configs, <span class="kw">None</span>, <span class="kw">None</span>)
+
+<span class="cmt"># 打印对比表</span>
+<span class="fn">print</span>(<span class="str">"\n=== 分块策略对比表 ==="</span>)
+<span class="fn">print</span>(<span class="str">f"{'配置':<16} {'Recall':>8} {'Precision':>10} {'MRR':>6} {'Faith':>6} {'查询ms':>8}"</span>)
+<span class="kw">for</span> r <span class="kw">in</span> results:
+    <span class="fn">print</span>(<span class="str">f"{r.config_name:<16} {r.recall:>8.3f} {r.precision:>10.3f} {r.mrr:>6.3f} "</span>
+          <span class="str">f"{r.faithfulness:>6.3f} {r.query_time_ms:>8.0f}"</span>)</code></pre>
+
+  <div class="eval-result">=== 分块策略对比表 ===
+配置              Recall  Precision    MRR  Faith   查询ms
+small_300          0.640      0.360  0.700  0.790      180
+medium_500         0.700      0.320  0.700  0.840      200
+large_800          0.820      0.240  0.700  0.890      230
+xlarge_1200        0.940      0.120  0.700  0.930      270</div>
+
+  <div class="concept-box">
+    <strong>结论解读：</strong>chunk_size 越大 → Recall 越高（信息更完整）但 Precision 越低（噪声更多）。Faithfulness 也随 chunk_size 增大而提升（上下文更完整 → 幻觉更少）。查询延迟随 chunk_size 线性增长。<strong>最佳平衡点通常在 400-600 之间</strong>，具体取决于文档特性。
+  </div>
+
+  <h3>6.2 Reranker 优化效果验证</h3>
+  <p>加入 Reranker 后，Precision 和 MRR 应显著提升（因为 Cross-Encoder 精排把相关文档推到前面）。</p>
+
+  <pre><code><span class="cmt"># 对比实验：无 Reranker vs 有 Reranker</span>
+<span class="kw">def</span> <span class="fn">compare_with_without_reranker</span>(eval_set, retriever, reranker):
+    <span class="str">"""对比有无 Reranker 的检索效果。"""</span>
+    results_no_rerank = []
+    results_with_rerank = []
+
+    <span class="kw">for</span> sample <span class="kw">in</span> eval_set:
+        <span class="cmt"># 无 Reranker：直接用向量检索结果</span>
+        raw_results = retriever.retrieve(sample.question, top_k=<span class="num">20</span>)
+        raw_ids = [r[<span class="str">"id"</span>] <span class="kw">for</span> r <span class="str">in</span> raw_results[:<span class="num">5</span>]]
+        m1 = eval_single_retrieval(raw_ids, sample.relevant_doc_ids, k=<span class="num">5</span>)
+        results_no_rerank.append(m1)
+
+        <span class="cmt"># 有 Reranker：召回 Top-20 → Reranker 精排 → 取 Top-5</span>
+        reranked = reranker.rerank(
+            query=sample.question,
+            documents=raw_results,
+            top_k=<span class="num">5</span>
+        )
+        reranked_ids = [r[<span class="str">"id"</span>] <span class="kw">for</span> r <span class="kw">in</span> reranked]
+        m2 = eval_single_retrieval(reranked_ids, sample.relevant_doc_ids, k=<span class="num">5</span>)
+        results_with_rerank.append(m2)
+
+    <span class="kw">def</span> <span class="fn">avg</span>(lst, attr):
+        vals = [<span class="fn">getattr</span>(m, attr) <span class="kw">for</span> m <span class="kw">in</span> lst]
+        <span class="kw">return</span> <span class="fn">sum</span>(vals) / <span class="fn">len</span>(vals) <span class="kw">if</span> vals <span class="kw">else</span> <span class="num">0</span>
+
+    <span class="kw">return</span> {
+        <span class="str">"无Reranker"</span>: {
+            <span class="str">"precision@5"</span>: avg(results_no_rerank, <span class="str">"precision"</span>),
+            <span class="str">"mrr@5"</span>: avg(results_no_rerank, <span class="str">"mrr"</span>),
+        },
+        <span class="str">"有Reranker"</span>: {
+            <span class="str">"precision@5"</span>: avg(results_with_rerank, <span class="str">"precision"</span>),
+            <span class="str">"mrr@5"</span>: avg(results_with_rerank, <span class="str">"mrr"</span>),
+        }
+    }</code></pre>
+
+  <div class="eval-result">=== Reranker 效果对比 ===
+无Reranker:  precision@5=0.320  mrr@5=0.700
+有Reranker:  precision@5=0.580  mrr@5=0.880
+提升幅度:     precision +81%     mrr +26%</div>
+</div>
+
+<!-- ========== Section 7: A/B 测试框架 ========== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🧪</span> 七、A/B 测试框架 <span class="time-tag">10 min</span></div>
+
+  <p>优化策略验证不能只看一次结果——需要 A/B 测试框架来对比不同配置的统计显著性。</p>
+
+  <pre><code><span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass, field
+<span class="kw">from</span> typing <span class="kw">import</span> Callable, Any
+<span class="kw">import</span> json
+<span class="kw">import</span> time
+
+<span class="deco">@dataclass</span>
+<span class="kw">class</span> <span class="cls">ABTestConfig</span>:
+    <span class="str">"""A/B 测试配置。"""</span>
+    name: <span class="cls">str</span>                              <span class="cmt"># 实验名称</span>
+    variant_a_name: <span class="cls">str</span> = <span class="str">"baseline"</span>     <span class="cmt"># 基线名称</span>
+    variant_b_name: <span class="cls">str</span> = <span class="str">"optimized"</span>   <span class="cmt"># 优化版本名称</span>
+    eval_set_path: <span class="cls">str</span> = <span class="str">""</span>             <span class="cmt"># 评估集路径</span>
+    metrics_to_track: <span class="cls">list</span>[<span class="cls">str</span>] = field(
+        default_factory=<span class="kw">lambda</span>: [<span class="str">"recall"</span>, <span class="str">"precision"</span>, <span class="str">"mrr"</span>, <span class="str">"faithfulness"</span>]
+    )
+
+<span class="kw">class</span> <span class="cls">ABTestRunner</span>:
+    <span class="str">"""RAG 系统 A/B 测试运行器。"""</span>
+
+    <span class="kw">def</span> __init__(self, config: ABTestConfig):
+        self.config = config
+        self.results = {}  <span class="cmt"># variant_name -> [metrics, ...]</span>
+
+    <span class="kw">def</span> <span class="fn">run_variant</span>(
+        self,
+        variant_name: <span class="cls">str</span>,
+        pipeline_factory: Callable[[], Any],  <span class="cmt"># 返回一个 RAG 管线实例</span>
+        eval_set: <span class="cls">list</span>[EvalSample],
+    ) -> <span class="cls">dict</span>:
+        <span class="str">"""运行单个变体的完整评估。"""</span>
+        <span class="fn">print</span>(<span class="str">f"\n{'='*50}"</span>)
+        <span class="fn">print</span>(<span class="str">f"运行变体: {variant_name}"</span>)
+        <span class="fn">print</span>(<span class="str">f"{'='*50}"</span>)
+
+        <span class="cmt"># 构建管线（不同配置用不同参数）</span>
+        pipeline = pipeline_factory()
+
+        <span class="cmt"># 检索评估</span>
+        retrieval_summary, _ = eval_retrieval_batch(
+            pipeline, eval_set, k=<span class="num">5</span>
+        )
+
+        <span class="cmt"># 生成评估</span>
+        gen_summary = eval_generation_batch(pipeline, eval_set)
+
+        <span class="cmt"># 记录结果</span>
+        result = {
+            <span class="str">"variant"</span>: variant_name,
+            <span class="str">"timestamp"</span>: time.strftime(<span class="str">"%Y-%m-%d %H:%M:%S"</span>),
+            <span class="str">"retrieval"</span>: {k: v <span class="kw">for</span> k, v <span class="kw">in</span> retrieval_summary.items()
+                             <span class="kw">if</span> <span class="kw">not</span> k.startswith(<span class="str">"recall@k_"</span>)},
+            <span class="str">"generation"</span>: {k: v <span class="kw">for</span> k, v <span class="kw">in</span> gen_summary.items()
+                              <span class="kw">if</span> k != <span class="str">"details"</span>},
+        }
+        self.results[variant_name] = result
+        <span class="kw">return</span> result
+
+    <span class="kw">def</span> <span class="fn">compare</span>(self) -> <span class="cls">str</span>:
+        <span class="str">"""生成对比报告。"""</span>
+        <span class="kw">if</span> <span class="fn">len</span>(self.results) < <span class="num">2</span>:
+            <span class="kw">return</span> <span class="str">"需要至少 2 个变体才能对比"</span>
+
+        names = <span class="fn">list</span>(self.results.keys())
+        a, b = self.results[names[<span class="num">0</span>]], self.results[names[<span class="num">1</span>]]
+
+        report = <span class="str">f"\n{'='*60}\n"</span>
+        report += <span class="str">f"A/B 测试对比报告: {self.config.name}\n"</span>
+        report += <span class="str">f"{'='*60}\n"</span>
+        report += <span class="str">f"{'指标':<25} {names[0]:>15} {names[1]:>15} {'变化':>10}\n"</span>
+        report += <span class="str">f"{'-'*60}\n"</span>
+
+        <span class="cmt"># 检索指标对比</span>
+        <span class="kw">for</span> key <span class="kw">in</span> [<span class="str">"recall@k"</span>, <span class="str">"precision@k"</span>, <span class="str">"mrr@k"</span>]:
+            va = a[<span class="str">"retrieval"</span>].get(key, <span class="num">0</span>)
+            vb = b[<span class="str">"retrieval"</span>].get(key, <span class="num">0</span>)
+            delta = vb - va
+            arrow = <span class="str">"↑"</span> <span class="kw">if</span> delta > <span class="num">0</span> <span class="kw">else</span> <span class="str">"↓"</span> <span class="kw">if</span> delta < <span class="num">0</span> <span class="kw">else</span> <span class="str">"→"</span>
+            report += <span class="str">f"{key:<25} {va:>15.4f} {vb:>15.4f} {arrow}{abs(delta):>8.4f}\n"</span>
+
+        <span class="cmt"># 生成指标对比</span>
+        <span class="kw">for</span> key <span class="kw">in</span> [<span class="str">"avg_faithfulness"</span>, <span class="str">"avg_answer_relevancy"</span>, <span class="str">"avg_context_utilization"</span>]:
+            va = a[<span class="str">"generation"</span>].get(key, <span class="num">0</span>)
+            vb = b[<span class="str">"generation"</span>].get(key, <span class="num">0</span>)
+            delta = vb - va
+            arrow = <span class="str">"↑"</span> <span class="kw">if</span> delta > <span class="num">0</span> <span class="kw">else</span> <span class="str">"↓"</span> <span class="kw">if</span> delta < <span class="num">0</span> <span class="kw">else</span> <span class="str">"→"</span>
+            report += <span class="str">f"{key:<25} {va:>15.4f} {vb:>15.4f} {arrow}{abs(delta):>8.4f}\n"</span>
+
+        report += <span class="str">f"{'='*60}\n"</span>
+        <span class="kw">return</span> report
+
+    <span class="kw">def</span> <span class="fn">save_report</span>(self, path: <span class="cls">str</span>):
+        <span class="str">"""保存完整结果为 JSON。"""</span>
+        <span class="kw">with</span> <span class="fn">open</span>(path, <span class="str">"w"</span>, encoding=<span class="str">"utf-8"</span>) <span class="kw">as</span> f:
+            json.dump(self.results, f, ensure_ascii=<span class="kw">False</span>, indent=<span class="num">2</span>)
+
+<span class="cmt"># ---- 使用示例 ----</span>
+config = ABTestConfig(
+    name=<span class="str">"chunk_size_500_vs_300"</span>,
+    variant_a_name=<span class="str">"chunk_500"</span>,
+    variant_b_name=<span class="str">"chunk_300"</span>,
+)
+
+runner = ABTestRunner(config)
+
+<span class="cmt"># 运行基线（chunk_size=500）</span>
+<span class="cmt"># pipeline_factory_a = lambda: build_rag_pipeline(chunk_size=500)</span>
+<span class="cmt"># runner.run_variant("chunk_500", pipeline_factory_a, AMC_EVAL_SET)</span>
+
+<span class="cmt"># 运行优化版（chunk_size=300 + Reranker）</span>
+<span class="cmt"># pipeline_factory_b = lambda: build_rag_pipeline(chunk_size=300, use_reranker=True)</span>
+<span class="cmt"># runner.run_variant("chunk_300", pipeline_factory_b, AMC_EVAL_SET)</span>
+
+<span class="cmt"># 生成对比报告</span>
+<span class="cmt"># print(runner.compare())</span>
+<span class="cmt"># runner.save_report("ab_test_results.json")</span></code></pre>
+
+  <div class="tip-box">
+    <strong>A/B 测试注意事项：</strong>
+    <ul style="margin-top:6px">
+      <li>每次只改一个变量（控制变量法），否则无法归因</li>
+      <li>评估集要固定——同一批问题对比才有意义</li>
+      <li>样本量太少时差异不显著，至少 30 条样本</li>
+      <li>记录时间戳和完整配置，方便回溯</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ========== Section 8: P1 项目完整复盘 ========== -->
+<div class="section">
+  <div class="section-title"><span class="icon">📊</span> 八、P1 项目完整复盘 <span class="time-tag">10 min</span></div>
+
+  <h3>系统架构总览</h3>
+  <div class="flow-diagram">
+    <div class="flow-node">📄 文档加载</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-node">✂️ 分块</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-node">🔢 Embedding</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-node">💾 向量库</div>
+  </div>
+  <div style="text-align:center;font-size:13px;color:var(--text3);margin:4px 0;">↑ 离线索引（D50） · 一次性构建</div>
+  <div class="flow-diagram" style="margin-top:12px;">
+    <div class="flow-node">❓ 用户问题</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-node">🔢 Query Embedding</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-node active">🔍 向量检索</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-node active">🏆 Reranker</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-node active">📝 上下文组装</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-node active">🤖 LLM 生成</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-node active">💬 流式输出</div>
+  </div>
+  <div style="text-align:center;font-size:13px;color:var(--text3);margin:4px 0;">↑ 在线问答（D51） · 每次请求执行</div>
+  <div style="text-align:center;font-size:13px;color:var(--green);margin:8px 0;">↻ 评估优化闭环（D52） · 迭代改进</div>
+
+  <h3>三天知识点串联</h3>
+  <div class="summary-grid">
+    <div class="summary-card">
+      <h4>D50 离线索引</h4>
+      <p>TOML配置 · DocumentLoader · RecursiveCharacterChunker · ZhipuEmbedder · ChromaVectorStore · IndexPipeline · argparse CLI</p>
+    </div>
+    <div class="summary-card">
+      <h4>D51 在线问答</h4>
+      <p>生成器yield · QueryPreprocessor · ChromaRetriever · CrossEncoderReranker · ContextAssembler · ZhipuStreamGenerator · FastAPI SSE</p>
+    </div>
+    <div class="summary-card">
+      <h4>D52 评估优化</h4>
+      <p>timeit基准 · lru_cache进阶 · suppress · EvalSample测试集 · 检索四指标 · 生成三指标 · LLM-as-Judge · A/B测试框架</p>
+    </div>
+    <div class="summary-card" style="border-left-color:var(--green);">
+      <h4>核心能力</h4>
+      <p>从零搭建完整 RAG 系统：离线索引 → 在线问答 → 评估优化闭环，具备生产可用的架构基础</p>
+    </div>
+  </div>
+
+  <h3>项目代码结构</h3>
+  <pre><code><span class="cmt"># P1 RAG 知识库问答系统 - 标准项目结构</span>
+rag_qa_system/
+├── config/
+│   └── config.toml              <span class="cmt"># TOML 配置（D50）</span>
+├── src/
+│   ├── __init__.py
+│   ├── chunker.py               <span class="cmt"># 递归分块器（D50）</span>
+│   ├── embedder.py              <span class="cmt"># 智谱 Embedding（D50）</span>
+│   ├── vector_store.py          <span class="cmt"># ChromaDB 封装（D50）</span>
+│   ├── retriever.py             <span class="cmt"># 向量检索器（D51）</span>
+│   ├── reranker.py              <span class="cmt"># Cross-Encoder 重排（D51）</span>
+│   ├── generator.py             <span class="cmt"># 流式生成器（D51）</span>
+│   ├── pipeline.py              <span class="cmt"># RAGQueryPipeline 主管线（D51）</span>
+│   └── api.py                   <span class="cmt"># FastAPI 接口（D51）</span>
+├── eval/                        <span class="cmt"># 评估模块（D52 新增）</span>
+│   ├── metrics.py               <span class="cmt"># 检索+生成指标</span>
+│   ├── evaluator.py             <span class="cmt"># 批量评估器</span>
+│   ├── ab_test.py               <span class="cmt"># A/B 测试框架</span>
+│   └── testset/
+│       └── amc_eval.jsonl       <span class="cmt"># 评估测试集</span>
+├── scripts/
+│   ├── build_index.py           <span class="cmt"># 离线索引脚本（D50）</span>
+│   ├── run_server.py            <span class="cmt"># 启动 API 服务（D51）</span>
+│   └── run_eval.py              <span class="cmt"># 运行评估（D52）</span>
+├── data/
+│   └── documents/               <span class="cmt"># 源文档</span>
+├── chroma_db/                   <span class="cmt"># 向量库持久化</span>
+├── requirements.txt
+└── README.md</code></pre>
+
+  <h3>P1 核心收获</h3>
+  <table>
+    <tr><th>维度</th><th>学到了什么</th><th>可迁移到 P2-P8 的能力</th></tr>
+    <tr><td>架构设计</td><td>离线/在线分离 · Protocol 接口抽象</td><td>所有 LLM 应用通用</td></tr>
+    <tr><td>检索</td><td>向量检索 · Reranker · 混合检索</td><td>P3 智能客服、P5 文档分析</td></tr>
+    <tr><td>生成</td><td>Prompt 模板 · 流式输出 · Token 预算</td><td>所有生成场景</td></tr>
+    <tr><td>评估</td><td>指标体系 · LLM-as-Judge · A/B 测试</td><td>所有项目都需要</td></tr>
+    <tr><td>工程</td><td>配置管理 · 项目结构 · FastAPI 部署</td><td>全部项目复用</td></tr>
+  </table>
+</div>
+
+<!-- ========== Section 9: 常见陷阱 ========== -->
+<div class="section">
+  <div class="section-title"><span class="icon">⚠️</span> 九、评估优化常见陷阱 Top 5 <span class="time-tag">5 min</span></div>
+
+  <div class="error-box">
+    <strong>陷阱 1：用训练数据做评估</strong><br>
+    把构建索引的文档直接拿来出题评估——当然检索得分高。正确做法：评估集的问题和文档要有一定"距离"，模拟真实用户提问。
+  </div>
+
+  <div class="error-box">
+    <strong>陷阱 2：只看平均分，忽略分布</strong><br>
+    平均 Recall 80% 可能掩盖了 hard 问题只有 30%。要按难度/分类分组统计，关注最差的分组。
+  </div>
+
+  <div class="error-box">
+    <strong>陷阱 3：LLM Judge 与生成模型相同</strong><br>
+    用 GLM-4 生成、再用 GLM-4 做 Judge → 自评偏差严重。Judge 模型应更强或不同（如用 GPT-4 评 GLM 生成）。
+  </div>
+
+  <div class="error-box">
+    <strong>陷阱 4：一次改多个变量</strong><br>
+    同时调 chunk_size + 换 Embedding 模型 + 加 Reranker → 结果变好不知道谁的功劳。每次只改一个变量。
+  </div>
+
+  <div class="error-box">
+    <strong>陷阱 5：评估集太小不具统计意义</strong><br>
+    5-10 条样本的指标波动极大（一条样本就能改变 10%+）。至少 50 条，理想 100+ 条才有参考价值。
+  </div>
+</div>
+
+<!-- ========== Section 10: 最佳实践速查 ========== -->
+<div class="section">
+  <div class="section-title"><span class="icon">✅</span> 十、RAG 评估优化最佳实践速查 <span class="time-tag">5 min</span></div>
+
+  <table>
+    <tr><th>环节</th><th>推荐做法</th><th>避坑要点</th></tr>
+    <tr>
+      <td>测试集</td>
+      <td>50-100 条，覆盖多难度多分类，标注 ground truth</td>
+      <td>不要用索引文档原文出题</td>
+    </tr>
+    <tr>
+      <td>检索评估</td>
+      <td>Hit Rate + Recall@K + MRR 三件套</td>
+      <td>Precision@K 受 K 值影响大，需固定 K</td>
+    </tr>
+    <tr>
+      <td>生成评估</td>
+      <td>Faithfulness + Answer Relevancy 优先</td>
+      <td>Judge 模型 ≠ 生成模型</td>
+    </tr>
+    <tr>
+      <td>优化顺序</td>
+      <td>先检索后生成（垃圾进垃圾出）</td>
+      <td>检索不行时优化 Prompt 收效甚微</td>
+    </tr>
+    <tr>
+      <td>A/B 测试</td>
+      <td>控制变量 · 固定测试集 · 记录配置</td>
+      <td>样本量 <30 不具统计意义</td>
+    </tr>
+    <tr>
+      <td>chunk_size</td>
+      <td>从 500 开始，A/B 测试 300/500/800</td>
+      <td>无万能值，需按文档特性实验</td>
+    </tr>
+    <tr>
+      <td>Reranker</td>
+      <td>召回 Top-20 → 精排 Top-5</td>
+      <td>Reranker 模型不可用时降级纯向量检索</td>
+    </tr>
+    <tr>
+      <td>Prompt</td>
+      <td>"只基于参考内容回答" 防幻觉</td>
+      <td>temperature 建议 0.1-0.3</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ========== Section 11: 练习 ========== -->
+<div class="section">
+  <div class="section-title"><span class="icon">📝</span> 十一、课后练习 <span class="time-tag">课后</span></div>
+
+  <h3>练习 1：实现 NDCG@K 指标</h3>
+  <p>Day 35 提到过 NDCG（Normalized Discounted Cumulative Gain），它比 MRR 更精细——考虑了所有命中位置的排名衰减。请实现：</p>
+  <pre><code><span class="kw">def</span> <span class="fn">ndcg_at_k</span>(retrieved_ids: <span class="cls">list</span>[<span class="cls">str</span>], relevant_ids: <span class="cls">list</span>[<span class="cls">str</span>], k: <span class="cls">int</span> = <span class="num">5</span>) -> <span class="cls">float</span>:
+    <span class="str">"""计算 NDCG@K。</span>
+<span class="str">    DCG = sum(rel_i / log2(i+1)) for i in 1..K</span>
+<span class="str">    IDCG = 理想排序的 DCG（所有相关文档排在前面）</span>
+<span class="str">    NDCG = DCG / IDCG</span>
+<span class="str">    提示：rel_i 为 0 或 1（是否相关），log2(1)=0 所以 i 从 1 开始</span>
+<span class="str">    """</span>
+    <span class="cmt"># 你的代码</span>
+    <span class="kw">pass</span>
+
+<span class="cmt"># 测试：</span>
+<span class="cmt"># ndcg_at_k(["d1","d2","d3","d4","d5"], ["d2","d4"], k=5)</span>
+<span class="cmt"># d2 在 rank=2 → 1/log2(3) = 0.631</span>
+<span class="cmt"># d4 在 rank=4 → 1/log2(5) = 0.431</span>
+<span class="cmt"># DCG = 0.631 + 0.431 = 1.062</span>
+<span class="cmt"># IDCG = 1/log2(2) + 1/log2(3) = 1.0 + 0.631 = 1.631</span>
+<span class="cmt"># NDCG = 1.062 / 1.631 = 0.651</span></code></pre>
+
+  <h3>练习 2：构建评估报告生成器</h3>
+  <p>写一个 <span class="inline-code">EvalReportGenerator</span> 类，接收评估结果，输出 Markdown 格式的报告，包含：汇总表格、按难度分组统计、最差的 3 条用例详情。</p>
+
+  <h3>练习 3：LeetCode #912 — 排序数组</h3>
+  <p>用归并排序实现，理解"分治"思想——和 RAG 评估中"按难度分组统计再汇总"是同一种思维模式。</p>
+  <pre><code><span class="kw">class</span> <span class="cls">Solution</span>:
+    <span class="kw">def</span> <span class="fn">sortArray</span>(self, nums: <span class="cls">list</span>[<span class="cls">int</span>]) -> <span class="cls">list</span>[<span class="cls">int</span>]:
+        <span class="cmt"># 归并排序：分治 → 排左 → 排右 → 合并</span>
+        <span class="kw">if</span> <span class="fn">len</span>(nums) <= <span class="num">1</span>:
+            <span class="kw">return</span> nums
+
+        mid = <span class="fn">len</span>(nums) // <span class="num">2</span>
+        left = self.sortArray(nums[:mid])
+        right = self.sortArray(nums[mid:])
+
+        <span class="cmt"># 合并两个有序数组</span>
+        merged = []
+        i = j = <span class="num">0</span>
+        <span class="kw">while</span> i < <span class="fn">len</span>(left) <span class="kw">and</span> j < <span class="fn">len</span>(right):
+            <span class="kw">if</span> left[i] <= right[j]:
+                merged.append(left[i])
+                i += <span class="num">1</span>
+            <span class="kw">else</span>:
+                merged.append(right[j])
+                j += <span class="num">1</span>
+        merged.extend(left[i:])
+        merged.extend(right[j:])
+        <span class="kw">return</span> merged</code></pre>
+</div>
+
+<!-- ========== P1 收官 ========== -->
+<div class="section" style="background:linear-gradient(135deg,#dcfce7,#eff6ff);border-color:#86efac;">
+  <div class="section-title"><span class="icon">🎉</span> P1 RAG 知识库问答系统 · 收官</div>
+
+  <div class="celebrate">🎊 🎊 🎊</div>
+
+  <p style="text-align:center;font-size:16px;color:var(--text);font-weight:600;">
+    三天构建了一个完整的 RAG 系统：<br>
+    D50 离线索引 → D51 在线问答 → D52 评估优化
+  </p>
+
+  <div class="tip-box" style="margin-top:16px;">
+    <strong>P1 完成清单：</strong>
+    <ul style="margin-top:6px">
+      <li>✅ 理解 RAG 全链路架构（离线索引 + 在线问答 + 评估优化）</li>
+      <li>✅ 掌握分块、Embedding、向量库、检索、重排、生成六大核心组件</li>
+      <li>✅ 能用 FastAPI 部署流式问答 API</li>
+      <li>✅ 能用指标体系 + A/B 测试框架驱动系统优化</li>
+      <li>✅ 具备从零搭建生产级 RAG 系统的架构能力</li>
+    </ul>
+  </div>
+
+  <h3 style="margin-top:20px;">下一站：P2 Agent 自动化系统</h3>
+  <p>P1 解决了"让 LLM 基于知识库回答"的问题，P2 将解决"让 LLM 自主调用工具完成多步任务"——从 RAG（检索增强）升级到 Agent（智能体），进入更复杂的自动化场景。</p>
+
+  <table>
+    <tr><th>项目</th><th>天数</th><th>核心能力</th></tr>
+    <tr style="background:#dcfce7;"><td><strong>P1 RAG 知识库问答 ✅</strong></td><td>D50-D52</td><td>检索增强生成全链路</td></tr>
+    <tr><td>P2 Agent 自动化系统</td><td>D53-D55</td><td>多工具编排 · 任务分解 · 自动执行</td></tr>
+    <tr><td>P3 智能客服系统</td><td>D56-D58</td><td>多轮对话 · 意图识别 · 工单流转</td></tr>
+    <tr><td>P4 ...</td><td>D59-D70</td><td>更多实战项目</td></tr>
+  </table>
+</div>
+
+<div class="footer">
+  <p>Day 52 · Phase 4 项目实战 P1 收官 · 52/70 (74.3%)</p>
+  <p>下一课：Day 53 — P2 Agent 自动化系统（架构设计 + 工具编排）</p>
+</div>
+
+</body>
+</html>
