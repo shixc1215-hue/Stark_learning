@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 53 - P2 Agent 自动化系统（架构设计 + 工具编排）</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--purple:#9333ea;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#faf5ff,#eff6ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #ddd6fe; }
+  .header .badge { display:inline-block;background:#f3e8ff;color:#7c3aed;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent2),var(--purple));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--purple);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#faf5ff;border-left:3px solid var(--purple);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--purple); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--green); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  pre { background:#1e293b;color:#e2e8f0;padding:18px 20px;border-radius:10px;overflow-x:auto;font-size:13.5px;line-height:1.65;margin:12px 0;font-family:'Cascadia Code','Fira Code','Consolas',monospace; }
+  code { font-family:'Cascadia Code','Fira Code','Consolas',monospace; }
+  .inline-code { background:var(--surface2);color:var(--accent2);padding:2px 7px;border-radius:5px;font-size:13px; }
+  .compare-table { width:100%;border-collapse:collapse;margin:14px 0;font-size:14px; }
+  .compare-table th { background:var(--surface2);color:var(--text);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border); }
+  .compare-table td { padding:10px 14px;border:1px solid var(--border);color:var(--text2); }
+  .compare-table tr:nth-child(even) td { background:var(--surface2); }
+  .compare-table .highlight { color:var(--accent2);font-weight:600; }
+  h3 { font-size:16px;font-weight:700;margin:18px 0 8px;color:var(--text); }
+  h4 { font-size:14.5px;font-weight:600;margin:14px 0 6px;color:var(--accent2); }
+  ul, ol { padding-left:22px;margin:8px 0;font-size:14px;color:var(--text2); }
+  li { margin-bottom:5px; }
+  .practice-box { background:var(--surface2);border-radius:10px;padding:20px 24px;margin:16px 0; }
+  .practice-box h4 { margin-top:0; }
+  .toc { background:var(--surface);border-radius:var(--radius);padding:20px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .toc h3 { margin:0 0 12px;font-size:16px;color:var(--text); }
+  .toc ol { counter-reset:toc;list-style:none;padding:0; }
+  .toc li { counter-increment:toc;padding:5px 0;font-size:14px;color:var(--text2); }
+  .toc li::before { content:counter(toc)".";color:var(--purple);font-weight:700;margin-right:8px; }
+  .footer { text-align:center;padding:24px;color:var(--text3);font-size:13px; }
+  a { color:var(--accent2);text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  .arch-diagram { background:var(--surface2);border-radius:10px;padding:20px;margin:14px 0;overflow-x:auto; }
+  .arch-diagram pre { background:transparent;color:var(--text);padding:0;font-size:13px; }
+  .kw { color:#c084fc; } .fn { color:#60a5fa; } .st { color:#34d399; } .cm { color:#94a3b8;font-style:italic; } .nu { color:#fbbf24; } .op { color:#f472b6; } .tp { color:#38bdf8; }
+</style>
+</head>
+<body>
+
+<!-- ==================== Header ==================== -->
+<div class="header">
+  <div class="badge">Phase 4 · 项目实战 P2</div>
+  <h1>Day 53 — Agent 自动化系统（架构设计 + 工具编排）</h1>
+  <div class="subtitle">让 LLM 不只是"回答问题"，而是"执行任务" — 构建一个能调用工具、编排流程的 Agent 系统</div>
+</div>
+
+<!-- ==================== Progress ==================== -->
+<div class="progress-bar">
+  <span class="label">总进度 53/70</span>
+  <div class="track"><div class="fill" style="width:75.7%"></div></div>
+  <span class="percent">75.7%</span>
+</div>
+
+<!-- ==================== TOC ==================== -->
+<div class="toc">
+  <h3>今日学习地图（约 60 分钟）</h3>
+  <ol>
+    <li>P2 项目总览 — Agent 系统要做什么？（5 min）</li>
+    <li>Python 知识 — Protocol 接口协议 + 工具注册表模式（15 min）</li>
+    <li>工具定义框架 — 结构化工具接口 + 参数校验（15 min）</li>
+    <li>工具编排器 — 串行/并行/条件路由 三种编排策略（15 min）</li>
+    <li>Agent 核心 — ReAct 循环 + 工具自动调度（10 min）</li>
+    <li>常见陷阱 + 最佳实践（5 min）</li>
+    <li>练习（巩固）</li>
+  </ol>
+</div>
+
+<!-- ==================== Section 1: 项目总览 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏗️</span>
+    1. P2 项目总览 — Agent 自动化系统
+    <span class="time-tag">5 min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>P1 回顾 vs P2 目标</strong><br>
+    P1 RAG 系统：用户提问 → 检索文档 → LLM 生成回答（<strong>信息检索型</strong>）<br>
+    P2 Agent 系统：用户下达任务 → Agent 规划步骤 → 调用工具执行 → 返回结果（<strong>任务执行型</strong>）<br><br>
+    <strong>类比</strong>：P1 像搜索引擎，P2 像智能助手（不仅找信息，还能帮你操作数据库、生成报表、发通知）
+  </div>
+
+  <h3>P2 三天路线</h3>
+  <table class="compare-table">
+    <tr><th>天</th><th>主题</th><th>核心产出</th></tr>
+    <tr>
+      <td class="highlight">Day 53</td>
+      <td>架构设计 + 工具编排</td>
+      <td>Protocol 工具接口 / ToolRegistry 注册表 / 三种编排器 / Agent 基类</td>
+    </tr>
+    <tr>
+      <td>Day 54</td>
+      <td>Agent 核心 + 多 Agent 协作</td>
+      <td>ReAct 循环完善 / 错误恢复 / 多 Agent 路由 / 记忆系统</td>
+    </tr>
+    <tr>
+      <td>Day 55</td>
+      <td>评估优化 + P2 收官</td>
+      <td>Agent 评估体系 / 工具命中率分析 / 三项目复盘</td>
+    </tr>
+  </table>
+
+  <h3>AMC 业务场景</h3>
+  <p>构建一个 <strong>AMC 智能运维助手</strong>，能自动执行以下任务：</p>
+  <ul>
+    <li><strong>数据查询</strong>：用自然语言查不良资产余额、逾期率等指标</li>
+    <li><strong>知识搜索</strong>：从监管政策文档中检索合规要求</li>
+    <li><strong>报表生成</strong>：自动汇总数据并生成结构化报表</li>
+    <li><strong>风险预警</strong>：检测异常数据并触发告警</li>
+  </ul>
+
+  <div class="arch-diagram">
+    <pre>
+┌─────────────────────────────────────────────────────────────────┐
+│                    AMC 智能运维助手 (Agent)                      │
+│                                                                 │
+│  用户: "查一下本月新增不良资产TOP10，生成汇总报表"                    │
+│                          │                                      │
+│                    ┌─────▼─────┐                                 │
+│                    │  规划器   │  ReAct: 思考→行动→观察循环         │
+│                    │ Planner  │                                  │
+│                    └─────┬─────┘                                 │
+│                          │ 工具调用序列                            │
+│            ┌─────────────┼─────────────┐                         │
+│            ▼             ▼             ▼                          │
+│     ┌──────────┐  ┌──────────┐  ┌──────────┐                     │
+│     │ 数据查询  │  │ 知识搜索  │  │ 报表生成  │   ← ToolRegistry   │
+│     │db_query  │  │knowledge │  │ report   │     工具注册表       │
+│     └──────────┘  └──────────┘  └──────────┘                     │
+│            │             │             │                          │
+│            ▼             ▼             ▼                          │
+│     ┌──────────────────────────────────────┐                     │
+│     │          ToolOrchestrator              │                     │
+│     │  串行 → 并行 → 条件路由  编排策略       │                     │
+│     └──────────────────────────────────────┘                     │
+│                          │                                      │
+│                    ┌─────▼─────┐                                 │
+│                    │  结果汇总  │  → 格式化输出给用户               │
+│                    └───────────┘                                 │
+└─────────────────────────────────────────────────────────────────┘</pre>
+  </div>
+
+  <div class="tip-box">
+    <strong>数仓类比</strong>：Agent 编排器 ≈ ETL 调度工具（Airflow DAG）。每个 Tool 就是一个 Task，编排器决定执行顺序和依赖关系。区别在于 Agent 的执行计划是 LLM <strong>动态生成</strong>的，而非人工预设。
+  </div>
+</div>
+
+<!-- ==================== Section 2: Python 知识 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span>
+    2. Python 知识 — Protocol + 工具注册表模式
+    <span class="time-tag">15 min</span>
+  </div>
+
+  <h3>2.1 typing.Protocol — 结构化子类型协议</h3>
+  <p>Protocol 是 Python 3.8+ 引入的 <strong>隐式接口</strong>：不要求继承，只要类实现了相同方法就自动满足协议。</p>
+
+  <pre><code><span class="cm"># 对比：ABC（显式继承）vs Protocol（隐式满足）</span>
+
+<span class="cm"># ABC 方式 — 必须显式继承</span>
+<span class="kw">from</span> abc <span class="kw">import</span> ABC, abstractmethod
+
+<span class="kw">class</span> <span class="tp">ToolBase</span>(ABC):
+    <span class="kw">@abstractmethod</span>
+    <span class="kw">def</span> <span class="fn">execute</span>(self, **kwargs) <span class="op">-></span> <span class="tp">dict</span>:
+        ...
+
+<span class="cm"># Protocol 方式 — 只要有 execute 方法就行，无需继承</span>
+<span class="kw">from</span> typing <span class="kw">import</span> Protocol, runtime_checkable
+
+<span class="kw">@runtime_checkable</span>  <span class="cm"># 允许 isinstance() 检查</span>
+<span class="kw">class</span> <span class="tp">ToolLike</span>(Protocol):
+    <span class="kw">def</span> <span class="fn">execute</span>(self, **kwargs) <span class="op">-></span> <span class="tp">dict</span>: ...
+    <span class="kw">def</span> <span class="fn">describe</span>(self) <span class="op">-></span> <span class="tp">str</span>: ...
+
+<span class="cm"># 任意类只要实现了 execute + describe，自动满足协议</span>
+<span class="kw">class</span> <span class="tp">DBQueryTool</span>:
+    <span class="kw">def</span> <span class="fn">execute</span>(self, **kwargs) <span class="op">-></span> <span class="tp">dict</span>:
+        <span class="kw">return</span> {<span class="st">"result"</span>: <span class="st">"查询完成"</span>}
+
+    <span class="kw">def</span> <span class="fn">describe</span>(self) <span class="op">-></span> <span class="tp">str</span>:
+        <span class="kw">return</span> <span class="st">"查询 AMC 数据库"</span>
+
+<span class="cm"># isinstance 检查通过，无需继承！</span>
+<span class="fn">print</span>(<span class="fn">isinstance</span>(DBQueryTool(), ToolLike))  <span class="cm"># True</span></code></pre>
+
+  <div class="concept-box">
+    <strong>Protocol vs ABC 选型指南</strong><br>
+    <strong>用 Protocol</strong>：工具/插件/策略 — 你想"鸭子类型"但需要类型检查<br>
+    <strong>用 ABC</strong>：基类/框架 — 你要求子类<strong>必须显式继承</strong>
+  </div>
+
+  <h3>2.2 工具注册表模式 — 动态注册 + 查找</h3>
+  <p>核心思想：用一个字典存储"工具名 → 工具实例"的映射，支持动态增删查。</p>
+
+  <pre><code><span class="kw">from</span> typing <span class="kw">import</span> Protocol, runtime_checkable, Any
+<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass, field
+
+<span class="cm"># ========== 第一步：定义工具协议 ==========</span>
+<span class="kw">@runtime_checkable</span>
+<span class="kw">class</span> <span class="tp">ToolLike</span>(Protocol):
+    <span class="st">"""所有工具必须实现的协议"""</span>
+    name: <span class="tp">str</span>           <span class="cm"># 工具唯一标识</span>
+    description: <span class="tp">str</span>    <span class="cm"># 工具描述（给 LLM 看）</span>
+
+    <span class="kw">def</span> <span class="fn">execute</span>(self, **kwargs) <span class="op">-></span> <span class="tp">dict</span>: ...
+    <span class="kw">def</span> <span class="fn">validate_args</span>(self, **kwargs) <span class="op">-></span> <span class="tp">list</span>[<span class="tp">str</span>]: ...
+    <span class="kw">def</span> <span class="fn">describe</span>(self) <span class="op">-></span> <span class="tp">str</span>: ...
+
+
+<span class="cm"># ========== 第二步：参数定义（让 LLM 知道该传什么参数）==========</span>
+<span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="tp">ToolParam</span>:
+    <span class="st">"""工具参数的结构化定义"""</span>
+    name: <span class="tp">str</span>
+    type: <span class="tp">str</span>           <span class="cm"># "string" / "number" / "boolean"</span>
+    description: <span class="tp">str</span>    <span class="cm"># 参数含义</span>
+    required: <span class="tp">bool</span> = <span class="kw">True</span>
+    default: Any = <span class="kw">None</span>
+    enum: <span class="tp">list</span>[<span class="tp">str</span>] = field(default_factory=<span class="tp">list</span>)
+
+
+<span class="cm"># ========== 第三步：工具注册表 ==========</span>
+<span class="kw">class</span> <span class="tp">ToolRegistry</span>:
+    <span class="st">"""
+    工具注册中心 — 单例模式管理所有可用工具
+    类比：数仓的元数据管理系统（数据字典）
+    """</span>
+
+    <span class="kw">def</span> <span class="fn">__init__</span>(self):
+        self._tools: <span class="tp">dict</span>[<span class="tp">str</span>, ToolLike] = {}  <span class="cm"># name → tool</span>
+
+    <span class="kw">def</span> <span class="fn">register</span>(self, tool: ToolLike) <span class="op">-></span> <span class="tp">None</span>:
+        <span class="st">"""注册一个工具"""</span>
+        <span class="kw">if</span> tool.name <span class="kw">in</span> self._tools:
+            <span class="fn">print</span>(<span class="st">f"⚠️ 工具 '</span>{tool.name}<span class="st">' 已存在，将被覆盖"</span>)
+        self._tools[tool.name] = tool
+
+    <span class="kw">def</span> <span class="fn">get</span>(self, name: <span class="tp">str</span>) <span class="op">-></span> ToolLike | <span class="kw">None</span>:
+        <span class="st">"""按名称获取工具"""</span>
+        <span class="kw">return</span> self._tools.get(name)
+
+    <span class="kw">def</span> <span class="fn">list_tools</span>(self) <span class="op">-></span> <span class="tp">list</span>[<span class="tp">dict</span>]:
+        <span class="st">"""列出所有工具（给 LLM 看的格式）"""</span>
+        <span class="kw">return</span> [
+            {<span class="st">"name"</span>: t.name, <span class="st">"description"</span>: t.describe()}
+            <span class="kw">for</span> t <span class="kw">in</span> self._tools.values()
+        ]
+
+    <span class="kw">def</span> <span class="fn">unregister</span>(self, name: <span class="tp">str</span>) <span class="op">-></span> <span class="tp">bool</span>:
+        <span class="st">"""移除一个工具"""</span>
+        <span class="kw">if</span> name <span class="kw">in</span> self._tools:
+            <span class="kw">del</span> self._tools[name]
+            <span class="kw">return</span> <span class="kw">True</span>
+        <span class="kw">return</span> <span class="kw">False</span>
+
+    <span class="kw">def</span> <span class="fn">__len__</span>(self) <span class="op">-></span> <span class="tp">int</span>:
+        <span class="kw">return</span> <span class="fn">len</span>(self._tools)
+
+    <span class="kw">def</span> <span class="fn">__contains__</span>(self, name: <span class="tp">str</span>) <span class="op">-></span> <span class="tp">bool</span>:
+        <span class="kw">return</span> name <span class="kw">in</span> self._tools
+
+
+<span class="cm"># ========== 使用示例 ==========</span>
+registry = ToolRegistry()
+<span class="fn">print</span>(<span class="st">f"已注册工具数: </span>{<span class="fn">len</span>(registry)}<span class="st">"</span>)   <span class="cm"># 0</span>
+<span class="fn">print</span>(<span class="st">"db_query" in registry)</span>               <span class="cm"># False</span></code></pre>
+
+  <div class="tip-box">
+    <strong>为什么用注册表而不是直接 import？</strong><br>
+    ① 工具可以<strong>运行时动态加载</strong>（插件模式）<br>
+    ② Agent 只需知道注册表，不需要知道每个工具的具体类<br>
+    ③ 方便做<strong>权限控制</strong>、<strong>日志审计</strong>、<strong>工具版本管理</strong>
+  </div>
+
+  <h3>2.3 Python 3.10+ match-case — 工具路由新模式</h3>
+  <pre><code><span class="kw">def</span> <span class="fn">route_tool_call</span>(intent: <span class="tp">str</span>, **kwargs):
+    <span class="st">"""用 match-case 做意图路由（比 if-elif 更清晰）"""</span>
+    <span class="kw">match</span> intent:
+        <span class="kw">case</span> <span class="st">"query_data"</span>:
+            <span class="kw">return</span> <span class="fn">db_query</span>(**kwargs)
+        <span class="kw">case</span> <span class="st">"search_knowledge"</span>:
+            <span class="kw">return</span> <span class="fn">knowledge_search</span>(**kwargs)
+        <span class="kw">case</span> <span class="st">"generate_report"</span>:
+            <span class="kw">return</span> <span class="fn">generate_report</span>(**kwargs)
+        <span class="kw">case</span> <span class="st">"alert_risk"</span>:
+            <span class="kw">return</span> <span class="fn">risk_alert</span>(**kwargs)
+        <span class="kw">case</span> _:  <span class="cm"># 通配符：未知意图</span>
+            <span class="kw">return</span> {<span class="st">"error"</span>: <span class="st">f"未知意图: </span>{intent}<span class="st">"</span>}</code></pre>
+
+  <div class="warn-box">
+    <strong>注意</strong>：<span class="inline-code">match-case</span> 要求 Python 3.10+。如果用 3.9，仍然可以用 <span class="inline-code">if-elif</span> 或字典映射。本项目推荐用字典映射（更灵活）：
+    <pre><code>ROUTES = {
+    "query_data": db_query,
+    "search_knowledge": knowledge_search,
+}
+handler = ROUTES.get(intent, default_handler)</code></pre>
+  </div>
+</div>
+
+<!-- ==================== Section 3: 工具定义框架 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔧</span>
+    3. 工具定义框架 — 结构化接口 + 参数校验
+    <span class="time-tag">15 min</span>
+  </div>
+
+  <p>现在实现 P2 项目的四把"工具"——每把工具都要满足 ToolLike 协议。</p>
+
+  <h3>3.1 BaseTool 抽象基类 — 所有工具的骨架</h3>
+  <pre><code><span class="kw">from</span> abc <span class="kw">import</span> ABC, abstractmethod
+<span class="kw">from</span> typing <span class="kw">import</span> Any
+<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass, field
+<span class="kw">from</span> functools <span class="kw">import</span> wraps
+<span class="kw">import</span> time, json
+
+<span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="tp">ToolResult</span>:
+    <span class="st">"""工具执行的统一返回格式"""</span>
+    success: <span class="tp">bool</span>
+    data: Any = <span class="kw">None</span>
+    error: <span class="tp">str</span> | <span class="kw">None</span> = <span class="kw">None</span>
+    tool_name: <span class="tp">str</span> = <span class="st">""</span>
+    duration_ms: <span class="tp">float</span> = <span class="nu">0</span>
+    metadata: <span class="tp">dict</span> = field(default_factory=<span class="tp">dict</span>)
+
+    <span class="kw">def</span> <span class="fn">to_dict</span>(self) <span class="op">-></span> <span class="tp">dict</span>:
+        <span class="kw">return</span> {
+            <span class="st">"success"</span>: self.success,
+            <span class="st">"data"</span>: self.data,
+            <span class="st">"error"</span>: self.error,
+            <span class="st">"tool"</span>: self.tool_name,
+            <span class="st">"duration_ms"</span>: <span class="fn">round</span>(self.duration_ms, <span class="nu">2</span>),
+        }
+
+
+<span class="cm"># ========== 装饰器：自动计时 + 错误捕获 ==========</span>
+<span class="kw">def</span> <span class="fn">tool_execution</span>(func):
+    <span class="st">"""装饰器：给工具 execute 方法加上计时和异常捕获"""</span>
+    <span class="kw">@wraps</span>(func)
+    <span class="kw">def</span> <span class="fn">wrapper</span>(self, **kwargs) <span class="op">-></span> ToolResult:
+        start = time.perf_counter()
+        <span class="kw">try</span>:
+            <span class="cm"># 先校验参数</span>
+            errors = self.validate_args(**kwargs)
+            <span class="kw">if</span> errors:
+                <span class="kw">return</span> ToolResult(
+                    success=<span class="kw">False</span>,
+                    error=<span class="st">f"参数校验失败: </span>{<span class="st">', '</span>.join(errors)}<span class="st">"</span>,
+                    tool_name=self.name,
+                )
+            <span class="cm"># 执行工具</span>
+            data = func(self, **kwargs)
+            elapsed = (time.perf_counter() - start) * <span class="nu">1000</span>
+            <span class="kw">return</span> ToolResult(
+                success=<span class="kw">True</span>, data=data,
+                tool_name=self.name, duration_ms=elapsed,
+            )
+        <span class="kw">except</span> Exception <span class="kw">as</span> e:
+            elapsed = (time.perf_counter() - start) * <span class="nu">1000</span>
+            <span class="kw">return</span> ToolResult(
+                success=<span class="kw">False</span>, error=<span class="fn">str</span>(e),
+                tool_name=self.name, duration_ms=elapsed,
+            )
+    <span class="kw">return</span> wrapper
+
+
+<span class="kw">class</span> <span class="tp">BaseTool</span>(ABC):
+    <span class="st">"""所有工具的抽象基类"""</span>
+    name: <span class="tp">str</span>
+    description: <span class="tp">str</span>
+    parameters: <span class="tp">list</span>[ToolParam]
+
+    <span class="kw">@abstractmethod</span>
+    <span class="kw">def</span> <span class="fn">execute</span>(self, **kwargs) <span class="op">-></span> ToolResult: ...
+
+    <span class="kw">@abstractmethod</span>
+    <span class="kw">def</span> <span class="fn">describe</span>(self) <span class="op">-></span> <span class="tp">str</span>: ...
+
+    <span class="kw">def</span> <span class="fn">validate_args</span>(self, **kwargs) <span class="op">-></span> <span class="tp">list</span>[<span class="tp">str</span>]:
+        <span class="st">"""校验必填参数是否存在"""</span>
+        errors = []
+        <span class="kw">for</span> param <span class="kw">in</span> self.parameters:
+            <span class="kw">if</span> param.required <span class="kw">and</span> param.name <span class="kw">not in</span> kwargs:
+                errors.append(<span class="st">f"缺少必填参数: </span>{param.name}<span class="st">"</span>)
+            <span class="kw">elif</span> param.enum <span class="kw">and</span> kwargs.get(param.name) <span class="kw">not in</span> param.enum:
+                errors.append(
+                    <span class="st">f"参数 </span>{param.name}<span class="st"> 值 '</span>{kwargs[param.name]}<span class="st">' "
+                    <span class="st">不在允许范围 </span>{param.enum}<span class="st"> 中"</span>
+                )
+        <span class="kw">return</span> errors
+
+    <span class="kw">def</span> <span class="fn">schema_for_llm</span>(self) <span class="op">-></span> <span class="tp">dict</span>:
+        <span class="st">"""生成给 LLM Function Calling 用的 JSON Schema"""</span>
+        <span class="kw">return</span> {
+            <span class="st">"name"</span>: self.name,
+            <span class="st">"description"</span>: self.description,
+            <span class="st">"parameters"</span>: {
+                <span class="st">"type"</span>: <span class="st">"object"</span>,
+                <span class="st">"properties"</span>: {
+                    p.name: {<span class="st">"type"</span>: p.type, <span class="st">"description"</span>: p.description}
+                    <span class="kw">for</span> p <span class="kw">in</span> self.parameters
+                },
+                <span class="st">"required"</span>: [p.name <span class="kw">for</span> p <span class="kw">in</span> self.parameters <span class="kw">if</span> p.required],
+            }
+        }</code></pre>
+
+  <h3>3.2 四个 AMC 业务工具</h3>
+
+  <h4>工具 1：db_query — AMC 数据查询</h4>
+  <pre><code><span class="kw">class</span> <span class="tp">DBQueryTool</span>(BaseTool):
+    <span class="st">"""
+    AMC 数据库查询工具
+    用途：查询不良资产余额、逾期率、新增笔数等指标
+    """</span>
+    name = <span class="st">"db_query"</span>
+    description = <span class="st">"查询 AMC 不良资产数据库中的业务数据"</span>
+    parameters = [
+        ToolParam(<span class="st">"metric"</span>, <span class="st">"string"</span>, <span class="st">"指标名称"</span>,
+                  enum=[<span class="st">"不良资产余额"</span>, <span class="st">"逾期率"</span>, <span class="st">"新增不良笔数"</span>, <span class="st">"回收率"</span>]),
+        ToolParam(<span class="st">"period"</span>, <span class="st">"string"</span>, <span class="st">"统计周期"</span>, required=<span class="kw">False</span>,
+                  default=<span class="st">"本月"</span>, enum=[<span class="st">"本月"</span>, <span class="st">"本季"</span>, <span class="st">"本年"</span>, <span class="st">"上月"</span>]),
+        ToolParam(<span class="st">"region"</span>, <span class="tp">"string"</span>, <span class="st">"区域筛选"</span>, required=<span class="kw">False</span>, default=<span class="st">"全部"</span>),
+    ]
+
+    <span class="cm"># 模拟数据库（实际项目连接真实 DB）</span>
+    _mock_db = {
+        (<span class="st">"不良资产余额"</span>, <span class="st">"本月"</span>, <span class="st">"全部"</span>): <span class="st">"12.8亿元"</span>,
+        (<span class="st">"逾期率"</span>, <span class="st">"本月"</span>, <span class="st">"全部"</span>): <span class="st">"3.67%"</span>,
+        (<span class="st">"新增不良笔数"</span>, <span class="st">"本月"</span>, <span class="st">"全部"</span>): <span class="st">"342笔"</span>,
+        (<span class="st">"回收率"</span>, <span class="st">"本月"</span>, <span class="st">"全部"</span>): <span class="st">"18.5%"</span>,
+        (<span class="st">"不良资产余额"</span>, <span class="st">"本月"</span>, <span class="st">"华东"</span>): <span class="st">"4.2亿元"</span>,
+        (<span class="st">"逾期率"</span>, <span class="st">"本月"</span>, <span class="st">"华东"</span>): <span class="st">"2.91%"</span>,
+    }
+
+    <span class="kw">@tool_execution</span>
+    <span class="kw">def</span> <span class="fn">execute</span>(self, **kwargs) <span class="op">-></span> ToolResult:
+        metric = kwargs[<span class="st">"metric"</span>]
+        period = kwargs.get(<span class="st">"period"</span>, <span class="st">"本月"</span>)
+        region = kwargs.get(<span class="st">"region"</span>, <span class="st">"全部"</span>)
+        key = (metric, period, region)
+        value = self._mock_db.get(key, <span class="st">"暂无数据"</span>)
+        <span class="kw">return</span> ToolResult(
+            success=<span class="kw">True</span>,
+            data={<span class="st">"metric"</span>: metric, <span class="st">"period"</span>: period,
+                  <span class="st">"region"</span>: region, <span class="st">"value"</span>: value},
+            tool_name=self.name,
+        )
+
+    <span class="kw">def</span> <span class="fn">describe</span>(self) <span class="op">-></span> <span class="tp">str</span>:
+        <span class="kw">return</span> (<span class="st">"查询 AMC 不良资产业务数据。"</span>
+                <span class="st">"参数: metric(指标), period(周期), region(区域)"</span>)</code></pre>
+
+  <h4>工具 2：knowledge_search — 知识库检索</h4>
+  <pre><code><span class="kw">class</span> <span class="tp">KnowledgeSearchTool</span>(BaseTool):
+    <span class="st">"""从 AMC 监管政策/业务文档中检索知识"""</span>
+    name = <span class="st">"knowledge_search"</span>
+    description = <span class="st">"从 AMC 知识库中搜索监管政策、业务规范等文档"</span>
+    parameters = [
+        ToolParam(<span class="st">"query"</span>, <span class="st">"string"</span>, <span class="st">"搜索关键词"</span>),
+        ToolParam(<span class="st">"top_k"</span>, <span class="st">"number"</span>, <span class="st">"返回条数"</span>,
+                  required=<span class="kw">False</span>, default=<span class="nu">3</span>),
+        ToolParam(<span class="st">"doc_type"</span>, <span class="st">"string"</span>, <span class="st">"文档类型过滤"</span>,
+                  required=<span class="kw">False</span>,
+                  enum=[<span class="st">"全部"</span>, <span class="st">"监管政策"</span>, <span class="st">"业务规范"</span>, <span class="st">"操作手册"</span>]),
+    ]
+
+    <span class="kw">@tool_execution</span>
+    <span class="kw">def</span> <span class="fn">execute</span>(self, **kwargs) <span class="op">-></span> ToolResult:
+        query = kwargs[<span class="st">"query"</span>]
+        top_k = kwargs.get(<span class="st">"top_k"</span>, <span class="nu">3</span>)
+        <span class="cm"># 模拟检索结果（实际项目调用 RAG 系统）</span>
+        results = [
+            {<span class="st">"title"</span>: <span class="st">"不良资产分类指引"</span>,
+             <span class="st">"content"</span>: <span class="st">"根据银保监会2024年最新规定..."</span>,
+             <span class="st">"score"</span>: <span class="nu">0.92</span>},
+            {<span class="st">"title"</span>: <span class="st">"资产处置管理办法"</span>,
+             <span class="st">"content"</span>: <span class="st">"AMC处置不良资产应遵循..."</span>,
+             <span class="st">"score"</span>: <span class="nu">0.87</span>},
+        ]
+        <span class="kw">return</span> ToolResult(
+            success=<span class="kw">True</span>,
+            data={<span class="st">"query"</span>: query, <span class="st">"results"</span>: results[:top_k]},
+            tool_name=self.name,
+        )
+
+    <span class="kw">def</span> <span class="fn">describe</span>(self) <span class="op">-></span> <span class="tp">str</span>:
+        <span class="kw">return</span> <span class="st">"搜索 AMC 知识库（监管政策/业务规范）"</span></code></pre>
+
+  <h4>工具 3：generate_report — 报表生成</h4>
+  <pre><code><span class="kw">class</span> <span class="tp">ReportGeneratorTool</span>(BaseTool):
+    <span class="st">"""根据查询数据自动生成 AMC 业务报表"""</span>
+    name = <span class="st">"generate_report"</span>
+    description = <span class="st">"基于查询结果生成 AMC 业务分析报表"</span>
+    parameters = [
+        ToolParam(<span class="st">"title"</span>, <span class="st">"string"</span>, <span class="st">"报表标题"</span>),
+        ToolParam(<span class="st">"data"</span>, <span class="st">"string"</span>, <span class="st">"报表数据的 JSON 字符串"</span>),
+        ToolParam(<span class="st">"format"</span>, <span class="st">"string"</span>, <span class="st">"输出格式"</span>,
+                  required=<span class="kw">False</span>, default=<span class="st">"markdown"</span>,
+                  enum=[<span class="st">"markdown"</span>, <span class="st">"json"</span>, <span class="st">"html"</span>]),
+    ]
+
+    <span class="kw">@tool_execution</span>
+    <span class="kw">def</span> <span class="fn">execute</span>(self, **kwargs) <span class="op">-></span> ToolResult:
+        title = kwargs[<span class="st">"title"</span>]
+        <span class="kw">try</span>:
+            data = json.loads(kwargs[<span class="st">"data"</span>])
+        <span class="kw">except</span> json.JSONDecodeError:
+            <span class="kw">return</span> ToolResult(success=<span class="kw">False</span>, error=<span class="st">"data 不是合法 JSON"</span>,
+                            tool_name=self.name)
+
+        <span class="cm"># 生成 Markdown 格式报表</span>
+        lines = [<span class="st">f"# </span>{title}<span class="st">"</span>, <span class="st">""</span>]
+        <span class="kw">for</span> key, val <span class="kw">in</span> data.items():
+            lines.append(<span class="st">f"- **</span>{key}<span class="st">**: </span>{val}<span class="st">"</span>)
+        report = <span class="st">"\n"</span>.join(lines)
+        <span class="kw">return</span> ToolResult(success=<span class="kw">True</span>, data={<span class="st">"report"</span>: report},
+                        tool_name=self.name)
+
+    <span class="kw">def</span> <span class="fn">describe</span>(self) <span class="op">-></span> <span class="tp">str</span>:
+        <span class="kw">return</span> <span class="st">"根据数据生成 AMC 业务报表（Markdown/JSON/HTML）"</span></code></pre>
+
+  <h4>工具 4：risk_alert — 风险预警</h4>
+  <pre><code><span class="kw">class</span> <span class="tp">RiskAlertTool</span>(BaseTool):
+    <span class="st">"""检测异常数据并触发风险预警"""</span>
+    name = <span class="st">"risk_alert"</span>
+    description = <span class="st">"检测 AMC 业务数据异常并生成风险预警"</span>
+    parameters = [
+        ToolParam(<span class="st">"metric"</span>, <span class="st">"string"</span>, <span class="st">"要检测的指标"</span>),
+        ToolParam(<span class="st">"threshold"</span>, <span class="tp">"number"</span>, <span class="st">"预警阈值"</span>,
+                  required=<span class="kw">False</span>, default=<span class="nu">5.0</span>),
+    ]
+
+    <span class="kw">@tool_execution</span>
+    <span class="kw">def</span> <span class="fn">execute</span>(self, **kwargs) <span class="op">-></span> ToolResult:
+        metric = kwargs[<span class="st">"metric"</span>]
+        threshold = kwargs.get(<span class="st">"threshold"</span>, <span class="nu">5.0</span>)
+        <span class="cm"># 模拟检测结果</span>
+        is_alert = metric == <span class="st">"逾期率"</span>  <span class="cm"># 模拟逾期率超标</span>
+        <span class="kw">return</span> ToolResult(
+            success=<span class="kw">True</span>,
+            data={<span class="st">"metric"</span>: metric, <span class="st">"threshold"</span>: threshold,
+                  <span class="st">"is_alert"</span>: is_alert,
+                  <span class="st">"message"</span>: <span class="st">f"逾期率超过 </span>{threshold}<span class="st">% 预警线！"</span>
+                  <span class="kw">if</span> is_alert <span class="kw">else</span> <span class="st">f"</span>{metric}<span class="st"> 正常"</span>},
+            tool_name=self.name,
+        )
+
+    <span class="kw">def</span> <span class="fn">describe</span>(self) <span class="op">-></span> <span class="tp">str</span>:
+        <span class="kw">return</span> <span class="st">"检测异常数据并触发风险预警"</span></code></pre>
+
+  <h3>3.3 注册到 ToolRegistry</h3>
+  <pre><code><span class="cm"># ========== 初始化注册表 + 注册工具 ==========</span>
+registry = ToolRegistry()
+tools = [DBQueryTool(), KnowledgeSearchTool(),
+         ReportGeneratorTool(), RiskAlertTool()]
+
+<span class="kw">for</span> tool <span class="kw">in</span> tools:
+    registry.register(tool)
+
+<span class="fn">print</span>(<span class="st">f"✅ 已注册 </span>{<span class="fn">len</span>(registry)}<span class="st"> 个工具"</span>)
+<span class="kw">for</span> info <span class="kw">in</span> registry.list_tools():
+    <span class="fn">print</span>(<span class="st">f"  - </span>{info[<span class="st">'name'</span>]}<span class="st">: </span>{info[<span class="st">'description'</span>]}<span class="st">"</span>)
+
+<span class="cm"># 测试工具调用</span>
+result = registry.get(<span class="st">"db_query"</span>).execute(
+    metric=<span class="st">"不良资产余额"</span>, period=<span class="st">"本月"</span>
+)
+<span class="fn">print</span>(<span class="st">f"查询结果: </span>{result.to_dict()}<span class="st">"</span>)
+<span class="cm"># {'success': True, 'data': {'metric': '不良资产余额', ...},
+#  'tool': 'db_query', 'duration_ms': 0.12}</span></code></pre>
+
+  <div class="tip-box">
+    <strong>关键设计原则</strong><br>
+    ① 每个工具返回统一的 <span class="inline-code">ToolResult</span> 格式 — Agent 不需要关心工具内部实现<br>
+    ② <span class="inline-code">@tool_execution</span> 装饰器自动处理计时、异常、参数校验 — 工具实现只需关注业务逻辑<br>
+    ③ <span class="inline-code">schema_for_llm()</span> 自动生成 Function Calling 的 JSON Schema — 无需手写
+  </div>
+</div>
+
+<!-- ==================== Section 4: 工具编排器 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔀</span>
+    4. 工具编排器 — 串行 / 并行 / 条件路由
+    <span class="time-tag">15 min</span>
+  </div>
+
+  <p>有了工具，下一步就是<strong>编排</strong>：决定多个工具按什么顺序执行。类比数仓的 DAG 调度。</p>
+
+  <h3>4.1 编排策略对比</h3>
+  <table class="compare-table">
+    <tr><th>策略</th><th>适用场景</th><th>类比</th><th>Python 实现</th></tr>
+    <tr>
+      <td class="highlight">串行 Sequential</td>
+      <td>步骤有前后依赖</td>
+      <td>ETL 串行任务</td>
+      <td>for 循环逐个执行</td>
+    </tr>
+    <tr>
+      <td class="highlight">并行 Parallel</td>
+      <td>步骤无依赖，可同时执行</td>
+      <td>多表并行抽取</td>
+      <td>asyncio.gather / ThreadPool</td>
+    </tr>
+    <tr>
+      <td class="highlight">条件路由 Conditional</td>
+      <td>根据上一步结果决定下一步</td>
+      <td>ETL 条件分支</td>
+      <td>if-else / match-case</td>
+    </tr>
+  </table>
+
+  <h3>4.2 ToolOrchestrator 完整实现</h3>
+  <pre><code><span class="kw">import</span> asyncio
+<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass, field
+<span class="kw">from</span> typing <span class="kw">import</span> Callable, Any
+<span class="kw">from</span> enum <span class="kw">import</span> Enum, auto
+
+<span class="kw">class</span> <span class="tp">StepStatus</span>(Enum):
+    <span class="st">"""步骤执行状态"""</span>
+    PENDING = auto()
+    RUNNING = auto()
+    SUCCESS = auto()
+    FAILED  = auto()
+    SKIPPED = auto()  <span class="cm"># 条件路由中跳过的步骤</span>
+
+<span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="tp">PipelineStep</span>:
+    <span class="st">"""编排管线的单个步骤"""</span>
+    name: <span class="tp">str</span>
+    tool_name: <span class="tp">str</span>             <span class="cm"># 要调用的工具名</span>
+    args: <span class="tp">dict</span> = field(default_factory=<span class="tp">dict</span>)
+    condition: Callable[[<span class="tp">dict</span>], <span class="tp">bool</span>] | <span class="kw">None</span> = <span class="kw">None</span>  <span class="cm"># 执行条件</span>
+    status: StepStatus = StepStatus.PENDING
+    result: ToolResult | <span class="kw">None</span> = <span class="kw">None</span>
+    parallel_group: <span class="tp">int</span> | <span class="kw">None</span> = <span class="kw">None</span>  <span class="cm"># 并行分组编号</span>
+
+<span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="tp">PipelineResult</span>:
+    <span class="st">"""管线执行结果"""</span>
+    success: <span class="tp">bool</span>
+    steps: <span class="tp">list</span>[PipelineStep]
+    total_duration_ms: <span class="tp">float</span>
+    outputs: <span class="tp">dict</span> = field(default_factory=<span class="tp">dict</span>)
+
+
+<span class="kw">class</span> <span class="tp">ToolOrchestrator</span>:
+    <span class="st">"""
+    工具编排器 — 支持三种编排策略
+    核心职责：接收一组 PipelineStep，按策略依次/并行/条件执行
+    """</span>
+
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, registry: ToolRegistry):
+        self.registry = registry
+
+    <span class="cm"># ========== 策略1：串行执行 ==========</span>
+    <span class="kw">def</span> <span class="fn">run_sequential</span>(self, steps: <span class="tp">list</span>[PipelineStep]) <span class="op">-></span> PipelineResult:
+        <span class="st">"""
+        串行执行：按顺序逐个执行步骤
+        上一步的 result 会注入到下一步的 args 中
+        """</span>
+        start = time.perf_counter()
+        context = {}  <span class="cm"># 存储中间结果，供后续步骤引用</span>
+
+        <span class="kw">for</span> step <span class="kw">in</span> steps:
+            <span class="cm"># 条件检查</span>
+            <span class="kw">if</span> step.condition <span class="kw">and not</span> step.condition(context):
+                step.status = StepStatus.SKIPPED
+                <span class="kw">continue</span>
+
+            tool = self.registry.get(step.tool_name)
+            <span class="kw">if not</span> tool:
+                step.status = StepStatus.FAILED
+                step.result = ToolResult(
+                    success=<span class="kw">False</span>,
+                    error=<span class="st">f"工具 '</span>{step.tool_name}<span class="st">' 未注册"</span>)
+                <span class="kw">continue</span>
+
+            <span class="cm"># 合并 args（用 context 中的变量替换占位符）</span>
+            resolved_args = self._resolve_args(step.args, context)
+
+            step.status = StepStatus.RUNNING
+            step.result = tool.execute(**resolved_args)
+
+            <span class="kw">if</span> step.result.success:
+                step.status = StepStatus.SUCCESS
+                context[step.name] = step.result.data
+            <span class="kw">else</span>:
+                step.status = StepStatus.FAILED
+
+        elapsed = (time.perf_counter() - start) * <span class="nu">1000</span>
+        all_ok = <span class="fn">all</span>(s.status <span class="kw">in</span> (StepStatus.SUCCESS, StepStatus.SKIPPED)
+                   <span class="kw">for</span> s <span class="kw">in</span> steps)
+        <span class="kw">return</span> PipelineResult(
+            success=all_ok, steps=steps,
+            total_duration_ms=elapsed, outputs=context)
+
+    <span class="cm"># ========== 策略2：并行执行 ==========</span>
+    <span class="kw">async def</span> <span class="fn">run_parallel</span>(self, steps: <span class="tp">list</span>[PipelineStep]) <span class="op">-></span> PipelineResult:
+        <span class="st">"""
+        并行执行：所有步骤同时启动（无依赖时使用）
+        """</span>
+        start = time.perf_counter()
+        context = {}
+
+        <span class="kw">async def</span> <span class="fn">_run_one</span>(step: PipelineStep):
+            <span class="kw">if</span> step.condition <span class="kw">and not</span> step.condition(context):
+                step.status = StepStatus.SKIPPED
+                <span class="kw">return</span>
+            tool = self.registry.get(step.tool_name)
+            <span class="kw">if not</span> tool:
+                step.status = StepStatus.FAILED
+                <span class="kw">return</span>
+            step.status = StepStatus.RUNNING
+            <span class="cm"># 模拟异步调用（实际项目用 aiohttp）</span>
+            <span class="kw">await</span> asyncio.sleep(<span class="nu">0.01</span>)  <span class="cm"># 模拟网络延迟</span>
+            step.result = tool.execute(**step.args)
+            step.status = StepStatus.SUCCESS <span class="kw">if</span> step.result.success <span class="kw">else</span> StepStatus.FAILED
+            context[step.name] = step.result.data
+
+        <span class="kw">await</span> asyncio.gather(*[_run_one(s) <span class="kw">for</span> s <span class="kw">in</span> steps])
+
+        elapsed = (time.perf_counter() - start) * <span class="nu">1000</span>
+        all_ok = <span class="fn">all</span>(s.status <span class="kw">in</span> (StepStatus.SUCCESS, StepStatus.SKIPPED)
+                   <span class="kw">for</span> s <span class="kw">in</span> steps)
+        <span class="kw">return</span> PipelineResult(
+            success=all_ok, steps=steps,
+            total_duration_ms=elapsed, outputs=context)
+
+    <span class="cm"># ========== 策略3：条件路由 ==========</span>
+    <span class="kw">def</span> <span class="fn">run_conditional</span>(
+        self,
+        steps: <span class="tp">list</span>[PipelineStep],
+        router: Callable[[<span class="tp">dict</span>], <span class="tp">str</span> | <span class="kw">None</span>],
+    ) <span class="op">-></span> PipelineResult:
+        <span class="st">"""
+        条件路由：根据 router 函数决定执行哪条分支
+        router(context) → 下一步的 step.name 或 None（结束）
+        """</span>
+        start = time.perf_counter()
+        context = {}
+        executed = <span class="fn">set</span>()
+
+        <span class="kw">while</span> <span class="kw">True</span>:
+            <span class="cm"># 由 router 决定下一步</span>
+            next_step_name = router(context)
+            <span class="kw">if</span> next_step_name <span class="kw">is None</span>:
+                <span class="kw">break</span>
+
+            <span class="cm"># 找到对应步骤</span>
+            step = <span class="kw">None</span>
+            <span class="kw">for</span> s <span class="kw">in</span> steps:
+                <span class="kw">if</span> s.name == next_step_name:
+                    step = s
+                    <span class="kw">break</span>
+            <span class="kw">if</span> step <span class="kw">is None</span> <span class="kw">or</span> step.name <span class="kw">in</span> executed:
+                <span class="kw">break</span>
+
+            tool = self.registry.get(step.tool_name)
+            <span class="kw">if not</span> tool:
+                step.status = StepStatus.FAILED
+                <span class="kw">break</span>
+
+            step.status = StepStatus.RUNNING
+            step.result = tool.execute(**self._resolve_args(step.args, context))
+            step.status = StepStatus.SUCCESS <span class="kw">if</span> step.result.success <span class="kw">else</span> StepStatus.FAILED
+            context[step.name] = step.result.data
+            executed.add(step.name)
+
+        elapsed = (time.perf_counter() - start) * <span class="nu">1000</span>
+        <span class="kw">return</span> PipelineResult(
+            success=<span class="fn">all</span>(s.status != StepStatus.FAILED <span class="kw">for</span> s <span class="kw">in</span> executed),
+            steps=steps, total_duration_ms=elapsed, outputs=context)
+
+    <span class="cm"># ========== 辅助方法 ==========</span>
+    <span class="kw">def</span> <span class="fn">_resolve_args</span>(self, args: <span class="tp">dict</span>, context: <span class="tp">dict</span>) <span class="op">-></span> <span class="tp">dict</span>:
+        <span class="st">"""将 args 中的 ${step_name.key} 替换为 context 中的实际值"""</span>
+        resolved = {}
+        <span class="kw">for</span> k, v <span class="kw">in</span> args.items():
+            <span class="kw">if</span> <span class="fn">isinstance</span>(v, <span class="tp">str</span>) <span class="kw">and</span> v.startswith(<span class="st">"${"</span>) <span class="kw">and</span> v.endswith(<span class="st">"}"</span>):
+                ref = v[<span class="nu">2</span>:-<span class="nu">1</span>]
+                parts = ref.split(<span class="st">"."</span>)
+                resolved[k] = context
+                <span class="kw">for</span> p <span class="kw">in</span> parts:
+                    <span class="kw">if</span> <span class="fn">isinstance</span>(resolved, <span class="tp">dict</span>):
+                        resolved = resolved.get(p, <span class="st">""</span>)
+            <span class="kw">else</span>:
+                resolved[k] = v
+        <span class="kw">return</span> resolved</code></pre>
+
+  <h3>4.3 编排实战：AMC 数据分析任务</h3>
+  <pre><code><span class="cm"># ========== 场景1：串行编排 — 查数据 → 检测风险 → 生成报表 ==========</span>
+orchestrator = ToolOrchestrator(registry)
+
+sequential_steps = [
+    PipelineStep(
+        name=<span class="st">"query_balance"</span>, tool_name=<span class="st">"db_query"</span>,
+        args={<span class="st">"metric"</span>: <span class="st">"不良资产余额"</span>, <span class="st">"period"</span>: <span class="st">"本月"</span>}),
+    PipelineStep(
+        name=<span class="st">"query_overdue"</span>, tool_name=<span class="st">"db_query"</span>,
+        args={<span class="st">"metric"</span>: <span class="st">"逾期率"</span>, <span class="st">"period"</span>: <span class="st">"本月"</span>}),
+    PipelineStep(
+        name=<span class="st">"check_risk"</span>, tool_name=<span class="st">"risk_alert"</span>,
+        args={<span class="st">"metric"</span>: <span class="st">"逾期率"</span>, <span class="st">"threshold"</span>: <span class="nu">3.0</span>},
+        condition=<span class="kw">lambda</span> ctx: <span class="st">"query_overdue"</span> <span class="kw">in</span> ctx,
+    ),
+    PipelineStep(
+        name=<span class="st">"make_report"</span>, tool_name=<span class="st">"generate_report"</span>,
+        args={<span class="st">"title"</span>: <span class="st">"AMC 月度分析报告"</span>,
+              <span class="st">"data"</span>: <span class="st">"${query_balance.value}"</span>},  <span class="cm"># 引用上一步结果</span>
+    ),
+]
+
+result = orchestrator.run_sequential(sequential_steps)
+<span class="kw">for</span> step <span class="kw">in</span> result.steps:
+    icon = <span class="st">"✅"</span> <span class="kw">if</span> step.status == StepStatus.SUCCESS <span class="kw">else</span> \
+           <span class="st">"⏭️"</span> <span class="kw">if</span> step.status == StepStatus.SKIPPED <span class="kw">else</span> <span class="st">"❌"</span>
+    <span class="fn">print</span>(<span class="st">f"</span>{icon}<span class="st"> </span>{step.name}<span class="st">: </span>{step.result}<span class="st">"</span>)
+<span class="fn">print</span>(<span class="st">f"⏱️ 总耗时: </span>{result.total_duration_ms:<span class="nu">.1f</span>}<span class="st">ms"</span>)
+
+
+<span class="cm"># ========== 场景2：条件路由 — 根据查询结果决定分支 ==========</span>
+<span class="kw">def</span> <span class="fn">amc_router</span>(context: <span class="tp">dict</span>) <span class="op">-></span> <span class="tp">str</span> | <span class="kw">None</span>:
+    <span class="st">"""路由函数：根据当前上下文决定下一步"""</span>
+    <span class="kw">if</span> <span class="st">"query_overdue"</span> <span class="kw">not in</span> context:
+        <span class="kw">return</span> <span class="st">"query_overdue"</span>      <span class="cm"># 第一步：查逾期率</span>
+    <span class="kw">if</span> context[<span class="st">"query_overdue"</span>][<span class="st">"value"</span>] == <span class="st">"3.67%"</span>:
+        <span class="kw">return</span> <span class="st">"check_risk"</span>           <span class="cm"># 逾期率超标 → 触发预警</span>
+    <span class="kw">if</span> <span class="st">"check_risk"</span> <span class="kw">in</span> context:
+        <span class="kw">return</span> <span class="st">"make_report"</span>          <span class="cm"># 已预警 → 生成报表</span>
+    <span class="kw">return</span> <span class="kw">None</span>                          <span class="cm"># 结束</span>
+
+router_steps = [
+    PipelineStep(<span class="st">"query_overdue"</span>, <span class="st">"db_query"</span>,
+                 {<span class="st">"metric"</span>: <span class="st">"逾期率"</span>, <span class="st">"period"</span>: <span class="st">"本月"</span>}),
+    PipelineStep(<span class="st">"check_risk"</span>, <span class="st">"risk_alert"</span>,
+                 {<span class="st">"metric"</span>: <span class="st">"逾期率"</span>, <span class="st">"threshold"</span>: <span class="nu">3.0</span>}),
+    PipelineStep(<span class="st">"make_report"</span>, <span class="st">"generate_report"</span>,
+                 {<span class="st">"title"</span>: <span class="st">"风险预警报告"</span>, <span class="st">"data"</span>: <span class="st">"{}"</span>}),
+]
+
+result = orchestrator.run_conditional(router_steps, amc_router)
+<span class="fn">print</span>(<span class="st">f"条件路由结果: success=</span>{result.success}<span class="st">"</span>)</code></pre>
+
+  <div class="concept-box">
+    <strong>三种编排策略选型口诀</strong><br>
+    有依赖 → 串行（上一步的输出是下一步的输入）<br>
+    无依赖 → 并行（多个独立查询同时发出去）<br>
+    需判断 → 条件路由（根据中间结果决定后续路径）
+  </div>
+</div>
+
+<!-- ==================== Section 5: Agent 核心 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🤖</span>
+    5. Agent 核心 — ReAct 循环 + 工具自动调度
+    <span class="time-tag">10 min</span>
+  </div>
+
+  <p>Agent 的核心是 <strong>ReAct 循环</strong>（Reasoning + Acting）：思考要做什么 → 调用工具 → 观察结果 → 继续思考。</p>
+
+  <h3>5.1 AgentStep — 记录每一步轨迹</h3>
+  <pre><code><span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="tp">AgentStep</span>:
+    <span class="st">"""Agent 单步执行记录（类似审计日志）"""</span>
+    step_num: <span class="tp">int</span>
+    thought: <span class="tp">str</span>        <span class="cm"># Agent 的思考过程</span>
+    action: <span class="tp">str</span> | <span class="kw">None</span>   <span class="cm"># 调用的工具名</span>
+    action_input: <span class="tp">dict</span> | <span class="kw">None</span>  <span class="cm"># 工具参数</span>
+    observation: <span class="tp">str</span>     <span class="cm"># 工具返回的观察结果</span>
+    token_count: <span class="tp">int</span> = <span class="nu">0</span></code></pre>
+
+  <h3>5.2 SimpleAgent — 完整 ReAct 循环</h3>
+  <pre><code><span class="kw">import</span> json, re
+
+<span class="kw">class</span> <span class="tp">SimpleAgent</span>:
+    <span class="st">"""
+    最小可运行的 Agent — ReAct 循环
+    职责：接收用户任务 → 规划步骤 → 调用工具 → 汇总结果
+    """</span>
+
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, registry: ToolRegistry, max_steps: <span class="tp">int</span> = <span class="nu">5</span>):
+        self.registry = registry
+        self.max_steps = max_steps
+        self.history: <span class="tp">list</span>[AgentStep] = []
+
+    <span class="kw">def</span> <span class="fn">build_system_prompt</span>(self) <span class="op">-></span> <span class="tp">str</span>:
+        <span class="st">"""构建系统提示词（告诉 LLM 有哪些工具可用）"""</span>
+        tools_desc = <span class="st">"\n"</span>.join(
+            <span class="st">f"- {t['name']}: {t['description']}"</span>
+            <span class="kw">for</span> t <span class="kw">in</span> self.registry.list_tools()
+        )
+        <span class="kw">return</span> <span class="st">f"""你是 AMC 智能运维助手，负责执行数据分析和运维任务。
+
+可用工具：
+{tools_desc}
+
+请按以下格式回复（JSON）：
+{{"thought": "你的思考", "action": "工具名", "action_input": {{参数}}}}
+
+如果所有步骤都完成了，回复：
+{{"thought": "总结", "final_answer": "最终回答"}}
+
+注意：
+1. 每次只调用一个工具
+2. 仔细分析工具返回结果再决定下一步
+3. 最多执行 </span>{self.max_steps}<span class="st"> 步"""</span>
+
+    <span class="kw">def</span> <span class="fn">run</span>(self, user_query: <span class="tp">str</span>) <span class="op">-></span> <span class="tp">dict</span>:
+        <span class="st">"""执行完整的 ReAct 循环"""</span>
+        messages = [
+            {<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: self.build_system_prompt()},
+            {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: user_query},
+        ]
+
+        <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(self.max_steps):
+            <span class="cm"># Step 1: 调用 LLM 获取下一步决策</span>
+            response = self._call_llm(messages)
+            <span class="kw">if not</span> response:
+                <span class="kw">break</span>
+
+            <span class="cm"># Step 2: 解析 LLM 响应</span>
+            parsed = self._parse_response(response)
+
+            <span class="cm"># 判断是否已经给出最终回答</span>
+            <span class="kw">if</span> <span class="st">"final_answer"</span> <span class="kw">in</span> parsed:
+                self.history.append(AgentStep(
+                    step_num=i+<span class="nu">1</span>, thought=parsed[<span class="st">"thought"</span>],
+                    action=<span class="kw">None</span>, observation=parsed[<span class="st">"final_answer"</span>]))
+                <span class="kw">return</span> {<span class="st">"answer"</span>: parsed[<span class="st">"final_answer"</span>],
+                        <span class="st">"steps"</span>: self.history}
+
+            <span class="cm"># Step 3: 执行工具</span>
+            tool_name = parsed.get(<span class="st">"action"</span>)
+            tool_args = parsed.get(<span class="st">"action_input"</span>, {})
+            tool = self.registry.get(tool_name)
+
+            <span class="kw">if not</span> tool:
+                observation = <span class="st">f"错误：工具 '</span>{tool_name}<span class="st">' 不存在"</span>
+            <span class="kw">else</span>:
+                result = tool.execute(**tool_args)
+                observation = <span class="fn">json</span>.dumps(result.to_dict(),
+                                       ensure_ascii=<span class="kw">False</span>)
+
+            self.history.append(AgentStep(
+                step_num=i+<span class="nu">1</span>,
+                thought=parsed.get(<span class="st">"thought"</span>, <span class="st">""</span>),
+                action=tool_name,
+                action_input=tool_args,
+                observation=observation,
+            ))
+
+            <span class="cm"># Step 4: 将观察结果追加到消息历史</span>
+            messages.append({<span class="st">"role"</span>: <span class="st">"assistant"</span>, <span class="st">"content"</span>: response})
+            messages.append({<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>:
+                <span class="st">f"工具返回: </span>{observation}<span class="st">\n请继续。"</span>})
+
+        <span class="kw">return</span> {<span class="st">"answer"</span>: <span class="st">"已达到最大步骤限制"</span>, <span class="st">"steps"</span>: self.history}
+
+    <span class="kw">def</span> <span class="fn">_call_llm</span>(self, messages: <span class="tp">list</span>) <span class="op">-></span> <span class="tp">str</span>:
+        <span class="st">"""调用 LLM（模拟实现，实际项目替换为真实 API）"""</span>
+        <span class="cm"># 模拟 LLM 响应（实际替换为 requests/zhipuai SDK）</span>
+        last_user = messages[-<span class="nu">1</span>][<span class="st">"content"</span>]
+        <span class="kw">if</span> <span class="st">"不良资产余额"</span> <span class="kw">in</span> last_user <span class="kw">and not</span> self.history:
+            <span class="kw">return</span> <span class="fn">json</span>.dumps({
+                <span class="st">"thought"</span>: <span class="st">"用户想查不良资产余额，需要调用db_query工具"</span>,
+                <span class="st">"action"</span>: <span class="st">"db_query"</span>,
+                <span class="st">"action_input"</span>: {<span class="st">"metric"</span>: <span class="st">"不良资产余额"</span>, <span class="st">"period"</span>: <span class="st">"本月"</span>}
+            }, ensure_ascii=<span class="kw">False</span>)
+        <span class="kw">return</span> <span class="fn">json</span>.dumps({
+            <span class="st">"thought"</span>: <span class="st">"已获取数据，可以给出最终回答"</span>,
+            <span class="st">"final_answer"</span>: <span class="st">"本月不良资产余额为12.8亿元。"</span>
+        }, ensure_ascii=<span class="kw">False</span>)
+
+    <span class="kw">def</span> <span class="fn">_parse_response</span>(self, text: <span class="tp">str</span>) <span class="op">-></span> <span class="tp">dict</span>:
+        <span class="st">"""从 LLM 响应中提取 JSON"""</span>
+        <span class="cm"># 尝试直接解析</span>
+        <span class="kw">try</span>:
+            <span class="kw">return</span> <span class="fn">json</span>.loads(text)
+        <span class="kw">except</span> json.JSONDecodeError:
+            <span class="kw">pass</span>
+        <span class="cm"># 尝试从文本中提取 JSON 块</span>
+        match = re.<span class="fn">search</span>(r<span class="st">'\{[^{}]*\}'</span>, text, re.DOTALL)
+        <span class="kw">if</span> match:
+            <span class="kw">try</span>:
+                <span class="kw">return</span> <span class="fn">json</span>.loads(match.group())
+            <span class="kw">except</span> json.JSONDecodeError:
+                <span class="kw">pass</span>
+        <span class="kw">return</span> {<span class="st">"thought"</span>: text, <span class="st">"final_answer"</span>: text}
+
+
+<span class="cm"># ========== 运行 Agent ==========</span>
+agent = SimpleAgent(registry, max_steps=<span class="nu">3</span>)
+result = agent.run(<span class="st">"查一下本月不良资产余额是多少"</span>)
+
+<span class="fn">print</span>(<span class="st">"=== Agent 执行轨迹 ==="</span>)
+<span class="kw">for</span> step <span class="kw">in</span> result[<span class="st">"steps"</span>]:
+    <span class="fn">print</span>(<span class="st">f"Step </span>{step.step_num}<span class="st">:"</span>)
+    <span class="fn">print</span>(<span class="st">f"  💭 思考: </span>{step.thought}<span class="st">"</span>)
+    <span class="kw">if</span> step.action:
+        <span class="fn">print</span>(<span class="st">f"  🔧 调用: </span>{step.action}<span class="st">(</span>{step.action_input}<span class="st">)"</span>)
+    <span class="fn">print</span>(<span class="st">f"  👁️ 结果: </span>{step.observation}<span class="st">"</span>)
+<span class="fn">print</span>(<span class="st">f"\n✅ 最终回答: </span>{result[<span class="st">'answer'</span>]}<span class="st">"</span>)</code></pre>
+
+  <div class="arch-diagram">
+    <pre>
+Agent ReAct 循环可视化
+═══════════════════════════════════════════════════════════
+
+  用户输入                   LLM                     工具
+  "查余额"  ──────→  分析意图 ──→ 决策 ──→  db_query()
+                                ↑                    │
+                                │                    ↓
+                                ←──── 观察结果 ←────┘
+                                │
+                          分析结果
+                          生成最终回答 ──→ 输出给用户
+
+  关键：循环在 "final_answer" 出现时停止</pre>
+  </div>
+</div>
+
+<!-- ==================== Section 6: 陷阱 + 最佳实践 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🚨</span>
+    6. 常见陷阱 + 最佳实践
+    <span class="time-tag">5 min</span>
+  </div>
+
+  <h3>Agent 开发 Top 5 陷阱</h3>
+
+  <table class="compare-table">
+    <tr><th>#</th><th>陷阱</th><th>症状</th><th>解法</th></tr>
+    <tr>
+      <td class="highlight">1</td>
+      <td>死循环</td>
+      <td>Agent 一直调同一个工具，不停止</td>
+      <td>设置 <span class="inline-code">max_steps</span>（推荐 5-8）+ 重复检测</td>
+    </tr>
+    <tr>
+      <td class="highlight">2</td>
+      <td>工具描述模糊</td>
+      <td>LLM 选错工具或传错参数</td>
+      <td>描述要写清<strong>用途+适用场景+参数含义</strong>，附示例</td>
+    </tr>
+    <tr>
+      <td class="highlight">3</td>
+      <td>JSON 解析失败</td>
+      <td>LLM 返回格式不规范</td>
+      <td>多层容错 + JSON Mode + 重试纠正</td>
+    </tr>
+    <tr>
+      <td class="highlight">4</td>
+      <td>工具副作用不可控</td>
+      <td>Agent 反复调用导致重复写入/删除</td>
+      <td>幂等设计 + Human-in-the-Loop 审批</td>
+    </tr>
+    <tr>
+      <td class="highlight">5</td>
+      <td>上下文爆炸</td>
+      <td>多轮工具调用后 token 超限</td>
+      <td>上下文压缩 / 滑动窗口 / 摘要替换旧步骤</td>
+    </tr>
+  </table>
+
+  <h3>最佳实践速查表</h3>
+  <pre><code><span class="cm"># ✅ 1. 工具接口统一</span>
+<span class="cm">#    所有工具返回 ToolResult，Agent 只认这一种格式</span>
+
+<span class="cm"># ✅ 2. 参数校验前置</span>
+<span class="cm">#    validate_args() 在 execute() 之前执行，快速失败</span>
+
+<span class="cm"># ✅ 3. 执行轨迹记录</span>
+<span class="cm">#    每一步都记 AgentStep，方便调试和审计</span>
+
+<span class="cm"># ✅ 4. 编排与执行分离</span>
+<span class="cm">#    Orchestrator 决定"怎么执行"，Tool 决定"做什么"</span>
+
+<span class="cm"># ✅ 5. 优雅降级</span>
+<span class="cm">#    工具失败时 Agent 能换方案，而不是直接崩掉</span></code></pre>
+</div>
+
+<!-- ==================== Section 7: 练习 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">💪</span>
+    7. 练习 — 巩固今日所学
+  </div>
+
+  <div class="practice-box">
+    <h4>练习 1：添加新工具（基础）</h4>
+    <p>实现一个 <span class="inline-code">DataExportTool</span>，支持将查询结果导出为 CSV 格式：</p>
+    <ul>
+      <li>继承 <span class="inline-code">BaseTool</span>，满足 Protocol</li>
+      <li>参数：<span class="inline-code">data</span>（JSON字符串）、<span class="inline-code">filename</span>（文件名）</li>
+      <li>用 Python <span class="inline-code">csv</span> 模块写入文件</li>
+      <li>注册到 registry 并测试</li>
+    </ul>
+  </div>
+
+  <div class="practice-box">
+    <h4>练习 2：增强编排器（进阶）</h4>
+    <p>给 <span class="inline-code">ToolOrchestrator</span> 添加 <strong>重试机制</strong>：</p>
+    <ul>
+      <li>工具执行失败时自动重试（最多 3 次）</li>
+      <li>指数退避：第 1 次等 1s，第 2 次等 2s，第 3 次等 4s</li>
+      <li>重试耗尽后标记为 FAILED，继续执行后续步骤</li>
+    </ul>
+    <pre><code><span class="cm"># 提示结构</span>
+<span class="kw">def</span> <span class="fn">run_with_retry</span>(self, step, max_retries=3):
+    <span class="kw">for</span> attempt <span class="kw">in</span> <span class="fn">range</span>(max_retries):
+        result = tool.execute(**args)
+        <span class="kw">if</span> result.success:
+            <span class="kw">return</span> result
+        wait = <span class="nu">2</span> ** attempt  <span class="cm"># 指数退避</span>
+        time.sleep(wait)
+    <span class="kw">return</span> result  <span class="cm"># 最后一次的结果</span></code></pre>
+  </div>
+
+  <div class="practice-box">
+    <h4>练习 3：LeetCode #20 — 有效的括号</h4>
+    <p>这道题用到的<strong>栈思维</strong>正是 Agent 处理嵌套工具调用的核心。</p>
+    <pre><code><span class="cm"># 给定一个只包括 '(' ')' '{' '}' '[' ']' 的字符串，
+# 判断字符串是否有效。有效条件：
+# 1. 左括号必须用相同类型的右括号闭合
+# 2. 左括号必须以正确的顺序闭合
+#
+# 示例：输入 "()[]{}" → True
+#       输入 "([)]"   → False</span>
+
+<span class="kw">def</span> <span class="fn">is_valid</span>(s: <span class="tp">str</span>) <span class="op">-></span> <span class="tp">bool</span>:
+    <span class="cm"># Your code here</span>
+    ...
+
+<span class="cm"># 提示：用 list 当栈，遇到左括号 push，遇到右括号 pop 对比</span></code></pre>
+  </div>
+</div>
+
+<!-- ==================== 总结 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📋</span>
+    Day 53 总结
+  </div>
+
+  <h3>今日知识图谱</h3>
+  <div class="arch-diagram">
+    <pre>
+Python 知识                          LLM 实战
+─────────────                        ─────────────
+typing.Protocol ──────────────→  ToolLike 工具协议
+dataclass + field ────────────→  ToolParam 参数定义
+functools.wraps ──────────────→  @tool_execution 装饰器
+enum.Enum ────────────────────→  StepStatus 状态管理
+match-case / dict 路由 ───────→  条件编排路由器
+asyncio.gather ───────────────→  并行工具执行
+re + json 容错 ──────────────→  LLM 响应解析
+list 当栈 ───────────────────→  Agent 嵌套调用
+
+架构层次：
+BaseTool(抽象基类) → 具体工具(DB/Knowledge/Report/Risk)
+                    ↓
+              ToolRegistry(注册中心)
+                    ↓
+              ToolOrchestrator(编排器: 串行/并行/条件)
+                    ↓
+              SimpleAgent(ReAct 循环 + 工具调度)
+</pre>
+  </div>
+
+  <h3>明日预告 — Day 54</h3>
+  <p>Agent 进阶：错误恢复机制 + Human-in-the-Loop 审批 + 多 Agent 路由协作 + 对话记忆系统。让 Agent 从"玩具"变成"生产可用"。</p>
+</div>
+
+<div class="footer">
+  Day 53 / 70 · LLM 转型学习计划 · Phase 4 项目实战 P2
+</div>
+
+</body>
+</html>
