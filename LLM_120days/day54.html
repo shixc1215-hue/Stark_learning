@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 54 - P2 Agent 核心 + 多 Agent 协作（错误恢复 / Human-in-the-Loop / 路由 / 记忆）</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--purple:#9333ea;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#faf5ff,#eff6ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #ddd6fe; }
+  .header .badge { display:inline-block;background:#f3e8ff;color:#7c3aed;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent2),var(--purple));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--purple);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#faf5ff;border-left:3px solid var(--purple);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--purple); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--green); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  pre { background:#1e293b;color:#e2e8f0;padding:18px 20px;border-radius:10px;overflow-x:auto;font-size:13.5px;line-height:1.65;margin:12px 0;font-family:'Cascadia Code','Fira Code','Consolas',monospace; }
+  code { font-family:'Cascadia Code','Fira Code','Consolas',monospace; }
+  .inline-code { background:var(--surface2);color:var(--accent2);padding:2px 7px;border-radius:5px;font-size:13px; }
+  .compare-table { width:100%;border-collapse:collapse;margin:14px 0;font-size:14px; }
+  .compare-table th { background:var(--surface2);color:var(--text);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border); }
+  .compare-table td { padding:10px 14px;border:1px solid var(--border);color:var(--text2); }
+  .compare-table tr:nth-child(even) td { background:var(--surface2); }
+  .compare-table .highlight { color:var(--accent2);font-weight:600; }
+  h3 { font-size:16px;font-weight:700;margin:18px 0 8px;color:var(--text); }
+  h4 { font-size:14.5px;font-weight:600;margin:14px 0 6px;color:var(--accent2); }
+  ul, ol { padding-left:22px;margin:8px 0;font-size:14px;color:var(--text2); }
+  li { margin-bottom:5px; }
+  .practice-box { background:var(--surface2);border-radius:10px;padding:20px 24px;margin:16px 0; }
+  .practice-box h4 { margin-top:0; }
+  .toc { background:var(--surface);border-radius:var(--radius);padding:20px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .toc h3 { margin:0 0 12px;font-size:16px;color:var(--text); }
+  .toc ol { counter-reset:toc;list-style:none;padding:0; }
+  .toc li { counter-increment:toc;padding:5px 0;font-size:14px;color:var(--text2); }
+  .toc li::before { content:counter(toc)".";color:var(--purple);font-weight:700;margin-right:8px; }
+  .footer { text-align:center;padding:24px;color:var(--text3);font-size:13px; }
+  a { color:var(--accent2);text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  .arch-diagram { background:var(--surface2);border-radius:10px;padding:20px;margin:14px 0;overflow-x:auto; }
+  .arch-diagram pre { background:transparent;color:var(--text);padding:0;font-size:13px; }
+  .kw { color:#c084fc; } .fn { color:#60a5fa; } .st { color:#34d399; } .cm { color:#94a3b8;font-style:italic; } .nu { color:#fbbf24; } .op { color:#f472b6; } .tp { color:#38bdf8; }
+</style>
+</head>
+<body>
+
+<!-- ==================== Header ==================== -->
+<div class="header">
+  <div class="badge">Phase 4 · 项目实战 P2</div>
+  <h1>Day 54 — Agent 核心 + 多 Agent 协作</h1>
+  <div class="subtitle">错误恢复 / Human-in-the-Loop / 多 Agent 路由 / 记忆机制 — 让 Agent 从"能跑"变成"可靠"</div>
+</div>
+
+<!-- ==================== Progress ==================== -->
+<div class="progress-bar">
+  <span class="label">总进度 54/70</span>
+  <div class="track"><div class="fill" style="width:77.1%"></div></div>
+  <span class="percent">77.1%</span>
+</div>
+
+<!-- ==================== TOC ==================== -->
+<div class="toc">
+  <h3>今日学习地图（约 60 分钟）</h3>
+  <ol>
+    <li>Day 54 概览 — Agent 的生产级四大问题（5 min）</li>
+    <li>Python 知识 — enum 状态机 + deque 滑动窗口 + 异常分类策略（10 min）</li>
+    <li>错误恢复 — 指数退避重试 + 降级策略 + 死循环防护（15 min）</li>
+    <li>Human-in-the-Loop — 审批系统 + 置信度路由（12 min）</li>
+    <li>多 Agent 路由 — 意图分类 + 专家 Agent 分发 + 协作链（10 min）</li>
+    <li>Agent 记忆 — 短期滑动窗口 + 长期持久化 + 上下文组装（8 min）</li>
+    <li>常见陷阱 + 最佳实践速查（5 min）</li>
+    <li>练习（巩固）</li>
+  </ol>
+</div>
+
+<!-- ==================== Section 1: 概览 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏗️</span>
+    1. Day 54 概览 — Agent 的生产级四大问题
+    <span class="time-tag">5 min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>Day 53 回顾</strong>：我们搭建了 Agent 骨架 — 工具定义、编排器、ReAct 循环。<br>
+    <strong>Day 54 目标</strong>：让这个骨架穿上"铠甲" — 出错能恢复、危险操作有人审、复杂任务能分发、对话能记住。<br><br>
+    <strong>类比</strong>：Day 53 造了一辆能跑的车，Day 54 加安全气囊（错误恢复）、红绿灯审批（Human-in-the-Loop）、导航系统（路由）、行车记录仪（记忆）。
+  </div>
+
+  <h3>P2 三天路线回顾</h3>
+  <table class="compare-table">
+    <tr><th>天</th><th>主题</th><th>核心产出</th></tr>
+    <tr><td>Day 53</td><td>架构设计 + 工具编排</td><td>BaseTool / ToolRegistry / Orchestrator / SimpleAgent ✅</td></tr>
+    <tr>
+      <td class="highlight">Day 54</td>
+      <td>Agent 核心 + 多 Agent 协作</td>
+      <td>ErrorRecovery / HumanApproval / AgentRouter / AgentMemory</td>
+    </tr>
+    <tr><td>Day 55</td><td>P2 综合实战 + 收官</td><td>完整 AMC 智能分析平台（集成所有组件）</td></tr>
+  </table>
+
+  <h3>四大生产级问题</h3>
+  <div class="arch-diagram">
+    <pre>
+  用户任务："查一下本月不良资产超10亿的机构，生成预警报告并发送通知"
+       │
+       ▼
+  ┌─────────────┐     ┌──────────────────┐     ┌────────────────┐     ┌───────────────┐
+  │ ① 错误恢复   │────▶│ ② Human-in-Loop  │────▶│ ③ 多Agent路由   │────▶│ ④ Agent记忆   │
+  │ API超时怎么办 │     │ 发通知需要审批吗？ │     │ 查询→分析→通知  │     │ 之前查过类似？ │
+  │ 工具报错能降级│     │ 金额阈值需确认   │     │ 每个Agent专业领域│     │ 别重复问用户   │
+  └─────────────┘     └──────────────────┘     └────────────────┘     └───────────────┘
+    </pre>
+  </div>
+</div>
+
+<!-- ==================== Section 2: Python知识 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span>
+    2. Python 知识 — enum 状态机 + deque 滑动窗口 + 异常分类
+    <span class="time-tag">10 min</span>
+  </div>
+
+  <h3>2.1 enum.Enum — 用枚举管理 Agent 状态</h3>
+  <p>Agent 有多种状态（思考/执行/等待审批/出错），用枚举比字符串更安全：</p>
+  <pre><span class="kw">from</span> <span class="tp">enum</span> <span class="kw">import</span> Enum, auto
+
+<span class="kw">class</span> <span class="tp">AgentState</span>(Enum):
+    <span class="st">"""Agent 生命周期状态 — 比字符串 'thinking' 更安全（拼写错误会直接报错）"""</span>
+    IDLE = auto()           <span class="cm"># 空闲，等待任务</span>
+    THINKING = auto()       <span class="cm"># LLM 推理中</span>
+    EXECUTING = auto()      <span class="cm"># 调用工具中</span>
+    WAITING_APPROVAL = auto() <span class="cm"># 等待人工审批</span>
+    ERROR = auto()          <span class="cm"># 出错，等待恢复</span>
+    FINISHED = auto()       <span class="cm"># 任务完成</span>
+
+<span class="cm"># 合法状态转移表 — 防止非法跳转（如 ERROR 直接跳 FINISHED）</span>
+<span class="tp">TRANSITIONS</span> = {
+    AgentState.IDLE:           {AgentState.THINKING},
+    AgentState.THINKING:       {AgentState.EXECUTING, AgentState.WAITING_APPROVAL, AgentState.FINISHED},
+    AgentState.EXECUTING:      {AgentState.THINKING, AgentState.ERROR, AgentState.FINISHED},
+    AgentState.WAITING_APPROVAL: {AgentState.EXECUTING, AgentState.ERROR},
+    AgentState.ERROR:         {AgentState.THINKING, AgentState.FINISHED},  <span class="cm"># 可重试或终止</span>
+}
+
+<span class="kw">def</span> <span class="fn">transition</span>(current: AgentState, target: AgentState) -> <span class="tp">bool</span>:
+    <span class="st">"""检查状态转移是否合法"""</span>
+    <span class="kw">if</span> target <span class="kw">not in</span> TRANSITIONS.get(current, set()):
+        <span class="kw">raise</span> ValueError(<span class="st">f"非法转移: </span>{current.name}<span class="st"> → </span>{target.name}<span class="st">"</span>)
+    <span class="kw">return True</span>
+
+<span class="cm"># 使用</span>
+state = AgentState.IDLE
+transition(state, AgentState.THINKING)   <span class="cm"># ✅ OK</span>
+<span class="cm"># transition(state, AgentState.ERROR)  # ❌ ValueError!</span></pre>
+
+  <div class="tip-box">
+    <strong>数仓类比</strong>：这就像 ETL 任务的状态机 — PENDING → RUNNING → SUCCESS/FAILED → RETRY，用枚举比在数据库里存字符串 'runnning'（拼错了！不会报错）安全得多。
+  </div>
+
+  <h3>2.2 collections.deque — 高效滑动窗口记忆</h3>
+  <pre><span class="kw">from</span> <span class="tp">collections</span> <span class="kw">import</span> deque
+
+<span class="cm"># deque(n) 自动淘汰旧元素 — 完美实现"记住最近N轮对话"</span>
+memory = deque(maxlen=<span class="nu">10</span>)  <span class="cm"># 最多保留最近 10 条</span>
+
+memory.append(<span class="st">"用户问: 本月不良资产余额"</span>)
+memory.append(<span class="st">"系统答: 3.2亿元"</span>)
+memory.append(<span class="st">"用户问: 按机构分组"</span>)
+
+<span class="kw">print</span>(list(memory))  <span class="cm"># ['用户问: 本月不良资产余额', '系统答: 3.2亿元', '用户问: 按机构分组']</span>
+
+<span class="cm"># 继续添加到第11条时，第1条自动消失 — O(1) 时间复杂度</span>
+<span class="kw">for</span> i <span class="kw">in</span> range(<span class="nu">8</span>):
+    memory.append(<span class="st">f"对话 </span>{i}<span class="st">"</span>)
+
+<span class="kw">print</span>(list(memory))  <span class="cm"># 只剩最近10条，第一条"本月不良资产余额"已被淘汰</span></pre>
+
+  <h3>2.3 异常分类策略 — 不同错误不同处理</h3>
+  <pre><span class="kw">class</span> <span class="tp">AgentError</span>(Exception):
+    <span class="st">"""所有 Agent 错误的基类"""</span>
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, message: <span class="tp">str</span>, recoverable: <span class="tp">bool</span> = True):
+        <span class="kw">super</span>().__init__(message)
+        self.recoverable = recoverable  <span class="cm"># 是否可自动恢复</span>
+
+<span class="kw">class</span> <span class="tp">APIError</span>(AgentError):
+    <span class="st">"""LLM API 调用失败（超时/限流/500）"""</span>
+    <span class="kw">pass</span>
+
+<span class="kw">class</span> <span class="tp">ToolError</span>(AgentError):
+    <span class="st">"""工具执行失败（SQL语法错/连接断开）"""</span>
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, message: <span class="tp">str</span>, tool_name: <span class="tp">str</span> = <span class="st">""</span>):
+        <span class="kw">super</span>().__init__(message)
+        self.tool_name = tool_name
+
+<span class="kw">class</span> <span class="tp">ContextOverflowError</span>(AgentError):
+    <span class="st">"""上下文超长 — 必须裁剪，无法恢复"""</span>
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, message: <span class="tp">str</span>, current_tokens: <span class="tp">int</span>, max_tokens: <span class="tp">int</span>):
+        <span class="kw">super</span>().__init__(message, recoverable=False)
+        self.current_tokens = current_tokens
+        self.max_tokens = max_tokens
+
+<span class="cm"># 使用 — 不同异常不同处理路径</span>
+<span class="kw">try</span>:
+    result = call_llm(prompt)
+<span class="kw">except</span> ContextOverflowError <span class="kw">as</span> e:
+    <span class="cm"># 不可恢复 → 裁剪后终止</span>
+    <span class="kw">print</span>(<span class="st">f"上下文溢出: </span>{e.current_tokens}<span class="st">/</span>{e.max_tokens}<span class="st">"</span>)
+<span class="kw">except</span> APIError <span class="kw">as</span> e:
+    <span class="kw">if</span> e.recoverable:
+        retry_with_backoff()  <span class="cm"># 可恢复 → 重试</span>
+    <span class="kw">else</span>:
+        fallback_to_cached() <span class="cm"># 不可恢复 → 降级</span></pre>
+
+  <div class="tip-box">
+    <strong>关键设计</strong>：给异常加 <code class="inline-code">recoverable</code> 字段，让上层统一判断"能不能自动恢复"，而不是根据异常类型硬编码 if-else。这和数仓里用 error_code + error_level 分级处理是一个思路。
+  </div>
+</div>
+
+<!-- ==================== Section 3: 错误恢复 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🛡️</span>
+    3. 错误恢复 — 指数退避重试 + 降级策略 + 死循环防护
+    <span class="time-tag">15 min</span>
+  </div>
+
+  <h3>3.1 指数退避重试 — Agent 的"三次机会"</h3>
+  <p>LLM API 经常超时或限流（429），不能一错就放弃。指数退避 = 每次等待时间翻倍，给服务端"喘息"机会：</p>
+  <pre><span class="kw">import</span> asyncio, random, time
+<span class="kw">from</span> <span class="tp">dataclasses</span> <span class="kw">import</span> dataclass, field
+
+<span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="tp">RetryConfig</span>:
+    <span class="st">"""重试配置 — 和数仓调度任务的重试策略一模一样"""</span>
+    max_retries: <span class="tp">int</span> = <span class="nu">3</span>
+    base_delay: <span class="tp">float</span> = <span class="nu">1.0</span>     <span class="cm"># 首次等待 1 秒</span>
+    max_delay: <span class="tp">float</span> = <span class="nu">30.0</span>     <span class="cm"># 最大等待 30 秒</span>
+    jitter: <span class="tp">bool</span> = True         <span class="cm"># 加随机抖动，避免多Agent同时重试"雷群效应"</span>
+    retryable_errors: <span class="tp">tuple</span> = (Exception,)  <span class="cm"># 可重试的异常类型</span>
+
+<span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="tp">RetryResult</span>:
+    <span class="st">"""重试结果记录 — 用于分析和监控"""</span>
+    success: <span class="tp">bool</span>
+    attempts: <span class="tp">int</span>
+    total_delay: <span class="tp">float</span>
+    last_error: <span class="tp">str</span> | <span class="tp">None</span> = <span class="tp">None</span>
+
+<span class="kw">def</span> <span class="fn">retry_with_backoff</span>(func, config: RetryConfig = <span class="tp">RetryConfig</span>()) -> RetryResult:
+    <span class="st">"""
+    同步版指数退避重试
+    核心公式: delay = min(base * 2^attempt + random_jitter, max_delay)
+    """</span>
+    last_error = <span class="tp">None</span>
+    total_delay = <span class="nu">0.0</span>
+
+    <span class="kw">for</span> attempt <span class="kw">in</span> range(config.max_retries + <span class="nu">1</span>):  <span class="cm"># 0,1,2,3 共4次（含首次）</span>
+        <span class="kw">try</span>:
+            result = func()
+            <span class="kw">return</span> RetryResult(
+                success=True,
+                attempts=attempt + <span class="nu">1</span>,
+                total_delay=total_delay,
+            )
+        <span class="kw">except</span> config.retryable_errors <span class="kw">as</span> e:
+            last_error = <span class="kw">str</span>(e)
+            <span class="kw">if</span> attempt < config.max_retries:
+                <span class="cm"># 计算退避时间: 1s → 2s → 4s → 8s ...</span>
+                delay = min(
+                    config.base_delay * (<span class="nu">2</span> ** attempt),
+                    config.max_delay
+                )
+                <span class="cm"># 加抖动: 避免多Agent同时重试（和ETL多任务错峰调度同理）</span>
+                <span class="kw">if</span> config.jitter:
+                    delay *= random.uniform(<span class="nu">0.5</span>, <span class="nu">1.5</span>)
+                total_delay += delay
+                time.sleep(delay)
+                <span class="kw">print</span>(<span class="st">f"  ⚠️ 第</span>{attempt+<span class="nu">1</span>}<span class="st">次失败，</span>{delay:.1f}<span class="st">秒后重试: </span>{last_error}<span class="st">"</span>)
+
+    <span class="kw">return</span> RetryResult(
+        success=False,
+        attempts=config.max_retries + <span class="nu">1</span>,
+        total_delay=total_delay,
+        last_error=last_error,
+    )
+
+<span class="cm"># ---- 使用示例 ----</span>
+<span class="kw">def</span> <span class="fn">unstable_api_call</span>():
+    <span class="st">"""模拟一个不稳定的 API（70% 成功率）"""</span>
+    <span class="kw">if</span> random.random() < <span class="nu">0.3</span>:
+        <span class="kw">raise</span> ConnectionError(<span class="st">"API 超时"</span>)
+    <span class="kw">return</span> <span class="st">"查询结果: 不良资产余额 3.2亿"</span>
+
+result = retry_with_backoff(unstable_api_call, RetryConfig(max_retries=<span class="nu">3</span>))
+<span class="kw">print</span>(<span class="st">f"成功:</span>{result.success}<span class="st">, 尝试:</span>{result.attempts}<span class="st">次, 总耗时:</span>{result.total_delay:.1f}<span class="st">s"</span>)</pre>
+
+  <h3>3.2 降级策略 — 主路径不通时走"备胎"</h3>
+  <pre><span class="kw">from</span> <span class="tp">typing</span> <span class="kw">import</span> Protocol
+
+<span class="kw">class</span> <span class="tp">FallbackChain</span>:
+    <span class="st">"""
+    降级链: 主方案 → 备选1 → 备选2 → 兜底
+    类比: 数仓里 T+1 批处理失败 → 自动切到实时流 → 最后用 T-1 快照兜底
+    """</span>
+    <span class="kw">def</span> <span class="fn">__init__</span>(self):
+        self.strategies: list[tuple[<span class="tp">str</span>, <span class="kw">callable</span>]] = []  <span class="cm"># (名称, 函数)</span>
+
+    <span class="kw">def</span> <span class="fn">add</span>(self, name: <span class="tp">str</span>, func: <span class="kw">callable</span>, priority: <span class="tp">int</span> = <span class="nu">0</span>):
+        <span class="st">"""添加降级策略（priority 越小越优先）"""</span>
+        self.strategies.append((name, func, priority))
+        self.strategies.sort(key=<span class="kw">lambda</span> x: x[<span class="nu">2</span>])
+
+    <span class="kw">def</span> <span class="fn">execute</span>(self, *args, **kwargs):
+        <span class="st">"""按优先级依次尝试，直到成功"""</span>
+        errors = []
+        <span class="kw">for</span> name, func, _ <span class="kw">in</span> self.strategies:
+            <span class="kw">try</span>:
+                result = func(*args, **kwargs)
+                <span class="kw">if</span> len(errors) > <span class="nu">0</span>:
+                    <span class="kw">print</span>(<span class="st">f"  ✅ 降级成功: </span>{name}<span class="st"> (跳过: </span>{[e[<span class="nu">0</span>] <span class="kw">for</span> e <span class="kw">in</span> errors]}<span class="st">)"</span>)
+                <span class="kw">return</span> result
+            <span class="kw">except</span> Exception <span class="kw">as</span> e:
+                errors.append((name, <span class="kw">str</span>(e)))
+                <span class="kw">print</span>(<span class="st">f"  ❌ </span>{name}<span class="st"> 失败: </span>{e}<span class="st">"</span>)
+
+        <span class="kw">raise</span> AgentError(<span class="st">f"所有降级策略均失败: </span>{errors}"</span>)
+
+<span class="cm"># ---- AMC 场景：LLM 生成降级链 ----</span>
+chain = FallbackChain()
+chain.add(<span class="st">"智谱GLM-4"</span>, <span class="kw">lambda</span> q: call_zhipu(q), priority=<span class="nu">0</span>)     <span class="cm"># 首选</span>
+chain.add(<span class="st">"DeepSeek"</span>, <span class="kw">lambda</span> q: call_deepseek(q), priority=<span class="nu">1</span>)  <span class="cm"># 备选</span>
+chain.add(<span class="st">"规则模板"</span>, <span class="kw">lambda</span> q: rule_based_answer(q), priority=<span class="nu">2</span>)  <span class="cm"># 兜底</span>
+
+answer = chain.execute(<span class="st">"本月不良资产Top5机构"</span>)  <span class="cm"># 自动降级，用户无感</span></pre>
+
+  <h3>3.3 死循环防护 — max_steps + 检测重复工具调用</h3>
+  <pre><span class="kw">from</span> <span class="tp">collections</span> <span class="kw">import</span> Counter
+
+<span class="kw">class</span> <span class="tp">LoopDetector</span>:
+    <span class="st">"""
+    检测 Agent 是否陷入循环 — 两种检测方式：
+    1. 同一工具连续调用N次 → 可能参数有误，卡住了
+    2. 总步数超限 → 强制终止
+    """</span>
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, max_steps: <span class="tp">int</span> = <span class="nu">15</span>, max_same_tool: <span class="tp">int</span> = <span class="nu">3</span>):
+        self.max_steps = max_steps
+        self.max_same_tool = max_same_tool
+        self.steps: list[<span class="tp">str</span>] = []         <span class="cm"># 所有工具调用记录</span>
+        self.consecutive: Counter = Counter()  <span class="cm"># 连续调用计数</span>
+
+    <span class="kw">def</span> <span class="fn">record</span>(self, tool_name: <span class="tp">str</span>) -> <span class="tp">bool</span>:
+        <span class="st">"""记录一次工具调用，返回 True 表示检测到循环"""</span>
+        self.steps.append(tool_name)
+
+        <span class="cm"># 检测总步数</span>
+        <span class="kw">if</span> len(self.steps) > self.max_steps:
+            <span class="kw">return True</span>  <span class="cm"># 超过最大步数</span>
+
+        <span class="cm"># 检测连续重复调用</span>
+        <span class="kw">if</span> self.steps[-<span class="nu">1</span>:] == self.steps[-<span class="nu">2</span>:-<span class="nu">1</span>] if len(self.steps) >= <span class="nu">2</span> <span class="kw">else</span> <span class="tp">False</span>:
+            self.consecutive[tool_name] += <span class="nu">1</span>
+            <span class="kw">if</span> self.consecutive[tool_name] >= self.max_same_tool:
+                <span class="kw">return True</span>  <span class="cm"># 同一工具连续3次 → 疑似循环</span>
+        <span class="kw">else</span>:
+            self.consecutive.clear()  <span class="cm"># 工具变了，重置计数</span>
+
+        <span class="kw">return False</span>
+
+<span class="cm"># ---- 使用 ----</span>
+detector = LoopDetector(max_steps=<span class="nu">10</span>, max_same_tool=<span class="nu">3</span>)
+
+<span class="kw">for</span> tool <span class="kw">in</span> [<span class="st">"db_query"</span>, <span class="st">"think"</span>, <span class="st">"db_query"</span>, <span class="st">"think"</span>, <span class="st">"db_query"</span>, <span class="st">"think"</span>, <span class="st">"db_query"</span>]:
+    is_loop = detector.record(tool)
+    <span class="kw">print</span>(<span class="st">f"调用 </span>{tool:<span class="nu">12</span>}<span class="st"> → 循环检测: </span>{<span class="st">'⚠️ 是!'</span> <span class="kw">if</span> is_loop <span class="kw">else</span> <span class="st">'正常'</span>}<span class="st">  (已执行</span>{len(detector.steps)}<span class="st">步)"</span>)</pre>
+
+  <div class="warn-box">
+    <strong>数仓经验</strong>：死循环在 ETL 里也有 — 比如自依赖的 SQL 任务互相等待。生产环境必须有超时机制 + 死锁检测，Agent 系统同理。
+  </div>
+</div>
+
+<!-- ==================== Section 4: Human-in-the-Loop ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">👤</span>
+    4. Human-in-the-Loop — 审批系统 + 置信度路由
+    <span class="time-tag">12 min</span>
+  </div>
+
+  <h3>4.1 审批策略 — 哪些操作需要人确认？</h3>
+  <pre><span class="kw">from</span> <span class="tp">enum</span> <span class="kw">import</span> Enum, auto
+<span class="kw">from</span> <span class="tp">dataclasses</span> <span class="kw">import</span> dataclass, field
+
+<span class="kw">class</span> <span class="tp">ApprovalPolicy</span>(Enum):
+    <span class="st">"""审批策略 — 不同操作不同安全级别"""</span>
+    ALWAYS = auto()     <span class="cm"># 每次都要审批（如：发送外部通知、删除数据）</span>
+    NEVER = auto()      <span class="cm"># 从不审批（如：只读查询）</span>
+    AUTO = auto()       <span class="cm"># 自动判断（基于金额/影响范围/置信度）</span>
+
+<span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="tp">ApprovalRule</span>:
+    <span class="st">"""单条审批规则 — 定义何时需要审批"""</span>
+    tool_name: <span class="tp">str</span>
+    policy: ApprovalPolicy
+    threshold: <span class="tp">float</span> | <span class="tp">None</span> = <span class="tp">None</span>  <span class="cm"># AUTO 模式的阈值</span>
+    description: <span class="tp">str</span> = <span class="st">""</span>
+
+<span class="cm"># AMC 业务审批规则 — 参考银行分级授权制度</span>
+<span class="tp">AMC_APPROVAL_RULES</span> = [
+    ApprovalRule(<span class="st">"db_query"</span>,       ApprovalPolicy.NEVER,  description=<span class="st">"只读查询，无需审批"</span>),
+    ApprovalRule(<span class="st">"knowledge_search"</span>, ApprovalPolicy.NEVER,  description=<span class="st">"知识库检索，无需审批"</span>),
+    ApprovalRule(<span class="st">"generate_report"</span>, ApprovalPolicy.AUTO,
+                 threshold=<span class="nu">0.8</span>,  description=<span class="st">"报告生成：置信度&gt;0.8自动执行，否则需审批"</span>),
+    ApprovalRule(<span class="st">"send_notification"</span>, ApprovalPolicy.ALWAYS, description=<span class="st">"发送通知：必须审批（涉及外部系统）"</span>),
+    ApprovalRule(<span class="st">"risk_alert"</span>,      ApprovalPolicy.ALWAYS, description=<span class="st">"风险预警：必须审批（高影响操作）"</span>),
+]</pre>
+
+  <h3>4.2 HumanApproval 审批引擎</h3>
+  <pre><span class="kw">from</span> <span class="tp">datetime</span> <span class="kw">import</span> datetime
+
+<span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="tp">ApprovalRequest</span>:
+    <span class="st">"""审批请求 — Agent 暂停，等待人工处理"""</span>
+    tool_name: <span class="tp">str</span>
+    action_summary: <span class="tp">str</span>       <span class="cm"># "即将发送预警通知给5个机构"</span>
+    params: dict                 <span class="cm"># 工具参数</span>
+    confidence: <span class="tp">float</span> = <span class="nu">0.0</span>
+    created_at: <span class="tp">str</span> = field(default_factory=<span class="kw">lambda</span>: datetime.now().isoformat())
+    status: <span class="tp">str</span> = <span class="st">"pending"</span>  <span class="cm"># pending / approved / rejected</span>
+
+<span class="kw">class</span> <span class="tp">HumanApproval</span>:
+    <span class="st">"""
+    审批引擎 — Agent 遇到高风险操作时暂停等待
+    类比: 银行的"大额转账需主管授权"
+    """</span>
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, rules: list[ApprovalRule]):
+        self.rules = {r.tool_name: r <span class="kw">for</span> r <span class="kw">in</span> rules}
+        self.history: list[ApprovalRequest] = []  <span class="cm"># 审批历史</span>
+
+    <span class="kw">def</span> <span class="fn">check</span>(self, tool_name: <span class="tp">str</span>, params: dict, confidence: <span class="tp">float</span> = <span class="nu">0.0</span>) -> <span class="tp">bool</span>:
+        <span class="st">"""
+        检查工具调用是否需要人工审批
+        返回 True = 可以自动执行, False = 需要暂停等待审批
+        """</span>
+        rule = self.rules.get(tool_name)
+
+        <span class="cm"># 没有配置规则 → 默认允许</span>
+        <span class="kw">if</span> rule <span class="kw">is None</span>:
+            <span class="kw">return True</span>
+
+        <span class="kw">if</span> rule.policy == ApprovalPolicy.NEVER:
+            <span class="kw">return True</span>  <span class="cm"># 免审批</span>
+
+        <span class="kw">elif</span> rule.policy == ApprovalPolicy.ALWAYS:
+            <span class="kw">return</span> self._request_approval(tool_name, params, confidence)
+
+        <span class="kw">elif</span> rule.policy == ApprovalPolicy.AUTO:
+            <span class="kw">if</span> confidence >= rule.threshold:
+                <span class="kw">return True</span>  <span class="cm"># 置信度足够高，自动通过</span>
+            <span class="kw">return</span> self._request_approval(tool_name, params, confidence)
+
+        <span class="kw">return True</span>
+
+    <span class="kw">def</span> <span class="fn">_request_approval</span>(self, tool_name: <span class="tp">str</span>, params: dict, confidence: <span class="tp">float</span>) -> <span class="tp">bool</span>:
+        <span class="st">"""发起审批请求 — 实际生产中会发到飞书/企微审批流"""</span>
+        req = ApprovalRequest(
+            tool_name=tool_name,
+            action_summary=self._summarize(tool_name, params),
+            params=params,
+            confidence=confidence,
+        )
+        self.history.append(req)
+
+        <span class="cm"># 这里模拟人工审批（生产中通过飞书/企微 API 发起）</span>
+        <span class="kw">print</span>(<span class="st">f"\n🔔 审批请求:"</span>)
+        <span class="kw">print</span>(<span class="st">f"   工具: </span>{tool_name}<span class="st">"</span>)
+        <span class="kw">print</span>(<span class="st">f"   操作: </span>{req.action_summary}<span class="st">"</span>)
+        <span class="kw">print</span>(<span class="st">f"   置信度: </span>{confidence:.0%}<span class="st">"</span>)
+
+        <span class="cm"># 模拟审批通过（生产中会等待回调）</span>
+        req.status = <span class="st">"approved"</span>
+        <span class="kw">print</span>(<span class="st">f"   ✅ 审批通过\n"</span>)
+        <span class="kw">return True</span>
+
+    <span class="kw">def</span> <span class="fn">_summarize</span>(self, tool_name: <span class="tp">str</span>, params: dict) -> <span class="tp">str</span>:
+        <span class="st">"""生成人可读的操作摘要"""</span>
+        summaries = {
+            <span class="st">"send_notification"</span>: <span class="kw">lambda</span> p: <span class="st">f"向 </span>{p.get(<span class="st">'target'</span>,<span class="st">'未知'</span>)}<span class="st"> 发送通知: </span>{p.get(<span class="st">'message'</span>,<span class="st">''</span>)}<span class="st">"</span>,
+            <span class="st">"risk_alert"</span>: <span class="kw">lambda</span> p: <span class="st">f"触发风险预警: </span>{p.get(<span class="st">'alert_type'</span>,<span class="st">''</span>)}<span class="st"> (影响 </span>{p.get(<span class="st">'institutions'</span>,<span class="nu">0</span>)}<span class="st"> 家机构)"</span>,
+        }
+        fn = summaries.get(tool_name, <span class="kw">lambda</span> p: <span class="st">f"执行 </span>{tool_name}<span class="st">"</span>)
+        <span class="kw">return</span> fn(params)
+
+<span class="cm"># ---- 使用 ----</span>
+approval = HumanApproval(AMC_APPROVAL_RULES)
+
+<span class="cm"># 只读查询 → 自动通过</span>
+approval.check(<span class="st">"db_query"</span>, {<span class="st">"sql"</span>: <span class="st">"SELECT * FROM npl_assets"</span>})
+
+<span class="cm"># 发送通知 → 必须审批</span>
+approval.check(<span class="st">"send_notification"</span>, {
+    <span class="st">"target"</span>: <span class="st">"风控部"</span>,
+    <span class="st">"message"</span>: <span class="st">"3家机构不良资产超阈值"</span>
+})
+
+<span class="cm"># 报告生成 → 置信度 0.6 < 0.8 → 需要审批</span>
+approval.check(<span class="st">"generate_report"</span>, {<span class="st">"type"</span>: <span class="st">"monthly"</span>}, confidence=<span class="nu">0.6</span>)</pre>
+
+  <div class="concept-box">
+    <strong>生产环境集成</strong>：审批请求不是 <code class="inline-code">print</code>，而是调用飞书/企微的审批 API（类似你之前学的 lark-approval skill），把请求发到审批流，审批通过后回调继续执行。Agent 会"暂停等待"直到收到回调。
+  </div>
+</div>
+
+<!-- ==================== Section 5: 多Agent路由 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔀</span>
+    5. 多 Agent 路由 — 意图分类 + 专家 Agent 分发 + 协作链
+    <span class="time-tag">10 min</span>
+  </div>
+
+  <h3>5.1 设计思路 — 专家分工</h3>
+  <div class="arch-diagram">
+    <pre>
+  用户输入: "帮我把上月不良资产数据导出Excel，再发一份给风控部"
+       │
+       ▼
+  ┌──────────────────────┐
+  │   Router（意图分类）  │  ← 关键词匹配 + LLM 意图理解
+  │   "导出Excel" → DataAgent
+  │   "发给风控部" → NotifyAgent
+  └──────┬───────────────┘
+         │ 识别出两个子任务
+         ▼
+  ┌──────────────────────┐
+  │   Orchestrator（编排） │  ← 串行执行：先导出，后发送
+  │   step1: DataAgent  → 生成Excel
+  │   step2: NotifyAgent → 发送文件
+  └──────────────────────┘
+    </pre>
+  </div>
+
+  <h3>5.2 完整实现</h3>
+  <pre><span class="kw">from</span> <span class="tp">dataclasses</span> <span class="kw">import</span> dataclass, field
+<span class="kw">from</span> <span class="tp">typing</span> <span class="kw">import</span> Protocol
+
+<span class="cm"># ---- 定义 Agent 协议（接口） ----</span>
+<span class="kw">class</span> <span class="tp">ExpertAgent</span>(Protocol):
+    <span class="st">"""专家 Agent 协议 — 每个 Agent 必须有 name 和 can_handle"""</span>
+    <span class="kw">@property</span>
+    <span class="kw">def</span> <span class="fn">name</span>(self) -> <span class="tp">str</span>: ...
+    <span class="kw">def</span> <span class="fn">can_handle</span>(self, query: <span class="tp">str</span>) -> <span class="tp">float</span>: ...  <span class="cm"># 返回匹配度 0~1</span>
+    <span class="kw">def</span> <span class="fn">execute</span>(self, query: <span class="tp">str</span>, context: dict) -> <span class="tp">str</span>: ...
+
+<span class="cm"># ---- 四个 AMC 专家 Agent ----</span>
+<span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="tp">DataQueryAgent</span>:
+    <span class="st">"""数据查询专家 — 专注SQL查询和数据检索"""</span>
+    <span class="kw">def</span> <span class="fn">__post_init__</span>(self):
+        self.keywords = [<span class="st">"查询"</span>, <span class="st">"查找"</span>, <span class="st">"统计"</span>, <span class="st">"多少"</span>, <span class="st">"top"</span>, <span class="st">"排名"</span>,
+                       <span class="st">"sql"</span>, <span class="st">"不良"</span>, <span class="st">"余额"</span>, <span class="st">"机构"</span>, <span class="st">"资产"</span>]
+
+    <span class="kw">@property</span>
+    <span class="kw">def</span> <span class="fn">name</span>(self) -> <span class="tp">str</span>: <span class="kw">return</span> <span class="st">"DataQueryAgent"</span>
+
+    <span class="kw">def</span> <span class="fn">can_handle</span>(self, query: <span class="tp">str</span>) -> <span class="tp">float</span>:
+        score = sum(<span class="nu">1</span> <span class="kw">for</span> kw <span class="kw">in</span> self.keywords <span class="kw">if</span> kw <span class="kw">in</span> query.lower())
+        <span class="kw">return</span> min(score / <span class="nu">3</span>, <span class="nu">1.0</span>)
+
+    <span class="kw">def</span> <span class="fn">execute</span>(self, query: <span class="tp">str</span>, context: dict) -> <span class="tp">str</span>:
+        <span class="kw">return</span> <span class="st">f"[数据查询] 执行SQL: SELECT ... FROM npl_assets WHERE ... → 返回查询结果"</span>
+
+<span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="tp">ReportAgent</span>:
+    <span class="st">"""报告生成专家 — 专注报表和分析报告"""</span>
+    keywords = [<span class="st">"报告"</span>, <span class="st">"报表"</span>, <span class="st">"导出"</span>, <span class="st">"excel"</span>, <span class="st">"pdf"</span>,
+                <span class="st">"分析"</span>, <span class="st">"月报"</span>, <span class="st">"周报"</span>]
+
+    <span class="kw">@property</span>
+    <span class="kw">def</span> <span class="fn">name</span>(self) -> <span class="tp">str</span>: <span class="kw">return</span> <span class="st">"ReportAgent"</span>
+
+    <span class="kw">def</span> <span class="fn">can_handle</span>(self, query: <span class="tp">str</span>) -> <span class="tp">float</span>:
+        score = sum(<span class="nu">1</span> <span class="kw">for</span> kw <span class="kw">in</span> self.keywords <span class="kw">if</span> kw <span class="kw">in</span> query.lower())
+        <span class="kw">return</span> min(score / <span class="nu">3</span>, <span class="nu">1.0</span>)
+
+    <span class="kw">def</span> <span class="fn">execute</span>(self, query: <span class="tp">str</span>, context: dict) -> <span class="tp">str</span>:
+        <span class="kw">return</span> <span class="st">f"[报告生成] 调用LLM生成分析报告 → 已导出 Excel 文件"</span>
+
+<span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="tp">NotifyAgent</span>:
+    <span class="st">"""通知发送专家 — 专注消息推送"""</span>
+    keywords = [<span class="st">"发送"</span>, <span class="st">"通知"</span>, <span class="st">"推送"</span>, <span class="st">"邮件"</span>, <span class="st">"消息"</span>,
+                <span class="st">"飞书"</span>, <span class="st">"告警"</span>, <span class="st">"预警"</span>]
+
+    <span class="kw">@property</span>
+    <span class="kw">def</span> <span class="fn">name</span>(self) -> <span class="tp">str</span>: <span class="kw">return</span> <span class="st">"NotifyAgent"</span>
+
+    <span class="kw">def</span> <span class="fn">can_handle</span>(self, query: <span class="tp">str</span>) -> <span class="tp">float</span>:
+        score = sum(<span class="nu">1</span> <span class="kw">for</span> kw <span class="kw">in</span> self.keywords <span class="kw">if</span> kw <span class="kw">in</span> query.lower())
+        <span class="kw">return</span> min(score / <span class="nu">3</span>, <span class="nu">1.0</span>)
+
+    <span class="kw">def</span> <span class="fn">execute</span>(self, query: <span class="tp">str</span>, context: dict) -> <span class="tp">str</span>:
+        <span class="kw">return</span> <span class="st">f"[通知发送] 向 {context.get('target','相关人员')} 发送通知"</span>
+
+<span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="tp">KnowledgeAgent</span>:
+    <span class="st">"""知识库专家 — 专注法规和术语检索"""</span>
+    keywords = [<span class="st">"政策"</span>, <span class="st">"法规"</span>, <span class="st">"定义"</span>, <span class="st">"是什么"</span>, <span class="st">"怎么算"</span>,
+                <span class="st">"分类"</span>, <span class="st">"标准"</span>, <span class="st">"监管"</span>]
+
+    <span class="kw">@property</span>
+    <span class="kw">def</span> <span class="fn">name</span>(self) -> <span class="tp">str</span>: <span class="kw">return</span> <span class="st">"KnowledgeAgent"</span>
+
+    <span class="kw">def</span> <span class="fn">can_handle</span>(self, query: <span class="tp">str</span>) -> <span class="tp">float</span>:
+        score = sum(<span class="nu">1</span> <span class="kw">for</span> kw <span class="kw">in</span> self.keywords <span class="kw">if</span> kw <span class="kw">in</span> query.lower())
+        <span class="kw">return</span> min(score / <span class="nu">3</span>, <span class="nu">1.0</span>)
+
+    <span class="kw">def</span> <span class="fn">execute</span>(self, query: <span class="tp">str</span>, context: dict) -> <span class="tp">str</span>:
+        <span class="kw">return</span> <span class="st">f"[知识检索] 检索AMC知识库 → 返回相关政策法规"</span>
+
+<span class="cm"># ---- 路由器 ----</span>
+<span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="tp">AgentRouter</span>:
+    <span class="st">"""
+    多 Agent 路由器 — 根据用户意图分发到最合适的专家
+    核心逻辑: 每个Agent对query打分 → 取最高分 → 分发执行
+    """</span>
+    agents: list = field(default_factory=list)
+
+    <span class="kw">def</span> <span class="fn">register</span>(self, agent):
+        <span class="st">"""注册专家 Agent"""</span>
+        self.agents.append(agent)
+
+    <span class="kw">def</span> <span class="fn">route</span>(self, query: <span class="tp">str</span>, context: dict = <span class="tp">None</span>) -> list[tuple]:
+        <span class="st">"""
+        路由分发 — 返回排序后的 (agent, score) 列表
+        注意: 一个query可能匹配多个Agent（如"导出并发送"→ Report + Notify）
+        """</span>
+        context = context <span class="kw">or</span> {}
+        scored = [(agent, agent.can_handle(query)) <span class="kw">for</span> agent <span class="kw">in</span> self.agents]
+        <span class="cm"># 过滤掉完全无关的 (score = 0)</span>
+        relevant = [(a, s) <span class="kw">for</span> a, s <span class="kw">in</span> scored <span class="kw">if</span> s > <span class="nu">0</span>]
+        <span class="cm"># 按分数降序</span>
+        relevant.sort(key=<span class="kw">lambda</span> x: x[<span class="nu">1</span>], reverse=True)
+        <span class="kw">return</span> relevant
+
+    <span class="kw">def</span> <span class="fn">dispatch</span>(self, query: <span class="tp">str</span>, context: dict = <span class="tp">None</span>) -> list[<span class="tp">str</span>]:
+        <span class="st">"""路由 + 执行 — 返回所有Agent的执行结果"""</span>
+        results = []
+        <span class="kw">for</span> agent, score <span class="kw">in</span> self.route(query, context):
+            <span class="kw">print</span>(<span class="st">f"  🎯 分发到 </span>{agent.name:<span class="nu">20</span>}<span class="st"> (匹配度: </span>{score:.0%}<span class="st">)"</span>)
+            result = agent.execute(query, context <span class="kw">or</span> {})
+            results.append(result)
+        <span class="kw">return</span> results
+
+<span class="cm"># ---- 使用 ----</span>
+router = AgentRouter()
+router.register(DataQueryAgent())
+router.register(ReportAgent())
+router.register(NotifyAgent())
+router.register(KnowledgeAgent())
+
+<span class="kw">print</span>(<span class="st">"===== 场景1: 简单查询 ====="</span>)
+results = router.dispatch(<span class="st">"查询本月不良资产余额Top10机构"</span>)
+<span class="kw">for</span> r <span class="kw">in</span> results: <span class="kw">print</span>(<span class="st">f"  → </span>{r}<span class="st">"</span>)
+
+<span class="kw">print</span>(<span class="st">"\n===== 场景2: 复合任务（需要多个Agent协作）====="</span>)
+results = router.dispatch(<span class="st">"导出上月不良资产报告Excel，并发送给风控部"</span>)
+<span class="kw">for</span> r <span class="kw">in</span> results: <span class="kw">print</span>(<span class="st">f"  → </span>{r}<span class="st">"</span>)</pre>
+
+  <div class="tip-box">
+    <strong>进阶：用 LLM 做意图分类</strong>：关键词匹配在简单场景够用，但复杂语句（"帮我看看上个月表现不好的几个机构，总结一下原因，写成周报"）需要 LLM 来理解意图。可以让 LLM 返回 JSON：<code class="inline-code">{"agents": ["DataQueryAgent", "ReportAgent"], "order": ["data", "report"]}</code>，实现更精确的路由。
+  </div>
+</div>
+
+<!-- ==================== Section 6: Agent 记忆 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🧠</span>
+    6. Agent 记忆 — 短期滑动窗口 + 长期持久化 + 上下文组装
+    <span class="time-tag">8 min</span>
+  </div>
+
+  <h3>6.1 双层记忆架构</h3>
+  <div class="arch-diagram">
+    <pre>
+  ┌────────────────────────────────────────────┐
+  │              AgentMemory                      │
+  │                                              │
+  │  ┌─────────────────────┐                     │
+  │  │ 短期记忆 (deque)     │ ← 最近 N 轮对话     │
+  │  │ maxlen=20            │   自动淘汰旧消息    │
+  │  │ [轮21] [轮22] ... [轮40]                  │
+  │  └─────────────────────┘                     │
+  │                                              │
+  │  ┌─────────────────────┐                     │
+  │  │ 长期记忆 (list)      │ ← 关键信息永久保存  │
+  │  │ • 用户偏好           │   搜索后按需注入    │
+  │  │ • 重要结论           │                     │
+  │  │ • 业务上下文         │                     │
+  │  └─────────────────────┘                     │
+  └────────────────────────────────────────────┘
+    </pre>
+  </div>
+
+  <pre><span class="kw">from</span> <span class="tp">collections</span> <span class="kw">import</span> deque
+<span class="kw">from</span> <span class="tp">dataclasses</span> <span class="kw">import</span> dataclass, field
+<span class="kw">from</span> <span class="tp">datetime</span> <span class="kw">import</span> datetime
+
+<span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="tp">MemoryEntry</span>:
+    <span class="st">"""单条记忆记录"""</span>
+    role: <span class="tp">str</span>           <span class="cm"># "user" / "assistant" / "system"</span>
+    content: <span class="tp">str</span>        <span class="cm"># 记忆内容</span>
+    timestamp: <span class="tp">str</span> = field(default_factory=<span class="kw">lambda</span>: datetime.now().isoformat())
+    is_key: <span class="tp">bool</span> = False  <span class="cm"># 是否为关键记忆（长期保存）</span>
+
+<span class="kw">class</span> <span class="tp">AgentMemory</span>:
+    <span class="st">"""
+    Agent 双层记忆系统
+    类比: 短期记忆 = 临时表(会话级), 长期记忆 = 持久表(跨会话)
+    """</span>
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, short_term_size: <span class="tp">int</span> = <span class="nu">20</span>):
+        self.short_term: deque[MemoryEntry] = deque(maxlen=short_term_size)
+        self.long_term: list[MemoryEntry] = []   <span class="cm"># 无大小限制，可持久化到文件/数据库</span>
+
+    <span class="kw">def</span> <span class="fn">add</span>(self, role: <span class="tp">str</span>, content: <span class="tp">str</span>, is_key: <span class="tp">bool</span> = False):
+        <span class="st">"""添加记忆 — 同时写入短期；is_key=True 同时写入长期"""</span>
+        entry = MemoryEntry(role=role, content=content, is_key=is_key)
+        self.short_term.append(entry)
+        <span class="kw">if</span> is_key:
+            self.long_term.append(entry)
+
+    <span class="kw">def</span> <span class="fn">search_long</span>(self, keyword: <span class="tp">str</span>, limit: <span class="tp">int</span> = <span class="nu">5</span>) -> list[MemoryEntry]:
+        <span class="st">"""在长期记忆中按关键词搜索"""</span>
+        matched = [e <span class="kw">for</span> e <span class="kw">in</span> self.long_term <span class="kw">if</span> keyword <span class="kw">in</span> e.content]
+        <span class="kw">return</span> matched[:limit]
+
+    <span class="kw">def</span> <span class="fn">get_context</span>(self, max_tokens: <span class="tp">int</span> = <span class="nu">2000</span>) -> list[<span class="tp">str</span>]:
+        <span class="st">"""
+        组装上下文 — 供 LLM 使用的对话历史
+        策略: 长期关键记忆 + 短期最近对话，按token预算裁剪
+        """</span>
+        context_parts = []
+
+        <span class="cm"># 1. 注入长期记忆中的关键信息（简洁摘要）</span>
+        <span class="kw">if</span> self.long_term:
+            key_memos = [f"[记忆] {e.content}" <span class="kw">for</span> e <span class="kw">in</span> self.long_term[-<span class="nu">5</span>:]]
+            context_parts.extend(key_memos)
+
+        <span class="cm"># 2. 添加短期记忆（最近的对话）</span>
+        <span class="kw">for</span> entry <span class="kw">in</span> self.short_term:
+            context_parts.append(<span class="st">f"</span>{entry.role}<span class="st">: </span>{entry.content}<span class="st">"</span>)
+
+        <span class="cm"># 3. 简单token估算和裁剪（中文约1字≈2token）</span>
+        total_chars = sum(len(p) <span class="kw">for</span> p <span class="kw">in</span> context_parts)
+        estimated_tokens = total_chars * <span class="nu">2</span>
+
+        <span class="kw">if</span> estimated_tokens > max_tokens:
+            <span class="cm"># 从最早的开始裁剪，保留最近的</span>
+            <span class="kw">while</span> len(context_parts) > <span class="nu">2</span> <span class="kw">and</span> sum(len(p)*<span class="nu">2</span> <span class="kw">for</span> p <span class="kw">in</span> context_parts) > max_tokens:
+                context_parts.pop(<span class="nu">0</span>)
+
+        <span class="kw">return</span> context_parts
+
+    <span class="kw">def</span> <span class="fn">clear_short</span>(self):
+        <span class="st">"""清空短期记忆（新会话开始时）"""</span>
+        self.short_term.clear()
+
+    <span class="kw">def</span> <span class="fn">save_long</span>(self, filepath: <span class="tp">str</span>):
+        <span class="st">"""持久化长期记忆到文件"""</span>
+        <span class="kw">import</span> json
+        data = [{<span class="st">"role"</span>: e.role, <span class="st">"content"</span>: e.content, <span class="st">"timestamp"</span>: e.timestamp}
+                <span class="kw">for</span> e <span class="kw">in</span> self.long_term]
+        <span class="kw">with</span> open(filepath, <span class="st">"w"</span>, encoding=<span class="st">"utf-8"</span>) <span class="kw">as</span> f:
+            json.dump(data, f, ensure_ascii=False, indent=<span class="nu">2</span>)
+
+    <span class="kw">def</span> <span class="fn">stats</span>(self) -> dict:
+        <span class="kw">return</span> {
+            <span class="st">"short_term_count"</span>: len(self.short_term),
+            <span class="st">"long_term_count"</span>: len(self.long_term),
+            <span class="st">"total_context_chars"</span>: sum(len(e.content) <span class="kw">for</span> e <span class="kw">in</span> self.short_term),
+        }
+
+<span class="cm"># ---- 使用 ----</span>
+memory = AgentMemory(short_term_size=<span class="nu">20</span>)
+
+<span class="cm"># 模拟多轮对话</span>
+memory.add(<span class="st">"user"</span>, <span class="st">"查询本月不良资产余额"</span>)
+memory.add(<span class="st">"assistant"</span>, <span class="st">"本月不良资产余额 3.2亿元"</span>, is_key=True)  <span class="cm"># 关键信息，长期保存</span>
+memory.add(<span class="st">"user"</span>, <span class="st">"按机构分组看"</span>)
+memory.add(<span class="st">"assistant"</span>, <span class="st">"A机构1.2亿, B机构0.8亿, C机构0.6亿"</span>, is_key=True)
+
+<span class="cm"># 搜索长期记忆</span>
+<span class="kw">print</span>(<span class="st">"搜索'余额':"</span>, [e.content <span class="kw">for</span> e <span class="kw">in</span> memory.search_long(<span class="st">"余额"</span>)])
+
+<span class="cm"># 组装上下文</span>
+<span class="kw">print</span>(<span class="st">"\n上下文内容:"</span>)
+<span class="kw">for</span> line <span class="kw">in</span> memory.get_context():
+    <span class="kw">print</span>(<span class="st">f"  </span>{line}<span class="st">"</span>)
+
+<span class="kw">print</span>(<span class="st">"\n记忆统计:"</span>, memory.stats())</pre>
+
+  <div class="tip-box">
+    <strong>数仓类比</strong>：短期记忆 = Hive 临时表（会话结束自动删除），长期记忆 = Hive 持久表（跨会话保存）。<code class="inline-code">get_context</code> 的裁剪逻辑就像 SQL 的 <code class="inline-code">LIMIT</code> + <code class="inline-code">WHERE</code>，在预算内取最相关的内容。
+  </div>
+</div>
+
+<!-- ==================== Section 7: 陷阱与最佳实践 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚡</span>
+    7. 常见陷阱 + 最佳实践速查
+    <span class="time-tag">5 min</span>
+  </div>
+
+  <h3>🔴 Top 5 陷阱</h3>
+  <table class="compare-table">
+    <tr><th>#</th><th>陷阱</th><th>症状</th><th>解法</th></tr>
+    <tr>
+      <td>1</td>
+      <td><strong>死循环</strong></td>
+      <td>Agent 反复调用同一工具，永远不终止</td>
+      <td>LoopDetector + max_steps 硬上限 + 连续调用检测</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td><strong>上下文爆炸</strong></td>
+      <td>对话10轮后 token 超限，API报错</td>
+      <td>deque 短期记忆 + Token 预算裁剪 + 长期记忆按需注入</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td><strong>审批阻塞</strong></td>
+      <td>Human-in-the-Loop 没有超时，Agent 永远等待</td>
+      <td>审批超时机制（30分钟未响应→自动拒绝或升级）</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td><strong>降级链全部失败</strong></td>
+      <td>所有LLM同时宕机，降级链也用LLM</td>
+      <td>降级链末端必须是纯规则/缓存，不依赖LLM</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td><strong>路由错误</strong></td>
+      <td>关键词"报告"匹配到了 NotifyAgent</td>
+      <td>关键词互斥设计 + LLM 意图分类兜底 + 路由日志</td>
+    </tr>
+  </table>
+
+  <h3>🟢 最佳实践速查表</h3>
+  <table class="compare-table">
+    <tr><th>模块</th><th>实践</th><th>原因</th></tr>
+    <tr><td>错误恢复</td><td>重试必加 jitter + max_delay</td><td>避免多Agent同时重试"惊群效应"</td></tr>
+    <tr><td>错误恢复</td><td>不可恢复错误立即终止，不重试</td><td>ContextOverflow 重试100次也没用</td></tr>
+    <tr><td>审批</td><td>审批请求必须有超时</td><td>防止Agent永久阻塞</td></tr>
+    <tr><td>审批</td><td>审批历史持久化</td><td>审计追溯（金融行业必须）</td></tr>
+    <tr><td>路由</td><td>每个Agent只处理一个领域</td><td>职责单一，更容易调试和优化</td></tr>
+    <tr><td>记忆</td><td>关键信息主动标记 is_key</td><td>避免重要信息被短期窗口淘汰</td></tr>
+    <tr><td>记忆</td><td>Token预算必须留余量（80%使用）</td><td>防止LLM输出时超限</td></tr>
+    <tr><td>全局</td><td>Agent每步操作都记录日志</td><td>出问题时能回溯完整执行链路</td></tr>
+  </table>
+</div>
+
+<!-- ==================== Section 8: 练习 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">✏️</span>
+    8. 练习（巩固）
+  </div>
+
+  <div class="practice-box">
+    <h4>练习 1：增强 LoopDetector — 检测"工具循环模式"</h4>
+    <p>当前只检测同一工具连续调用。请增强为检测 <strong>循环模式</strong>（如 A→B→A→B→A→B 即使不连续也算循环）。</p>
+    <p><strong>提示</strong>：用一个 list 记录最近 N 次调用的工具名，检查是否出现重复子序列。</p>
+  </div>
+
+  <div class="practice-box">
+    <h4>练习 2：给 FallbackChain 加超时</h4>
+    <p>当前 FallbackChain 如果某个策略卡住（比如 LLM 无响应），整个链就堵死了。请给 <code class="inline-code">execute</code> 方法加 <code class="inline-code">timeout</code> 参数，超时自动跳到下一个策略。</p>
+    <p><strong>提示</strong>：用 <code class="inline-code">threading.Thread</code> + <code class="inline-code">join(timeout)</code> 或 <code class="inline-code">signal.alarm</code>（Linux）实现超时。</p>
+  </div>
+
+  <div class="practice-box">
+    <h4>练习 3：LeetCode #155 最小栈（用 deque 实现）</h4>
+    <p>设计一个支持 <code class="inline-code">push</code>、<code class="inline-code">pop</code>、<code class="inline-code">top</code>、<code class="inline-code">getMin</code> 的栈，所有操作 O(1) 时间复杂度。</p>
+    <p><strong>提示</strong>：维护一个辅助 deque，同步记录当前最小值。</p>
+<pre><span class="kw">class</span> <span class="tp">MinStack</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(self):
+        self.stack = deque()     <span class="cm"># 主栈</span>
+        self.mins = deque()      <span class="cm"># 辅助栈：同步记录当前最小值</span>
+
+    <span class="kw">def</span> <span class="fn">push</span>(self, val: <span class="tp">int</span>) -> <span class="tp">None</span>:
+        <span class="cm"># TODO: 同时维护主栈和辅助栈</span>
+        <span class="kw">pass</span>
+
+    <span class="kw">def</span> <span class="fn">pop</span>(self) -> <span class="tp">None</span>:
+        <span class="cm"># TODO</span>
+        <span class="kw">pass</span>
+
+    <span class="kw">def</span> <span class="fn">top</span>(self) -> <span class="tp">int</span>:
+        <span class="cm"># TODO</span>
+        <span class="kw">pass</span>
+
+    <span class="kw">def</span> <span class="fn">getMin</span>(self) -> <span class="tp">int</span>:
+        <span class="cm"># TODO</span>
+        <span class="kw">pass</span></pre>
+  </div>
+
+  <div class="practice-box">
+    <h4>练习 4（选做）：异步重试 — 用 asyncio 重写 retry_with_backoff</h4>
+    <p>把同步版的 <code class="inline-code">retry_with_backoff</code> 改成 <code class="inline-code">async</code> 版，使用 <code class="inline-code">asyncio.sleep</code> 替代 <code class="inline-code">time.sleep</code>，这样重试等待期间不会阻塞事件循环。</p>
+  </div>
+</div>
+
+<!-- ==================== Footer ==================== -->
+<div class="footer">
+  <p>Day 54 / 70 — Agent 核心 + 多 Agent 协作（错误恢复 / Human-in-the-Loop / 路由 / 记忆）</p>
+  <p>明天 Day 55：P2 综合实战 + 收官 — 把所有组件集成到完整的 AMC 智能分析平台</p>
+</div>
+
+</body>
+</html>
