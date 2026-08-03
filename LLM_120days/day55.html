@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 55 - P2 综合实战 + 收官（AMC 智能分析平台全链路）</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--purple:#9333ea;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#faf5ff,#eff6ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #ddd6fe; }
+  .header .badge { display:inline-block;background:#f3e8ff;color:#7c3aed;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent2),var(--purple));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--purple);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#faf5ff;border-left:3px solid var(--purple);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--purple); }
+  .tip-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--green); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  .code-block { background:#1e293b;color:#e2e8f0;padding:18px 20px;border-radius:8px;margin:14px 0;font-family:'Cascadia Code','Fira Code','Consolas',monospace;font-size:13px;line-height:1.7;overflow-x:auto;white-space:pre; }
+  .code-block .comment { color:#64748b;font-style:italic; }
+  .code-block .keyword { color:#c084fc; }
+  .code-block .string { color:#34d399; }
+  .code-block .function { color:#60a5fa; }
+  .code-block .decorator { color:#fbbf24; }
+  .code-block .number { color:#fb923c; }
+  .code-block .type { color:#38bdf8; }
+  .code-block .builtin { color:#f472b6; }
+  .inline-code { background:#f1f5f9;color:#7c3aed;padding:2px 7px;border-radius:4px;font-family:'Cascadia Code','Fira Code','Consolas',monospace;font-size:13px; }
+  .table-wrap { overflow-x:auto;margin:14px 0; }
+  table { width:100%;border-collapse:collapse;font-size:14px; }
+  th { background:#f8fafc;text-align:left;padding:10px 14px;border:1px solid var(--border);font-weight:600;color:var(--text2);font-size:13px; }
+  td { padding:10px 14px;border:1px solid var(--border); }
+  tr:nth-child(even) { background:#f8fafc; }
+  h3 { font-size:16px;font-weight:700;margin:18px 0 10px;color:var(--text); }
+  p { margin:8px 0;font-size:14px; }
+  ul,ol { margin:8px 0 8px 24px;font-size:14px; }
+  li { margin:4px 0; }
+  .summary-card { background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:1px solid #bbf7d0;border-radius:var(--radius);padding:20px 24px;margin:20px 0; }
+  .summary-card h3 { color:var(--green);margin-top:0; }
+  .tag { display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;margin:2px; }
+  .tag-purple { background:#f3e8ff;color:#7c3aed; }
+  .tag-blue { background:#dbeafe;color:#2563eb; }
+  .tag-green { background:#dcfce7;color:#16a34a; }
+  .tag-orange { background:#fff7ed;color:#ea580c; }
+  .tag-red { background:#fef2f2;color:#dc2626; }
+  .footer { text-align:center;padding:20px;color:var(--text3);font-size:13px; }
+  .arch-diagram { background:#f8fafc;border:2px dashed var(--border);border-radius:8px;padding:20px;margin:14px 0;font-family:'Cascadia Code','Consolas',monospace;font-size:13px;line-height:1.6;white-space:pre;overflow-x:auto;color:var(--text2); }
+  .flow-diagram { display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:14px 0;padding:16px;background:var(--surface2);border-radius:8px;font-size:13px; }
+  .flow-step { background:var(--surface);border:1px solid var(--border);padding:8px 14px;border-radius:8px;white-space:nowrap; }
+  .flow-arrow { color:var(--purple);font-weight:700; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Phase 4 · 项目实战 · P2 收官</div>
+  <h1>Day 55 — P2 综合实战 + 收官</h1>
+  <div class="subtitle">AMC 智能分析平台全链路：工具→编排→Agent→路由→记忆→审批→日志</div>
+</div>
+
+<div class="progress-bar">
+  <span class="label">总进度</span>
+  <div class="track"><div class="fill" style="width:78.6%"></div></div>
+  <span class="percent">55/70</span>
+</div>
+
+<!-- ========== Section 1: 项目全貌 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏗️</span>
+    P2 项目全貌：三天我们搭了什么
+    <span class="time-tag">~10 min</span>
+  </div>
+
+  <p>P2 Agent 自动化系统横跨 Day 53-55，我们把前 54 天学的所有零散知识<strong>组装成一台真正能跑的机器</strong>。先回顾一下三天的建设历程：</p>
+
+  <div class="flow-diagram">
+    <span class="flow-step" style="background:#faf5ff;border-color:#ddd6fe;">D53 工具层</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step" style="background:#eff6ff;border-color:#bfdbfe;">D54 Agent核心</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step" style="background:#f0fdf4;border-color:#bbf7d0;">D55 全链路收官</span>
+  </div>
+
+  <h3>整体架构图</h3>
+  <div class="arch-diagram">
+┌─────────────────────────────────────────────────────────────┐
+│                    AMC 智能分析平台                           │
+│                                                             │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
+│  │ DBQuery  │  │Knowledge │  │ Report   │  │  Risk    │   │
+│  │  Tool    │  │ Search   │  │ Generator│  │  Alert   │   │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘   │
+│       │              │              │              │         │
+│  ┌────┴──────────────┴──────────────┴──────────────┴────┐  │
+│  │              ToolOrchestrator 工具编排器                │  │
+│  │   Sequential / Parallel / Conditional 三种策略       │  │
+│  └──────────────────────┬───────────────────────────────┘  │
+│                         │                                   │
+│  ┌──────────────────────┴───────────────────────────────┐  │
+│  │              AgentRouter 多Agent路由                   │  │
+│  │   关键词打分 / LLM意图分类 → 分发到专家Agent         │  │
+│  └──────┬────────┬──────────┬──────────┬───────────────┘  │
+│         │        │          │          │                   │
+│   ┌─────┴──┐ ┌───┴───┐ ┌───┴───┐ ┌───┴───┐               │
+│   │DataAgent│ │Report │ │Risk   │ │Knowledge│              │
+│   │数据查询  │ │报告生成│ │预警   │ │知识检索  │              │
+│   └─────┬──┘ └───┬───┘ └───┬───┘ └───┬───┘               │
+│         │        │          │          │                   │
+│  ┌──────┴────────┴──────────┴──────────┴───────────────┐  │
+│  │              核心服务层                              │  │
+│  │  SimpleAgent (ReAct循环) + RetryPolicy (重试)      │  │
+│  │  FallbackChain (降级) + HumanApproval (审批)        │  │
+│  │  AgentMemory (双层记忆) + LoopDetector (防死循环)   │  │
+│  └──────────────────────┬───────────────────────────────┘  │
+│                         │                                   │
+│  ┌──────────────────────┴───────────────────────────────┐  │
+│  │              基础设施层                              │  │
+│  │  Config (pydantic-settings) / Logger (logging)     │  │
+│  │  MetricsCollector (性能指标) / AuditLog (审计日志)    │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘</div>
+
+  <div class="concept-box">
+    <strong>数仓类比：</strong>这个架构和你熟悉的数仓分层完全对应 —— <span class="inline-code">工具层</span> = ODS 原始数据源，<span class="inline-code">编排器</span> = ETL 加工管线，<span class="inline-code">Agent</span> = DWD 主题域加工，<span class="inline-code">路由器</span> = ADS 应用层按需分发。每一层职责清晰，上层不直接碰下层细节。
+  </div>
+</div>
+
+<!-- ========== Section 2: Python 知识 — 日志与审计 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span>
+    Python 进阶：结构化日志 + 审计追踪
+    <span class="time-tag">~15 min</span>
+  </div>
+
+  <p>生产级 Agent 系统必须有两条命脉：<strong>结构化日志</strong>（排查问题）和<strong>审计追踪</strong>（合规要求）。这在数仓里你也一定很熟 —— 每个跑批任务都有 run_id、start_time、status。</p>
+
+  <h3>2.1 结构化 JSON 日志</h3>
+  <p>Day 27 学过 logging，今天把它升级成 JSON 格式 —— 日志直接写入文件，后续可以用 Python 或 SQL 分析：</p>
+
+  <div class="code-block"><span class="keyword">import</span> json
+<span class="keyword">import</span> logging
+<span class="keyword">from</span> datetime <span class="keyword">import</span> datetime
+<span class="keyword">from</span> pathlib <span class="keyword">import</span> Path
+
+<span class="keyword">class</span> <span class="type">JSONFormatter</span>(logging.Formatter):
+    <span class="string">"""把每条日志转成 JSON，方便后续分析"""</span>
+
+    <span class="keyword">def</span> <span class="function">format</span>(self, record: logging.LogRecord) -> <span class="type">str</span>:
+        <span class="comment"># 把 record 的额外字段取出来</span>
+        log_data = {
+            <span class="string">"time"</span>: datetime.fromtimestamp(record.created).isoformat(),
+            <span class="string">"level"</span>: record.levelname,
+            <span class="string">"module"</span>: record.module,
+            <span class="string">"message"</span>: record.getMessage(),
+        }
+        <span class="comment"># record.__dict__ 里会有 extra 传入的自定义字段</span>
+        <span class="keyword">for</span> key <span class="keyword">in</span> (<span class="string">"agent_id"</span>, <span class="string">"tool_name"</span>, <span class="string">"step"</span>, <span class="string">"duration_ms"</span>):
+            <span class="keyword">if</span> key <span class="keyword">in</span> record.__dict__:
+                log_data[key] = record.__dict__[key]
+        <span class="keyword">return</span> json.dumps(log_data, ensure_ascii=<span class="builtin">False</span>)
+
+<span class="comment"># ---- 配置 logger ----</span>
+logger = logging.getLogger(<span class="string">"amc_agent"</span>)
+logger.setLevel(logging.DEBUG)
+
+<span class="comment"># 同时输出到控制台（人类可读）和文件（机器可解析）</span>
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(logging.Formatter(
+    <span class="string">"[%(levelname)s] %(message)s"</span>
+))
+logger.addHandler(console_handler)
+
+<span class="comment"># JSON 文件 handler —— 每条一行 JSONL 格式</span>
+log_dir = Path(<span class="string">"./logs"</span>)
+log_dir.mkdir(exist_ok=<span class="builtin">True</span>)
+file_handler = logging.FileHandler(log_dir / <span class="string">"agent.jsonl"</span>)
+file_handler.setFormatter(<span class="type">JSONFormatter</span>())
+logger.addHandler(file_handler)
+
+<span class="comment"># ---- 使用 ----</span>
+logger.info(
+    <span class="string">"Agent 启动"</span>,
+    extra={<span class="string">"agent_id"</span>: <span class="string">"agent-001"</span>, <span class="string">"step"</span>: <span class="string">"init"</span>}
+)
+logger.info(
+    <span class="string">"工具调用完成"</span>,
+    extra={
+        <span class="string">"agent_id"</span>: <span class="string">"agent-001"</span>,
+        <span class="string">"tool_name"</span>: <span class="string">"db_query"</span>,
+        <span class="string">"duration_ms"</span>: <span class="number">342</span>
+    }
+)</div>
+
+  <div class="tip-box">
+    <strong>为什么用 JSONL（每行一条 JSON）？</strong> ① 大文件也能逐行读取，不用全部加载到内存 ② grep/awk 等命令行工具直接能用 ③ 和数仓的 JSON 解析完美兼容 —— 你甚至可以用 Spark 读 JSONL 做日志分析。
+  </div>
+
+  <h3>2.2 审计追踪器</h3>
+  <p>审计日志和普通日志不同：它记录的是<strong>谁、在什么时候、做了什么决策、结果是什么</strong>。对于 Agent 系统，每个决策点都要留痕：</p>
+
+  <div class="code-block"><span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field, asdict
+<span class="keyword">from</span> typing <span class="keyword">import</span> <span class="type">Optional</span>
+<span class="keyword">from</span> enum <span class="keyword">import</span> Enum, auto
+
+<span class="keyword">class</span> <span class="type">DecisionType</span>(Enum):
+    ROUTE = auto()       <span class="comment"># 路由决策：选择了哪个 Agent</span>
+    TOOL = auto()        <span class="comment"># 工具决策：调用了哪个工具</span>
+    APPROVE = auto()     <span class="comment"># 审批决策：人工批准/拒绝</span>
+    RETRY = auto()       <span class="comment"># 重试决策：自动重试/放弃</span>
+    FALLBACK = auto()    <span class="comment"># 降级决策：主方案失败切备选</span>
+
+@dataclass
+<span class="keyword">class</span> <span class="type">AuditRecord</span>:
+    <span class="string">"""单条审计记录 —— Agent 的每一个关键决策"""</span>
+    run_id: str                          <span class="comment"># 一次完整执行的唯一标识</span>
+    timestamp: str                       <span class="comment"># ISO 8601 时间</span>
+    decision_type: <span class="type">DecisionType</span>       <span class="comment"># 决策类型</span>
+    agent_id: <span class="type">Optional</span>[str] = <span class="builtin">None</span>       <span class="comment"># 哪个 Agent 做的决策</span>
+    detail: str = <span class="string">""</span>                     <span class="comment"># 决策描述</span>
+    result: str = <span class="string">"success"</span>             <span class="comment"># 决策结果</span>
+    duration_ms: <span class="type">Optional</span>[<span class="type">int</span>] = <span class="builtin">None</span> <span class="comment"># 耗时（毫秒）</span>
+    metadata: dict = field(default_factory=dict)  <span class="comment"># 附加信息</span>
+
+<span class="keyword">class</span> <span class="type">AuditLogger</span>:
+    <span class="string">"""审计日志管理器 —— 追踪 Agent 每一步决策"""</span>
+
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, log_path: str = <span class="string">"./logs/audit.jsonl"</span>):
+        self.log_path = Path(log_path)
+        self.log_path.parent.mkdir(parents=<span class="builtin">True</span>, exist_ok=<span class="builtin">True</span>)
+        self._records: list[<span class="type">AuditRecord</span>] = []
+
+    <span class="keyword">def</span> <span class="function">log</span>(
+        self,
+        decision_type: <span class="type">DecisionType</span>,
+        detail: str,
+        run_id: str,
+        agent_id: <span class="type">Optional</span>[str] = <span class="builtin">None</span>,
+        result: str = <span class="string">"success"</span>,
+        duration_ms: <span class="type">Optional</span>[<span class="type">int</span>] = <span class="builtin">None</span>,
+        **metadata
+    ):
+        <span class="string">"""记录一条审计日志（同时写内存 + 追加文件）"""</span>
+        record = <span class="type">AuditRecord</span>(
+            run_id=run_id,
+            timestamp=datetime.now().isoformat(),
+            decision_type=decision_type,
+            agent_id=agent_id,
+            detail=detail,
+            result=result,
+            duration_ms=duration_ms,
+            metadata=metadata,
+        )
+        self._records.append(record)
+
+        <span class="comment"># 追加写入 JSONL 文件（数仓风格的行式存储）</span>
+        <span class="keyword">with</span> <span class="builtin">open</span>(self.log_path, <span class="string">"a"</span>, encoding=<span class="string">"utf-8"</span>) <span class="keyword">as</span> f:
+            f.write(json.dumps(asdict(record), ensure_ascii=<span class="builtin">False</span>) + <span class="string">"\n"</span>)
+
+    <span class="keyword">def</span> <span class="function">get_summary</span>(self, run_id: str) -> <span class="type">dict</span>:
+        <span class="string">"""按 run_id 汇总一次执行的所有决策"""</span>
+        steps = [r <span class="keyword">for</span> r <span class="keyword">in</span> self._records <span class="keyword">if</span> r.run_id == run_id]
+        <span class="keyword">return</span> {
+            <span class="string">"run_id"</span>: run_id,
+            <span class="string">"total_steps"</span>: <span class="builtin">len</span>(steps),
+            <span class="string">"decisions"</span>: [
+                {
+                    <span class="string">"type"</span>: r.decision_type.name,
+                    <span class="string">"detail"</span>: r.detail,
+                    <span class="string">"result"</span>: r.result,
+                    <span class="string">"duration_ms"</span>: r.duration_ms,
+                }
+                <span class="keyword">for</span> r <span class="keyword">in</span> steps
+            ],
+            <span class="string">"success_rate"</span>: <span class="builtin">sum</span>(
+                <span class="number">1</span> <span class="keyword">for</span> r <span class="keyword">in</span> steps <span class="keyword">if</span> r.result == <span class="string">"success"</span>
+            ) / <span class="builtin">max</span>(<span class="builtin">len</span>(steps), <span class="number">1</span>),
+        }
+
+<span class="comment"># ---- 使用示例 ----</span>
+audit = <span class="type">AuditLogger</span>()
+run_id = <span class="string">f"run-{datetime.now().strftime('%Y%m%d-%H%M%S')}"</span>
+
+<span class="comment"># 记录路由决策</span>
+audit.log(
+    decision_type=<span class="type">DecisionType</span>.ROUTE,
+    detail=<span class="string">"用户问题匹配到数据查询 Agent"</span>,
+    run_id=run_id,
+    agent_id=<span class="string">"data-agent"</span>,
+)
+<span class="comment"># 记录工具调用</span>
+audit.log(
+    decision_type=<span class="type">DecisionType</span>.TOOL,
+    detail=<span class="string">"执行 db_query 查询不良资产余额"</span>,
+    run_id=run_id,
+    agent_id=<span class="string">"data-agent"</span>,
+    duration_ms=<span class="number">256</span>,
+)
+<span class="comment"># 记录审批决策</span>
+audit.log(
+    decision_type=<span class="type">DecisionType</span>.APPROVE,
+    detail=<span class="string">"风险预警报告需人工确认"</span>,
+    run_id=run_id,
+    result=<span class="string">"approved"</span>,
+    metadata={<span class="string">"approver"</span>: <span class="string">"张主管"</span>, <span class="string">"comment"</span>: <span class="string">"数据准确，同意发送"</span>},
+)
+
+<span class="comment"># 查看汇总</span>
+<span class="builtin">print</span>(json.dumps(audit.get_summary(run_id), indent=<span class="number">2</span>, ensure_ascii=<span class="builtin">False</span>))</div>
+
+  <div class="concept-box">
+    <strong>和数仓审计的类比：</strong>你在数仓里做的每次跑批都有调度日志（Airflow/DolphinScheduler），Agent 系统的审计日志本质相同 —— 记录每个"步骤"的输入、输出、状态。区别只是 Agent 的"步骤"由 LLM 自主决定，而非你写死的 DAG。
+  </div>
+</div>
+
+<!-- ========== Section 3: 全链路集成 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔗</span>
+    全链路集成：把所有组件组装起来
+    <span class="time-tag">~20 min</span>
+  </div>
+
+  <p>现在把 D53 的工具层、D54 的 Agent 核心、今天的日志审计全部串起来，形成<strong>一个完整可运行的 AMC 智能分析平台</strong>。</p>
+
+  <h3>3.1 配置中心</h3>
+  <div class="code-block"><span class="comment"># config.py —— 统一配置管理（pydantic-settings）</span>
+<span class="keyword">from</span> pydantic_settings <span class="keyword">import</span> BaseSettings
+<span class="keyword">from</span> pydantic <span class="keyword">import</span> Field
+
+<span class="keyword">class</span> <span class="type">AMCConfig</span>(BaseSettings):
+    <span class="string">"""AMC 智能分析平台配置"""</span>
+
+    <span class="comment"># LLM 配置</span>
+    zhipu_api_key: str = <span class="string">"your-api-key"</span>
+    zhipu_model: str = <span class="string">"glm-4-flash"</span>
+    llm_timeout: int = <span class="number">30</span>
+    max_retries: int = <span class="number">3</span>
+
+    <span class="comment"># Agent 配置</span>
+    max_steps: int = Field(default=<span class="number">10</span>, ge=<span class="number">1</span>, le=<span class="number">50</span>)
+    memory_window: int = Field(default=<span class="number">20</span>, ge=<span class="number">5</span>, le=<span class="number">100</span>)
+
+    <span class="comment"># 审批配置</span>
+    approval_policy: str = Field(default=<span class="string">"AUTO"</span>, pattern=<span class="string">"^(ALWAYS|NEVER|AUTO|THRESHOLD)$"</span>)
+    approval_threshold: float = Field(default=<span class="number">0.8</span>, ge=<span class="number">0</span>, le=<span class="number">1</span>)
+
+    <span class="comment"># 日志配置</span>
+    log_level: str = <span class="string">"INFO"</span>
+    log_dir: str = <span class="string">"./logs"</span>
+
+    model_config = {<span class="string">"env_prefix"</span>: <span class="string">"AMC_"</span>}
+
+<span class="comment"># 全局单例</span>
+_config: <span class="type">Optional</span>[<span class="type">AMCConfig</span>] = <span class="builtin">None</span>
+
+<span class="keyword">def</span> <span class="function">get_config</span>() -> <span class="type">AMCConfig</span>:
+    <span class="keyword">global</span> _config
+    <span class="keyword">if</span> _config <span class="keyword">is</span> <span class="builtin">None</span>:
+        _config = <span class="type">AMCConfig</span>()
+    <span class="keyword">return</span> _config</div>
+
+  <h3>3.2 性能指标收集器</h3>
+  <p>用 <span class="inline-code">time.perf_counter</span> 做高精度计时，收集每个阶段的耗时分布：</p>
+
+  <div class="code-block"><span class="keyword">from</span> time <span class="keyword">import</span> perf_counter
+<span class="keyword">from</span> collections <span class="keyword">import</span> defaultdict
+
+<span class="keyword">class</span> <span class="type">MetricsCollector</span>:
+    <span class="string">"""Agent 性能指标收集器 —— 每个阶段耗时一目了然"""</span>
+
+    <span class="keyword">def</span> <span class="function">__init__</span>(self):
+        self._timings: dict[str, list[float]] = defaultdict(list)
+        self._counts: dict[str, <span class="type">int</span>] = defaultdict(<span class="type">int</span>)
+        self._errors: dict[str, <span class="type">int</span>] = defaultdict(<span class="type">int</span>)
+        self._start_time: <span class="type">Optional</span>[float] = <span class="builtin">None</span>
+
+    <span class="keyword">def</span> <span class="function">start_run</span>(self):
+        <span class="string">"""标记一次完整执行的开始"""</span>
+        self._start_time = perf_counter()
+
+    @<span class="keyword">contextmanager</span>
+    <span class="keyword">def</span> <span class="function">timer</span>(self, stage: str):
+        <span class="string">"""上下文管理器：自动计时并记录"""</span>
+        start = perf_counter()
+        <span class="keyword">try</span>:
+            <span class="keyword">yield</span>
+        <span class="keyword">finally</span>:
+            duration = (perf_counter() - start) * <span class="number">1000</span>  <span class="comment"># 转毫秒</span>
+            self._timings[stage].append(duration)
+            self._counts[stage] += <span class="number">1</span>
+
+    <span class="keyword">def</span> <span class="function">record_error</span>(self, stage: str):
+        self._errors[stage] += <span class="number">1</span>
+
+    <span class="keyword">def</span> <span class="function">report</span>(self) -> <span class="type">dict</span>:
+        <span class="string">"""生成性能报告"""</span>
+        total_ms = (perf_counter() - self._start_time) * <span class="number">1000</span> <span class="keyword">if</span> self._start_time <span class="keyword">else</span> <span class="number">0</span>
+        result = {<span class="string">"total_ms"</span>: round(total_ms, <span class="number">1</span>), <span class="string">"stages"</span>: {}}
+        <span class="keyword">for</span> stage, times <span class="keyword">in</span> self._timings.items():
+            result[<span class="string">"stages"</span>][stage] = {
+                <span class="string">"count"</span>: <span class="builtin">len</span>(times),
+                <span class="string">"avg_ms"</span>: round(<span class="builtin">sum</span>(times)/<span class="builtin">len</span>(times), <span class="number">1</span>),
+                <span class="string">"max_ms"</span>: round(<span class="builtin">max</span>(times), <span class="number">1</span>),
+                <span class="string">"errors"</span>: self._errors.get(stage, <span class="number">0</span>),
+            }
+        <span class="keyword">return</span> result</div>
+
+  <h3>3.3 AMC 智能分析平台 —— 完整主入口</h3>
+  <p>把所有组件拼到一起。这段代码展示了<strong>一次完整执行的全链路</strong>：</p>
+
+  <div class="code-block"><span class="comment"># main.py —— AMC 智能分析平台完整主入口</span>
+<span class="keyword">import</span> asyncio
+<span class="keyword">from</span> datetime <span class="keyword">import</span> datetime
+<span class="keyword">from</span> collections <span class="keyword">import</span> deque
+
+<span class="comment"># ============================================================</span>
+<span class="comment"># 1. 初始化基础设施</span>
+<span class="comment"># ============================================================</span>
+config = <span class="type">AMCConfig</span>()
+logger = logging.getLogger(<span class="string">"amc_agent"</span>)
+metrics = <span class="type">MetricsCollector</span>()
+audit = <span class="type">AuditLogger</span>()
+
+<span class="comment"># ============================================================</span>
+<span class="comment"># 2. 注册工具（来自 D53）</span>
+<span class="comment"># ============================================================</span>
+<span class="comment"># 假设已有以下工具类：DBQueryTool, KnowledgeSearchTool,</span>
+<span class="comment"># ReportGeneratorTool, RiskAlertTool</span>
+<span class="comment"># 每个工具都实现 execute(query: str) -> str 接口</span>
+
+registry = <span class="type">ToolRegistry</span>()
+registry.register(<span class="string">"db_query"</span>, <span class="type">DBQueryTool</span>())
+registry.register(<span class="string">"knowledge_search"</span>, <span class="type">KnowledgeSearchTool</span>())
+registry.register(<span class="string">"generate_report"</span>, <span class="type">ReportGeneratorTool</span>())
+registry.register(<span class="string">"risk_alert"</span>, <span class="type">RiskAlertTool</span>())
+
+<span class="comment"># ============================================================</span>
+<span class="comment"># 3. 配置 Agent 核心（来自 D54）</span>
+<span class="comment"># ============================================================</span>
+<span class="comment"># 简化的 mock LLM 调用 —— 生产环境替换为真实 API</span>
+<span class="keyword">async def</span> <span class="function">mock_llm</span>(messages: list[dict]) -> str:
+    <span class="string">"""模拟 LLM 响应（演示用，生产替换为智谱 API）"""</span>
+    <span class="keyword">await</span> asyncio.sleep(<span class="number">0.1</span>)  <span class="comment"># 模拟网络延迟</span>
+    <span class="comment"># 简单模拟：根据最后一条用户消息返回工具调用</span>
+    user_msg = messages[-1][<span class="string">"content"</span>].lower()
+    <span class="keyword">if</span> <span class="string">"余额"</span> <span class="keyword">in</span> user_msg:
+        <span class="keyword">return</span> json.dumps({
+            <span class="string">"thought"</span>: <span class="string">"需要查询数据库获取余额信息"</span>,
+            <span class="string">"tool"</span>: <span class="string">"db_query"</span>,
+            <span class="string">"input"</span>: <span class="string">"SELECT 余额 FROM 不良资产表 WHERE 日期='2026-07'"</span>
+        })
+    <span class="keyword">elif</span> <span class="string">"报告"</span> <span class="keyword">in</span> user_msg:
+        <span class="keyword">return</span> json.dumps({
+            <span class="string">"thought"</span>: <span class="string">"用户需要生成分析报告"</span>,
+            <span class="string">"tool"</span>: <span class="string">"generate_report"</span>,
+            <span class="string">"input"</span>: <span class="string">" AMC 2026年7月不良资产分析报告"</span>
+        })
+    <span class="keyword">else</span>:
+        <span class="keyword">return</span> json.dumps({
+            <span class="string">"thought"</span>: <span class="string">"直接回答用户问题"</span>,
+            <span class="string">"answer"</span>: <span class="string">"根据 AMC 相关规定..."</span>
+        })
+
+<span class="comment"># ============================================================</span>
+<span class="comment"># 4. 构建 Agent 核心循环</span>
+<span class="comment"># ============================================================</span>
+<span class="keyword">async def</span> <span class="function">run_agent</span>(user_query: str, run_id: str) -> dict:
+    <span class="string">"""
+    Agent 完整执行流程：
+    用户提问 → 记忆加载 → LLM 推理 → 工具调用 → 结果生成
+    """</span>
+    metrics.start_run()
+    memory = deque(maxlen=config.memory_window)
+    steps: list[dict] = []
+
+    <span class="comment"># 系统提示词</span>
+    system_prompt = <span class="string">"""你是一个 AMC（资产管理公司）智能分析助手。
+你可以使用以下工具回答用户关于不良资产管理的问题：
+- db_query: 查询数据库获取业务数据
+- knowledge_search: 搜索知识库获取政策和制度信息
+- generate_report: 生成结构化分析报告
+- risk_alert: 发送风险预警通知
+
+请先用中文思考你的分析思路，然后选择合适的工具。
+回答格式必须是 JSON：
+{"thought": "你的思考", "tool": "工具名", "input": "工具输入"}
+或
+{"thought": "你的思考", "answer": "直接回答"}
+"""</span>
+
+    messages = [{<span class="string">"role"</span>: <span class="string">"system"</span>, <span class="string">"content"</span>: system_prompt}]
+    messages.append({<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: user_query})
+
+    <span class="keyword">for</span> step_idx <span class="keyword">in</span> range(config.max_steps):
+        <span class="comment"># ---- 调用 LLM ----</span>
+        <span class="keyword">with</span> metrics.timer(<span class="string">"llm_inference"</span>):
+            response_text = <span class="keyword">await</span> mock_llm(messages)
+
+        <span class="keyword">try</span>:
+            response = json.loads(response_text)
+        <span class="keyword">except</span> json.JSONDecodeError:
+            logger.warning(<span class="string">f"LLM 返回非法 JSON: {response_text[:100]}"</span>)
+            metrics.record_error(<span class="string">"llm_inference"</span>)
+            <span class="keyword">break</span>
+
+        <span class="comment"># ---- 判断是直接回答还是工具调用 ----</span>
+        <span class="keyword">if</span> <span class="string">"answer"</span> <span class="keyword">in</span> response:
+            <span class="comment"># 直接回答 → 结束循环</span>
+            steps.append({
+                <span class="string">"step"</span>: step_idx,
+                <span class="string">"thought"</span>: response[<span class="string">"thought"</span>],
+                <span class="string">"answer"</span>: response[<span class="string">"answer"</span>],
+            })
+            logger.info(
+                <span class="string">f"Agent 直接回答（第{step_idx}步）"</span>,
+                extra={<span class="string">"run_id"</span>: run_id, <span class="string">"step"</span>: step_idx}
+            )
+            <span class="keyword">break</span>
+
+        <span class="comment"># ---- 执行工具调用 ----</span>
+        tool_name = response[<span class="string">"tool"</span>]
+        tool_input = response[<span class="string">"input"</span>]
+
+        <span class="comment"># 记录工具决策到审计日志</span>
+        audit.log(
+            decision_type=<span class="type">DecisionType</span>.TOOL,
+            detail=<span class="string">f"调用 {tool_name}: {tool_input[:50]}"</span>,
+            run_id=run_id,
+        )
+
+        <span class="comment"># 执行工具</span>
+        <span class="keyword">with</span> metrics.timer(<span class="string">"tool_execution"</span>):
+            tool = registry.get(tool_name)
+            tool_result = <span class="keyword">await</span> tool.execute(tool_input)
+
+        <span class="comment"># 记录步骤</span>
+        steps.append({
+            <span class="string">"step"</span>: step_idx,
+            <span class="string">"thought"</span>: response[<span class="string">"thought"</span>],
+            <span class="string">"tool"</span>: tool_name,
+            <span class="string">"input"</span>: tool_input,
+            <span class="string">"result"</span>: tool_result[:<span class="number">200</span>],  <span class="comment"># 截断防止上下文爆炸</span>
+        })
+
+        <span class="comment"># 把工具结果反馈给 LLM（继续循环）</span>
+        messages.append({<span class="string">"role"</span>: <span class="string">"assistant"</span>, <span class="string">"content"</span>: response_text})
+        messages.append({
+            <span class="string">"role"</span>: <span class="string">"user"</span>,
+            <span class="string">"content"</span>: <span class="string">f"工具 {tool_name} 返回结果：{tool_result}\n请根据结果继续分析。"</span>
+        })
+
+        <span class="comment"># 保存到记忆</span>
+        memory.append({<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: user_query})
+        memory.append({<span class="string">"role"</span>: <span class="string">"assistant"</span>, <span class="string">"content"</span>: response_text[:<span class="number">200</span>})
+
+    <span class="keyword">return</span> {
+        <span class="string">"run_id"</span>: run_id,
+        <span class="string">"query"</span>: user_query,
+        <span class="string">"steps"</span>: steps,
+        <span class="string">"final_answer"</span>: steps[-1].get(<span class="string">"answer"</span>, <span class="string">"（工具执行完毕）"</span>),
+        <span class="string">"metrics"</span>: metrics.report(),
+        <span class="string">"audit_summary"</span>: audit.get_summary(run_id),
+    }
+
+<span class="comment"># ============================================================</span>
+<span class="comment"># 5. 运行</span>
+<span class="comment"># ============================================================</span>
+<span class="keyword">async def</span> <span class="function">main</span>():
+    run_id = <span class="string">f"run-{datetime.now().strftime('%Y%m%d-%H%M%S')}"</span>
+    result = <span class="keyword">await</span> run_agent(
+        user_query=<span class="string">"查询2026年7月不良资产余额，并生成分析报告"</span>,
+        run_id=run_id,
+    )
+
+    <span class="comment"># 打印完整执行报告</span>
+    <span class="builtin">print</span>(<span class="string">"\n" + "="*50)</span>
+    <span class="builtin">print</span>(<span class="string">f"  AMC 智能分析平台 · 执行报告"</span>)
+    <span class="builtin">print</span>(<span class="string">f"  Run ID: {run_id}"</span>)
+    <span class="builtin">print</span>(<span class="string">"="*50)</span>
+
+    <span class="keyword">for</span> step <span class="keyword">in</span> result[<span class="string">"steps"</span>]:
+        <span class="builtin">print</span>(<span class="string">f"\n📋 Step {step['step']}: {step.get('thought', '')}"</span>)
+        <span class="keyword">if</span> <span class="string">"tool"</span> <span class="keyword">in</span> step:
+            <span class="builtin">print</span>(<span class="string">f"   🔧 工具: {step['tool']}({step['input'][:50]}...)"</span>)
+            <span class="builtin">print</span>(<span class="string">f"   📤 结果: {step['result'][:100]}..."</span>)
+        <span class="keyword">else</span>:
+            <span class="builtin">print</span>(<span class="string">f"   💬 回答: {step.get('answer', '')[:100]}"</span>)
+
+    <span class="builtin">print</span>(<span class="string">f"\n⏱️  性能指标: {json.dumps(result['metrics'], indent=2)}"</span>)
+    <span class="builtin">print</span>(<span class="string">f"\n📝 审计摘要: {json.dumps(result['audit_summary'], indent=2)}"</span>)
+
+asyncio.run(main())</div>
+
+  <div class="tip-box">
+    <strong>代码说明：</strong>这段代码虽然是简化版（mock LLM），但架构完全可扩展 —— 你只需把 <span class="inline-code">mock_llm</span> 替换为真实的智谱 API 调用，把四个 Tool 替换为连接真实数据库/知识库的实现，就是一个生产级的 Agent 系统。整个架构是<strong>依赖注入</strong>的，每个组件都可以独立替换。
+  </div>
+</div>
+
+<!-- ========== Section 4: 一次请求的完整数据流 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📊</span>
+    一次请求的完整数据流
+    <span class="time-tag">~10 min</span>
+  </div>
+
+  <p>用数仓的 ETL 思维来理解 Agent 的一次执行 —— 每一步都有明确的输入、处理、输出：</p>
+
+  <div class="arch-diagram">
+用户输入: "查询2026年7月不良资产余额"
+    │
+    ▼
+┌───────────────────────────────────────┐
+│  ① 配置加载 (AMCConfig)               │
+│     输入: .env / 环境变量              │
+│     输出: config 单例对象              │
+│     耗时: ~1ms                        │
+└───────────────┬───────────────────────┘
+                ▼
+┌───────────────────────────────────────┐
+│  ② 审计初始化 (AuditLogger)           │
+│     生成 run_id                       │
+│     打开 audit.jsonl 追加模式         │
+└───────────────┬───────────────────────┘
+                ▼
+┌───────────────────────────────────────┐
+│  ③ LLM 推理 (第一次)                  │
+│     输入: system_prompt + user_query │
+│     输出: {"tool":"db_query",...}     │
+│     耗时: ~800ms (API调用)            │
+└───────────────┬───────────────────────┘
+                ▼
+┌───────────────────────────────────────┐
+│  ④ 工具执行 (db_query)                │
+│     输入: SQL 查询语句                │
+│     输出: "2026年7月不良资产余额 52.3亿"│
+│     耗时: ~300ms (数据库查询)          │
+└───────────────┬───────────────────────┘
+                ▼
+┌───────────────────────────────────────┐
+│  ⑤ LLM 推理 (第二次，带工具结果)       │
+│     输入: + 工具返回的余额数据         │
+│     输出: {"tool":"generate_report",...}│
+└───────────────┬───────────────────────┘
+                ▼
+┌───────────────────────────────────────┐
+│  ⑥ 工具执行 (generate_report)          │
+│     输入: " AMC 2026年7月不良资产..."  │
+│     输出: [结构化报告 Markdown]        │
+└───────────────┬───────────────────────┘
+                ▼
+┌───────────────────────────────────────┐
+│  ⑦ LLM 推理 (第三次，生成最终回答)     │
+│     输入: + 报告内容                   │
+│     输出: {"answer":"已完成分析..."}   │
+└───────────────┬───────────────────────┘
+                ▼
+┌───────────────────────────────────────┐
+│  ⑧ 审计汇总 + 性能报告                │
+│     写入审计日志                       │
+│     生成 metrics report                │
+│     总耗时: ~2500ms                    │
+└───────────────────────────────────────┘</div>
+
+  <div class="concept-box">
+    <strong>对比数仓跑批：</strong>一次 Agent 执行 = 一次数仓跑批。① 配置加载 = 初始化调度参数，②④⑥ 工具执行 = 跑 SQL/写表，③⑤⑦ LLM 推理 = 数据转换规则，⑧ 审计报告 = 跑批日志。本质都是<strong>输入→处理→输出→记录</strong>的管线。
+  </div>
+</div>
+
+<!-- ========== Section 5: P2 收官总结 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🎯</span>
+    P2 Agent 自动化系统 — 三天知识点全景
+    <span class="time-tag">~10 min</span>
+  </div>
+
+  <h3>Day 53-55 知识图谱</h3>
+
+  <div class="table-wrap">
+  <table>
+    <tr>
+      <th>Day</th>
+      <th>主题</th>
+      <th>Python 知识</th>
+      <th>LLM / Agent 知识</th>
+    </tr>
+    <tr>
+      <td><span class="tag tag-purple">D53</span></td>
+      <td>架构设计 + 工具编排</td>
+      <td>typing.Protocol<br>ToolRegistry 注册表<br>match-case 路由<br>functools.wraps</td>
+      <td>BaseTool 抽象基类<br>@tool_execution 装饰器<br>Sequential/Parallel/Conditional 编排<br>SimpleAgent ReAct 循环</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-blue">D54</span></td>
+      <td>Agent 核心 + 多 Agent 协作</td>
+      <td>enum 状态机<br>deque 滑动窗口<br>异常分类策略<br>指数退避重试</td>
+      <td>FallbackChain 降级链<br>LoopDetector 防死循环<br>HumanApproval 审批引擎<br>AgentRouter 多Agent路由<br>AgentMemory 双层记忆</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-green">D55</span></td>
+      <td>全链路集成 + 收官</td>
+      <td>JSONFormatter 结构化日志<br>JSONL 行式存储<br>MetricsCollector 性能收集<br>contextmanager 计时器</td>
+      <td>全链路串装（Config→Tool→Agent→Router→Memory→Audit→Metrics）<br>审计追踪体系<br>生产级错误处理链路<br>数仓类比理解架构</td>
+    </tr>
+  </table>
+  </div>
+
+  <h3>核心能力升级对照</h3>
+  <div class="table-wrap">
+  <table>
+    <tr>
+      <th>能力维度</th>
+      <th>P1 之前（Day 52）</th>
+      <th>P2 之后（Day 55）</th>
+    </tr>
+    <tr>
+      <td><strong>工具使用</strong></td>
+      <td>知道 RAG 管线的每个环节</td>
+      <td>能设计可复用的工具体系 + 自动编排</td>
+    </tr>
+    <tr>
+      <td><strong>Agent 架构</strong></td>
+      <td>能写简单的 ReAct 循环</td>
+      <td>多 Agent 路由 + 记忆 + 审批 + 降级</td>
+    </tr>
+    <tr>
+      <td><strong>生产就绪</strong></td>
+      <td>能跑通 demo</td>
+      <td>有日志、审计、性能指标、错误恢复</td>
+    </tr>
+    <tr>
+      <td><strong>Python 水平</strong></td>
+      <td>OOP + 异步 + 测试</td>
+      <td>Protocol + enum状态机 + 结构化日志</td>
+    </tr>
+  </table>
+  </div>
+
+  <h3>总进度表（Day 1 → Day 55）</h3>
+  <div class="table-wrap">
+  <table>
+    <tr>
+      <th>阶段</th>
+      <th>天数</th>
+      <th>主题</th>
+      <th>状态</th>
+    </tr>
+    <tr>
+      <td>Phase 1A</td>
+      <td>D1-D18</td>
+      <td>Python 核心 + LLM API</td>
+      <td><span class="tag tag-green">✅ 完成</span></td>
+    </tr>
+    <tr>
+      <td>Phase 1B</td>
+      <td>D19-D28</td>
+      <td>工程进阶（OOP/异步/FastAPI/工程化）</td>
+      <td><span class="tag tag-green">✅ 完成</span></td>
+    </tr>
+    <tr>
+      <td>Phase 2</td>
+      <td>D29-D42</td>
+      <td>RAG 全链路 + Agent + Prompt Engineering</td>
+      <td><span class="tag tag-green">✅ 完成</span></td>
+    </tr>
+    <tr>
+      <td>Phase 3</td>
+      <td>D43-D49</td>
+      <td>微调部署（LoRA/vLLM/Docker）</td>
+      <td><span class="tag tag-green">✅ 完成</span></td>
+    </tr>
+    <tr>
+      <td>Phase 4</td>
+      <td>D50-D70</td>
+      <td>项目实战（8个项目）</td>
+      <td><span class="tag tag-orange">🔄 进行中</span></td>
+    </tr>
+    <tr style="background:#f0fdf4;">
+      <td colspan="4" style="text-align:center;font-weight:600;">
+        P1 RAG知识库问答 ✅ | P2 Agent自动化系统 ✅ | 剩余 6 个项目
+      </td>
+    </tr>
+  </table>
+  </div>
+</div>
+
+<!-- ========== Section 6: 常见陷阱 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚠️</span>
+    常见陷阱 Top 5
+    <span class="time-tag">~5 min</span>
+  </div>
+
+  <div class="error-box">
+    <strong>陷阱 1：日志当调试器用</strong><br>
+    错误：到处 <span class="inline-code">print()</span> 调试，然后忘记删掉。<br>
+    正确：用 <span class="inline-code">logging</span> 分级别输出，JSON 格式写入文件。生产环境只留 INFO 以上级别。
+  </div>
+
+  <div class="error-box">
+    <strong>陷阱 2：审计日志缺失</strong><br>
+    错误：Agent 执行完就丢，出了问题无法回溯。<br>
+    正确：每个关键决策（路由/工具调用/审批/降级）都记审计日志，带 run_id 可追溯完整链路。
+  </div>
+
+  <div class="error-box">
+    <strong>陷阱 3：MetricsCollector 不计时</strong><br>
+    错误：凭感觉判断"慢"，无法定位瓶颈。<br>
+    正确：用 <span class="inline-code">perf_counter</span> + <span class="inline-code">contextmanager</span> 自动计时每个阶段，生成性能报告。
+  </div>
+
+  <div class="warn-box">
+    <strong>陷阱 4：config 硬编码</strong><br>
+    错误：API Key、模型名、超时时间写死在代码里。<br>
+    正确：用 <span class="inline-code">pydantic-settings</span> + <span class="inline-code">.env</span> 文件，支持环境变量覆盖。
+  </div>
+
+  <div class="warn-box">
+    <strong>陷阱 5：mock 和生产混用</strong><br>
+    错误：开发时用 mock LLM 跑通了，部署时忘记切换成真实 API。<br>
+    正确：通过配置文件切换 mock/production 模式，不要改代码。
+  </div>
+</div>
+
+<!-- ========== Section 7: 最佳实践速查 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">✅</span>
+    Agent 系统最佳实践速查表
+    <span class="time-tag">阅读</span>
+  </div>
+
+  <div class="table-wrap">
+  <table>
+    <tr>
+      <th>维度</th>
+      <th>原则</th>
+      <th>具体做法</th>
+    </tr>
+    <tr>
+      <td><strong>架构</strong></td>
+      <td>分层解耦</td>
+      <td>Config → Tool → Agent → Router → Memory 各层独立，通过接口交互</td>
+    </tr>
+    <tr>
+      <td><strong>错误处理</strong></td>
+      <td>永不崩溃</td>
+      <td>重试 → 降级 → 人工审批，三层防御，记录所有失败</td>
+    </tr>
+    <tr>
+      <td><strong>可观测性</strong></td>
+      <td>全面留痕</td>
+      <td>结构化日志 + 审计追踪 + 性能指标，三者缺一不可</td>
+    </tr>
+    <tr>
+      <td><strong>安全</strong></td>
+      <td>最小权限</td>
+      <td>工具权限最小化，审批分级，敏感操作必须人工确认</td>
+    </tr>
+    <tr>
+      <td><strong>性能</strong></td>
+      <td>瓶颈可量化</td>
+      <td>每个阶段计时，LLM/工具/网络分开统计，用数据驱动优化</td>
+    </tr>
+    <tr>
+      <td><strong>记忆</strong></td>
+      <td>滑动窗口</td>
+      <td>deque 限制上下文长度，长期记忆按需检索，防止 Token 爆炸</td>
+    </tr>
+  </table>
+  </div>
+</div>
+
+<!-- ========== Section 8: 练习 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">💪</span>
+    今日练习
+    <span class="time-tag">~15 min</span>
+  </div>
+
+  <h3>练习 1：增强审计日志（基础）</h3>
+  <p>给 <span class="inline-code">AuditLogger</span> 添加一个方法 <span class="inline-code">get_errors(run_id)</span>，返回该次执行中所有 <span class="inline-code">result != "success"</span> 的审计记录。</p>
+
+  <div class="code-block"><span class="keyword">def</span> <span class="function">get_errors</span>(self, run_id: str) -> list[<span class="type">AuditRecord</span>]:
+    <span class="string">"""返回指定 run_id 的所有失败记录"""</span>
+    <span class="comment"># your code here</span>
+    <span class="keyword">pass</span></div>
+
+  <h3>练习 2：MetricsCollector 支持百分位数（进阶）</h3>
+  <p>给 <span class="inline-code">MetricsCollector.report()</span> 的每个阶段增加 <span class="inline-code">p50_ms</span> 和 <span class="inline-code">p99_ms</span>（百分位数）。</p>
+
+  <div class="code-block"><span class="keyword">def</span> <span class="function">percentile</span>(data: list[float], p: float) -> float:
+    <span class="string">"""计算百分位数（p 取值 0~100）"""</span>
+    <span class="comment"># sorted + 线性插值</span>
+    sorted_data = sorted(data)
+    k = (<span class="builtin">len</span>(sorted_data) - <span class="number">1</span>) * p / <span class="number">100</span>
+    f = <span class="builtin">int</span>(k)
+    c = <span class="builtin">int</span>(k) + <span class="number">1</span> <span class="keyword">if</span> f < <span class="builtin">len</span>(sorted_data) - <span class="number">1</span> <span class="keyword">else</span> f
+    <span class="keyword">return</span> sorted_data[f] + (sorted_data[c] - sorted_data[f]) * (k - f)</div>
+
+  <h3>练习 3：LeetCode #347 — 前 K 个高频元素（复习）</h3>
+  <p>这道题在 D33 做过，这次用 <span class="inline-code">collections.Counter</span> + <span class="inline-code">heapq.nlargest</span> 一行搞定：</p>
+
+  <div class="code-block"><span class="keyword">from</span> collections <span class="keyword">import</span> Counter
+<span class="keyword">import</span> heapq
+
+<span class="keyword">def</span> <span class="function">topKFrequent</span>(nums: list[<span class="type">int</span>], k: <span class="type">int</span>) -> list[<span class="type">int</span>]:
+    <span class="comment"># Counter 统计频率 + nlargest 取 Top-K（O(n log k)）</span>
+    <span class="keyword">return</span> [item <span class="keyword">for</span> item, _ <span class="keyword">in</span> heapq.nlargest(k, Counter(nums).items(), key=<span class="builtin">lambda</span> x: x[<span class="number">1</span>])]
+
+<span class="comment"># 测试</span>
+<span class="builtin">print</span>(topKFrequent([<span class="number">1</span>,<span class="number">1</span>,<span class="number">1</span>,<span class="number">2</span>,<span class="number">2</span>,<span class="number">3</span>], <span class="number">2</span>))  <span class="comment"># [1, 2]</span></div>
+</div>
+
+<!-- ========== P2 收官总结 ========== -->
+<div class="summary-card">
+  <h3>🎉 P2 Agent 自动化系统 — 完美收官！</h3>
+  <p>三天时间，我们从一个空项目搭出了完整的 AMC 智能分析平台：</p>
+  <ul>
+    <li><strong>Day 53</strong> — 设计工具层 + 编排器 + ReAct Agent 核心</li>
+    <li><strong>Day 54</strong> — 加装错误恢复、审批、降级、路由、记忆</li>
+    <li><strong>Day 55</strong> — 接入结构化日志、审计追踪、性能指标，全链路串装</li>
+  </ul>
+  <p style="margin-top:12px;"><strong>下一步：Day 56 进入 P3 —— 用 LLM 做自动化数据报表生成系统（NL2SQL + 定时任务 + 邮件推送）</strong></p>
+</div>
+
+<div class="footer">
+  LLM 120天学习计划 · Day 55 / 70 · P2 Agent 自动化系统收官
+</div>
+
+</body>
+</html>
