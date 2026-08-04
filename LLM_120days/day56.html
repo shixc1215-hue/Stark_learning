@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 56 - P3 自动化数据报表生成系统（架构设计 + NL2SQL 基础）</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--purple:#9333ea;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#f0fdf4,#eff6ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #bbf7d0; }
+  .header .badge { display:inline-block;background:#dcfce7;color:#15803d;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--green);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--green); }
+  .tip-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--accent); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  h3 { font-size:16px;font-weight:700;margin:20px 0 10px;color:var(--text); }
+  h4 { font-size:15px;font-weight:600;margin:16px 0 8px;color:var(--accent2); }
+  p { font-size:14.5px;color:var(--text2);margin:8px 0; }
+  ul, ol { padding-left:24px;margin:8px 0; }
+  li { font-size:14.5px;color:var(--text2);margin:4px 0; }
+  code { background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:13.5px;font-family:'Fira Code','Cascadia Code',Consolas,monospace;color:var(--accent2); }
+  pre { background:#1e293b;color:#e2e8f0;padding:18px 22px;border-radius:8px;margin:14px 0;overflow-x:auto;font-size:13px;line-height:1.65;font-family:'Fira Code','Cascadia Code',Consolas,monospace; }
+  pre .comment { color:#64748b; }
+  pre .keyword { color:#c084fc; }
+  pre .string { color:#86efac; }
+  pre .func { color:#93c5fd; }
+  pre .number { color:#fbbf24; }
+  pre .decorator { color:#f0abfc; }
+  pre .class { color:#67e8f9; }
+  pre .builtin { color:#fca5a5; }
+  .inline-code { background:var(--surface2);padding:1px 5px;border-radius:3px;font-size:13px;font-family:'Fira Code',Consolas,monospace;color:var(--accent2); }
+  table { width:100%;border-collapse:collapse;margin:14px 0;font-size:14px; }
+  th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;color:var(--text);border-bottom:2px solid var(--border); }
+  td { padding:9px 14px;border-bottom:1px solid var(--surface3);color:var(--text2); }
+  tr:hover td { background:var(--surface2); }
+  .flow-chart { background:var(--surface2);border-radius:8px;padding:20px;margin:14px 0;text-align:center;font-size:14px;color:var(--text2); }
+  .flow-chart .step { display:inline-block;background:var(--surface);border:2px solid var(--accent);border-radius:8px;padding:8px 16px;margin:4px;font-weight:600; }
+  .flow-chart .arrow { display:inline-block;color:var(--accent);font-size:18px;margin:0 4px;vertical-align:middle; }
+  .sql-box { background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:16px 20px;margin:14px 0;font-size:13px;line-height:1.7;font-family:'Fira Code',Consolas,monospace;color:#92400e; }
+  .comparison-table td:first-child { font-weight:600;color:var(--text);white-space:nowrap; }
+  .day-nav { display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px; }
+  .day-nav a { padding:6px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--accent);text-decoration:none;font-weight:500; }
+  .day-nav a:hover { background:var(--surface2); }
+  .day-nav a.current { background:var(--accent);color:#fff;border-color:var(--accent); }
+  .summary-box { background:linear-gradient(135deg,#faf5ff,#f0fdf4);border:1px solid #d8b4fe;border-radius:var(--radius);padding:20px 24px;margin:14px 0; }
+  .summary-box h4 { color:var(--purple);margin-bottom:8px; }
+  @media (max-width:640px) { body{padding:12px;} .header{padding:20px;} pre{font-size:12px;padding:14px;} }
+</style>
+</head>
+<body>
+
+<!-- 进度条 -->
+<div class="progress-bar">
+  <span class="label">总进度</span>
+  <div class="track"><div class="fill" style="width:80%"></div></div>
+  <span class="percent">56/70</span>
+</div>
+
+<!-- 头部 -->
+<div class="header">
+  <div class="badge">Phase 4 · 项目实战</div>
+  <h1>Day 56 - P3 自动化数据报表生成系统</h1>
+  <p class="subtitle">架构设计 + NL2SQL 基础 — 用 LLM 把自然语言变成 SQL 查询</p>
+</div>
+
+<!-- ==================== Section 1: 项目总览 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📊</span> P3 项目总览：自动化数据报表生成系统
+    <span class="time-tag">约 25 分钟</span>
+  </div>
+
+  <h3>为什么做这个项目？</h3>
+  <p>作为数据开发工程师，你每天都在写 SQL、跑报表、发邮件。这个项目的目标就是<strong>把这个流程自动化</strong>：</p>
+  <ul>
+    <li>业务方说"帮我查一下上月不良资产余额 TOP 10" → 系统自动理解意图 → 生成 SQL → 查询 → 生成报表 → 定时推送</li>
+    <li>不再是手动改 SQL → 手动导出 → 手动发邮件的低效循环</li>
+  </ul>
+
+  <h3>项目架构全景图</h3>
+  <div class="flow-chart">
+    <span class="step" style="border-color:var(--green)">📝 自然语言输入</span>
+    <span class="arrow">→</span>
+    <span class="step" style="border-color:var(--accent)">🤖 NL2SQL 引擎</span>
+    <span class="arrow">→</span>
+    <span class="step" style="border-color:var(--accent2)">🗄️ SQL 执行</span>
+    <span class="arrow">→</span>
+    <span class="step" style="border-color:var(--purple)">📈 报表生成</span>
+    <span class="arrow">→</span>
+    <span class="step" style="border-color:var(--orange)">📧 推送/通知</span>
+  </div>
+
+  <h3>三天学习路线</h3>
+  <table>
+    <tr><th>Day</th><th>主题</th><th>核心内容</th></tr>
+    <tr><td><strong>Day 56</strong></td><td>架构设计 + NL2SQL 基础</td><td>项目结构 / NL2SQL 原理 / Schema 描述 / Prompt 模板 / SQL 解析验证</td></tr>
+    <tr><td><strong>Day 57</strong></td><td>报表生成 + 可视化 + 定时任务</td><td>matplotlib/plotly 图表 / Jinja2 模板 / schedule/APScheduler / HTML 报表</td></tr>
+    <tr><td><strong>Day 58</strong></td><td>邮件推送 + 综合实战收官</td><td>SMTP 邮件 / 附件 / 异常重试 / 配置驱动 / 完整流水线</td></tr>
+  </table>
+
+  <div class="concept-box">
+    <strong>📐 数仓思维映射</strong>：这个项目本质上就是一个 ETL 管线 —— <code>Extract</code>（从自然语言提取查询意图）→ <code>Transform</code>（生成并执行 SQL）→ <code>Load</code>（输出报表并推送）。你作为数仓工程师，对每一步都有天然直觉优势。
+  </div>
+</div>
+
+<!-- ==================== Section 2: Python 知识点 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span> Python 知识点：AST 模块 + 正则进阶 + pydantic 模型验证
+    <span class="time-tag">约 20 分钟</span>
+  </div>
+
+  <h3>1. ast.literal_eval — 安全地解析 Python 字面量</h3>
+  <p>LLM 返回的 SQL 可能包含在 JSON 里，有时也可能返回 Python 字面量。<code>ast.literal_eval</code> 比 <code>eval()</code> 安全得多，它<strong>只解析字面量</strong>（字符串、数字、列表、字典等），不会执行任意代码。</p>
+
+<pre><span class="keyword">import</span> ast
+
+<span class="comment"># LLM 返回的数据（字符串形式的 Python 对象）</span>
+llm_output = <span class="string">"['SELECT * FROM assets WHERE balance > 100000', '资产余额查询']"</span>
+
+<span class="comment"># ✅ 安全：literal_eval 只解析字面量</span>
+result = ast.literal_eval(llm_output)
+<span class="builtin">print</span>(<span class="builtin">type</span>(result))  <span class="comment"># &lt;class 'list'&gt;</span>
+<span class="builtin">print</span>(result[<span class="number">0</span>])      <span class="comment"># SELECT * FROM assets WHERE balance > 100000</span>
+
+<span class="comment"># ❌ 危险：eval() 会执行任意代码，千万别用！</span>
+<span class="comment"># eval("__import__('os').system('rm -rf /')")  # 灾难性后果</span></pre>
+
+  <div class="tip-box">
+    <strong>💡 何时使用</strong>：当 LLM 返回的 JSON 解析失败（格式不标准），但内容是 Python 字面量时，<code>ast.literal_eval</code> 是安全的 fallback 方案。
+  </div>
+
+  <h3>2. 正则进阶 — SQL 关键词精准提取</h3>
+  <p>NL2SQL 系统需要从 LLM 输出中提取 SQL 语句。正则是核心工具：</p>
+
+<pre><span class="keyword">import</span> re
+
+<span class="comment"># 提取 SQL 语句（处理 LLM 可能包裹的 markdown 代码块）</span>
+text = <span class="string">"""
+以下是查询 SQL：
+```sql
+SELECT debtor_name, SUM(balance) AS total_balance
+FROM dwd.amc_asset_info
+WHERE status = '不良' AND balance > 50000
+GROUP BY debtor_name
+ORDER BY total_balance DESC
+LIMIT 10
+```
+"""</span>
+
+<span class="comment"># 方法 1：提取 ```sql ... ``` 代码块</span>
+pattern_block = <span class="string">r"```sql\s*\n([\s\S]*?)\n\s*```"</span>
+match = re.search(pattern_block, text, re.IGNORECASE)
+<span class="keyword">if</span> match:
+    sql = match.group(<span class="number">1</span>).strip()
+    <span class="builtin">print</span>(<span class="string">"代码块提取:"</span>, sql[:<span class="number">50</span>])
+
+<span class="comment"># 方法 2：提取 SELECT ... FROM ... 开头的语句</span>
+pattern_select = <span class="string">r"(SELECT\s[\s\S]+?)(?:;|$)"</span>
+match2 = re.search(pattern_select, text, re.IGNORECASE)
+<span class="keyword">if</span> match2:
+    sql2 = match2.group(<span class="number">1</span>).strip()
+    <span class="builtin">print</span>(<span class="string">"SELECT提取:"</span>, sql2[:<span class="number">50</span>])
+
+<span class="comment"># 方法 3：识别 SQL 操作类型</span>
+<span class="keyword">def</span> <span class="func">detect_sql_type</span>(sql: <span class="builtin">str</span>) -> <span class="builtin">str</span>:
+    <span class="string">"""检测 SQL 语句类型"""</span>
+    sql_upper = sql.strip().upper()
+    <span class="keyword">if</span> sql_upper.startswith(<span class="string">"SELECT"</span>):
+        <span class="keyword">return</span> <span class="string">"query"</span>
+    <span class="keyword">elif</span> sql_upper.startswith(<span class="string">"INSERT"</span>):
+        <span class="keyword">return</span> <span class="string">"insert"</span>
+    <span class="keyword">elif</span> sql_upper.startswith(<span class="string">"UPDATE"</span>):
+        <span class="keyword">return</span> <span class="string">"update"</span>
+    <span class="keyword">elif</span> sql_upper.startswith(<span class="string">"DELETE"</span>):
+        <span class="keyword">return</span> <span class="string">"delete"</span>
+    <span class="keyword">return</span> <span class="string">"unknown"</span>
+
+<span class="builtin">print</span>(detect_sql_type(<span class="string">"SELECT * FROM table"</span>))  <span class="comment"># query</span></pre>
+
+  <h3>3. Pydantic 结构化验证 — SQL 结果模型</h3>
+  <p>用 Pydantic 定义 NL2SQL 的输入/输出模型，确保类型安全和自动校验：</p>
+
+<pre><span class="keyword">from</span> pydantic <span class="keyword">import</span> BaseModel, Field, field_validator
+<span class="keyword">from</span> typing <span class="keyword">import</span> Optional
+<span class="keyword">from</span> enum <span class="keyword">import</span> Enum
+
+<span class="keyword">class</span> <span class="class">SQLType</span>(str, Enum):
+    QUERY = <span class="string">"select"</span>
+    INSERT = <span class="string">"insert"</span>
+    UPDATE = <span class="string">"update"</span>
+    DELETE = <span class="string">"delete"</span>
+
+<span class="keyword">class</span> <span class="class">NL2SQLRequest</span>(BaseModel):
+    <span class="string">"""NL2SQL 输入模型"""</span>
+    question: <span class="builtin">str</span> = Field(..., description=<span class="string">"用户的自然语言问题"</span>, min_length=<span class="number">2</span>)
+    database: <span class="builtin">str</span> = Field(default=<span class="string">"amc"</span>, description=<span class="string">"目标数据库名称"</span>)
+    max_rows: <span class="builtin">int</span> = Field(default=<span class="number">100</span>, ge=<span class="number">1</span>, le=<span class="number">10000</span>, description=<span class="string">"最大返回行数"</span>)
+
+<span class="keyword">class</span> <span class="class">SQLResult</span>(BaseModel):
+    <span class="string">"""SQL 执行结果"""</span>
+    sql: <span class="builtin">str</span> = Field(..., description=<span class="string">"生成的 SQL 语句"</span>)
+    sql_type: SQLType = Field(..., description=<span class="string">"SQL 类型"</span>)
+    columns: <span class="builtin">list</span>[<span class="builtin">str</span>] = Field(default_factory=<span class="builtin">list</span>, description=<span class="string">"列名列表"</span>)
+    rows: <span class="builtin">list</span>[<span class="builtin">dict</span>] = Field(default_factory=<span class="builtin">list</span>, description=<span class="string">"查询结果行"</span>)
+    row_count: <span class="builtin">int</span> = Field(default=<span class="number">0</span>, ge=<span class="number">0</span>)
+    error: Optional[<span class="builtin">str</span>] = Field(default=<span class="builtin">None</span>, description=<span class="string">"错误信息（如有）"</span>)
+    execution_time_ms: <span class="builtin">float</span> = Field(default=<span class="number">0</span>, ge=<span class="number">0</span>)
+
+    <span class="decorator">@field_validator</span>(<span class="string">"sql"</span>)
+    <span class="decorator">@classmethod</span>
+    <span class="keyword">def</span> <span class="func">sql_must_be_valid</span>(cls, v: <span class="builtin">str</span>) -> <span class="builtin">str</span>:
+        <span class="string">"""校验 SQL 不为空且以合法关键字开头"""</span>
+        v = v.strip().rstrip(<span class="string">";"</span>)
+        <span class="keyword">if not</span> v:
+            <span class="keyword">raise</span> ValueError(<span class="string">"SQL 不能为空"</span>)
+        first_word = v.split()[<span class="number">0</span>].upper()
+        valid_starts = {<span class="string">"SELECT"</span>, <span class="string">"INSERT"</span>, <span class="string">"UPDATE"</span>, <span class="string">"DELETE"</span>,
+                        <span class="string">"WITH"</span>, <span class="string">"CREATE"</span>, <span class="string">"DROP"</span>}
+        <span class="keyword">if</span> first_word <span class="keyword">not in</span> valid_starts:
+            <span class="keyword">raise</span> ValueError(<span class="string">f"SQL 必须以合法关键字开头，得到: {first_word}"</span>)
+        <span class="keyword">return</span> v
+
+<span class="comment"># 测试</span>
+req = NL2SQLRequest(question=<span class="string">"查一下上月不良资产余额 TOP 10"</span>)
+<span class="builtin">print</span>(req.model_dump())
+
+result = SQLResult(
+    sql=<span class="string">"SELECT * FROM assets LIMIT 10"</span>,
+    sql_type=SQLType.QUERY,
+    columns=[<span class="string">"id"</span>, <span class="string">"name"</span>, <span class="string">"balance"</span>],
+    rows=[{<span class="string">"id"</span>: <span class="number">1</span>, <span class="string">"name"</span>: <span class="string">"张三"</span>, <span class="string">"balance"</span>: <span class="number">100000</span>}],
+    row_count=<span class="number">1</span>,
+    execution_time_ms=<span class="number">45.2</span>
+)
+<span class="builtin">print</span>(result.model_dump_json(indent=<span class="number">2</span>))</pre>
+
+  <div class="tip-box">
+    <strong>💡 Pydantic 校验的优势</strong>：在 NL2SQL 场景中，LLM 输出不可控。Pydantic 的 <code>field_validator</code> 能在数据进入下游之前拦截非法 SQL，是安全防线的关键一环。
+  </div>
+</div>
+
+<!-- ==================== Section 3: NL2SQL 原理 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🧠</span> NL2SQL 核心原理
+    <span class="time-tag">约 15 分钟</span>
+  </div>
+
+  <h3>NL2SQL 是什么？</h3>
+  <p><strong>Natural Language to SQL（NL2SQL）</strong>：把用户的自然语言问题翻译成可执行的 SQL 查询。</p>
+
+  <div class="flow-chart" style="background:#f8fafc">
+    <span class="step" style="border-color:var(--green);background:#f0fdf4">
+      🗣️ "上月不良资产<br>余额 TOP 10 是哪些？"
+    </span>
+    <span class="arrow">→</span>
+    <span class="step" style="border-color:var(--accent);background:#eff6ff">
+      🤖 LLM + Schema<br>理解意图+映射字段
+    </span>
+    <span class="arrow">→</span>
+    <span class="step" style="border-color:var(--accent2);background:#eef2ff">
+      📝 SQL 输出
+    </span>
+    <span class="arrow">→</span>
+    <span class="step" style="border-color:var(--orange);background:#fff7ed">
+      ✅ 验证 + 执行
+    </span>
+  </div>
+
+  <h3>核心三要素</h3>
+  <table>
+    <tr><th>要素</th><th>说明</th><th>数仓类比</th></tr>
+    <tr>
+      <td><strong>Schema 描述</strong></td>
+      <td>告诉 LLM 有哪些表、字段、关系、业务含义</td>
+      <td>元数据字典 / 数据字典</td>
+    </tr>
+    <tr>
+      <td><strong>示例问题-SQL 对</strong></td>
+      <td>Few-shot 示例，教 LLM 你的 SQL 风格</td>
+      <td>ETL 开发规范文档</td>
+    </tr>
+    <tr>
+      <td><strong>输出约束</strong></td>
+      <td>限制 LLM 只返回 SQL，不要废话</td>
+      <td>接口规范 / SLA</td>
+    </tr>
+  </table>
+
+  <h3>Schema 描述设计 — 关键的一步</h3>
+  <p>LLM 不知道你的表结构，你必须把<strong>元数据</strong>用结构化的方式喂给它。对于 AMC 业务：</p>
+
+<pre><span class="comment"># AMC 业务 Schema 描述（这就是喂给 LLM 的"数据字典"）</span>
+AMC_SCHEMA = <span class="string">"""
+## 数据库: amc_dw（AMC 资产管理公司数据仓库）
+
+### 表: dwd.amc_asset_info（不良资产明细宽表）
+| 字段名 | 类型 | 业务含义 | 示例值 |
+|--------|------|----------|--------|
+| asset_id | BIGINT | 资产唯一标识 | 10001 |
+| debtor_name | VARCHAR(100) | 债务人名称 | '某某公司' |
+| asset_type | VARCHAR(20) | 资产类型(贷款/债券/应收款) | '贷款' |
+| asset_amount | DECIMAL(18,2) | 原始资产金额(元) | 500000.00 |
+| balance | DECIMAL(18,2) | 当前余额(元) | 350000.00 |
+| status | VARCHAR(20) | 资产状态(不良/关注/正常) | '不良' |
+| province | VARCHAR(20) | 所在省份 | '浙江' |
+| industry | VARCHAR(50) | 所属行业 | '制造业' |
+| collect_date | DATE | 入库日期 | '2026-01-15' |
+| manager_name | VARCHAR(50) | 客户经理 | '王五' |
+
+### 表: dim.amc_debtor_dim（债务人维度表）
+| 字段名 | 类型 | 业务含义 |
+|--------|------|----------|
+| debtor_id | BIGINT | 债务人ID |
+| debtor_name | VARCHAR(100) | 债务人名称 |
+| credit_rating | VARCHAR(10) | 信用评级(A/B/C/D) |
+| registration_capital | DECIMAL(18,2) | 注册资本(元) |
+| establish_date | DATE | 成立日期 |
+
+### 表: dws.amc_province_summary（省份汇总表）
+| 字段名 | 类型 | 业务含义 |
+|--------|------|----------|
+| province | VARCHAR(20) | 省份 |
+| total_balance | DECIMAL(18,2) | 总余额 |
+| bad_asset_count | INT | 不良资产数量 |
+| avg_balance | DECIMAL(18,2) | 平均余额 |
+
+## 业务规则:
+1. '不良'状态的资产需要特别关注
+2. 余额 = 尚未清偿的金额
+3. TOP N 查询使用 ORDER BY ... DESC LIMIT N
+4. 日期比较使用 collect_date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'
+5. 金额单位默认为元，如需万元请除以10000并标注
+"""</span></pre>
+
+  <div class="concept-box">
+    <strong>🔑 Schema 描述的黄金法则</strong>：<br>
+    ① <strong>字段业务含义</strong>比字段名更重要（LLM 看不懂 <code>zjye</code> 但懂"不良余额"）<br>
+    ② <strong>示例值</strong>帮助 LLM 理解数据格式<br>
+    ③ <strong>业务规则</strong>减少 LLM 犯低级错误（比如日期格式）
+  </div>
+</div>
+
+<!-- ==================== Section 4: NL2SQL 实现 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚙️</span> NL2SQL 引擎完整实现
+    <span class="time-tag">约 25 分钟</span>
+  </div>
+
+  <h3>Step 1: SQL 安全验证器</h3>
+  <p>在任何 SQL 执行之前，必须先做安全检查——防止 LLM 生成危险 SQL：</p>
+
+<pre><span class="keyword">import</span> re
+<span class="keyword">from</span> enum <span class="keyword">import</span> Enum
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass
+
+<span class="keyword">class</span> <span class="class">SQLSafetyLevel</span>(str, Enum):
+    SAFE = <span class="string">"safe"</span>        <span class="comment"># 纯 SELECT，安全</span>
+    WARNING = <span class="string">"warning"</span>   <span class="comment"># 有聚合但无 LIMIT</span>
+    DANGEROUS = <span class="string">"dangerous"</span> <span class="comment"># 含写操作</span>
+
+<span class="keyword">@dataclass</span>
+<span class="keyword">class</span> <span class="class">SQLCheckResult</span>:
+    <span class="string">"""SQL 安全检查结果"""</span>
+    is_safe: <span class="builtin">bool</span>
+    level: SQLSafetyLevel
+    issues: <span class="builtin">list</span>[<span class="builtin">str</span>]
+    cleaned_sql: <span class="builtin">str</span>  <span class="comment"># 清理后的 SQL</span>
+
+<span class="keyword">class</span> <span class="class">SQLSafetyChecker</span>:
+    <span class="string">"""SQL 安全验证器"""</span>
+
+    <span class="comment"># 禁止的操作（防止 LLM 生成破坏性 SQL）</span>
+    FORBIDDEN_KEYWORDS = {
+        <span class="string">"DROP"</span>, <span class="string">"TRUNCATE"</span>, <span class="string">"ALTER"</span>, <span class="string">"GRANT"</span>,
+        <span class="string">"REVOKE"</span>, <span class="string">"CREATE"</span>, <span class="string">"EXEC"</span>, <span class="string">"EXECUTE"</span>
+    }
+
+    <span class="comment"># 允许的表前缀（限制查询范围）</span>
+    ALLOWED_PREFIXES = (<span class="string">"dwd."</span>, <span class="string">"dws."</span>, <span class="string">"dim."</span>, <span class="string">"ods."</span>, <span class="string">"ads."</span>)
+
+    <span class="keyword">def</span> <span class="func">check</span>(self, sql: <span class="builtin">str</span>) -> SQLCheckResult:
+        <span class="string">"""执行安全检查"""</span>
+        issues = []
+        sql_upper = sql.upper().strip()
+
+        <span class="comment"># 1. 检查禁止操作</span>
+        <span class="keyword">for</span> keyword <span class="keyword">in</span> self.FORBIDDEN_KEYWORDS:
+            <span class="keyword">if</span> keyword <span class="keyword">in</span> sql_upper:
+                issues.append(<span class="string">f"禁止操作: {keyword}"</span>)
+
+        <span class="comment"># 2. 检查是否只允许 SELECT</span>
+        <span class="keyword">if not</span> sql_upper.startswith(<span class="string">"SELECT"</span>) <span class="keyword">and not</span> sql_upper.startswith(<span class="string">"WITH"</span>):
+            issues.append(<span class="string">"仅允许 SELECT / WITH 查询"</span>)
+
+        <span class="comment"># 3. 检查是否缺少 LIMIT（防止全表扫描）</span>
+        <span class="keyword">if</span> <span class="string">"LIMIT"</span> <span class="keyword">not in</span> sql_upper:
+            <span class="keyword">if</span> <span class="string">"COUNT("</span> <span class="keyword">not in</span> sql_upper <span class="keyword">and</span> <span class="string">"SUM("</span> <span class="keyword">not in</span> sql_upper:
+                issues.append(<span class="string">"缺少 LIMIT，可能导致全表扫描"</span>)
+
+        <span class="comment"># 4. 检查子查询深度（防止过深嵌套）</span>
+        depth = sql_upper.count(<span class="string">"SELECT"</span>)
+        <span class="keyword">if</span> depth > <span class="number">3</span>:
+            issues.append(<span class="string">f"子查询深度 {depth} 层，建议不超过 3 层"</span>)
+
+        <span class="comment"># 5. 清理 SQL（去掉多余的分号和空白）</span>
+        cleaned = sql.strip().rstrip(<span class="string">";"</span>).strip()
+
+        <span class="comment"># 判断安全级别</span>
+        <span class="keyword">if</span> <span class="keyword">not</span> issues:
+            level = SQLSafetyLevel.SAFE
+        <span class="keyword">elif</span> any(<span class="string">"禁止"</span> <span class="keyword">in</span> i <span class="keyword">for</span> i <span class="keyword">in</span> issues):
+            level = SQLSafetyLevel.DANGEROUS
+        <span class="keyword">else</span>:
+            level = SQLSafetyLevel.WARNING
+
+        <span class="keyword">return</span> SQLCheckResult(
+            is_safe=(level == SQLSafetyLevel.SAFE),
+            level=level,
+            issues=issues,
+            cleaned_sql=cleaned
+        )
+
+<span class="comment"># 测试安全检查器</span>
+checker = SQLSafetyChecker()
+
+<span class="comment"># 安全的 SQL</span>
+r1 = checker.check(<span class="string">"SELECT debtor_name, balance FROM dwd.amc_asset_info WHERE status = '不良' LIMIT 10"</span>)
+<span class="builtin">print</span>(<span class="string">f"安全: {r1.is_safe}, 问题: {r1.issues}"</span>)  <span class="comment"># 安全: True, 问题: []</span>
+
+<span class="comment"># 危险的 SQL</span>
+r2 = checker.check(<span class="string">"DROP TABLE dwd.amc_asset_info"</span>)
+<span class="builtin">print</span>(<span class="string">f"安全: {r2.is_safe}, 问题: {r2.issues}"</span>)  <span class="comment"># 安全: False, 问题: ['禁止操作: DROP']</span></pre>
+
+  <h3>Step 2: NL2SQL Prompt 模板</h3>
+  <p>高质量的 Prompt 是 NL2SQL 成功的核心。使用"Schema + Few-shot + 约束"三段式结构：</p>
+
+<pre><span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+
+<span class="keyword">@dataclass</span>
+<span class="keyword">class</span> <span class="class">FewShotExample</span>:
+    <span class="string">"""Few-shot 示例对"""</span>
+    question: <span class="builtin">str</span>
+    sql: <span class="builtin">str</span>
+    explanation: <span class="builtin">str</span> = <span class="string">""</span>  <span class="comment"># 可选：解释 SQL 思路</span>
+
+<span class="keyword">@dataclass</span>
+<span class="keyword">class</span> <span class="class">NL2SQLPromptBuilder</span>:
+    <span class="string">"""NL2SQL Prompt 构建器"""</span>
+
+    schema_desc: <span class="builtin">str</span> = AMC_SCHEMA  <span class="comment"># 从上面定义的 Schema</span>
+    examples: <span class="builtin">list</span>[FewShotExample] = field(default_factory=<span class="builtin">list</span>)
+    dialect: <span class="builtin">str</span> = <span class="string">"MySQL"</span>  <span class="comment"># 目标 SQL 方言</span>
+
+    <span class="keyword">def</span> <span class="func">build</span>(self, question: <span class="builtin">str</span>) -> <span class="builtin">str</span>:
+        <span class="string">"""构建完整的 Prompt"""</span>
+
+        <span class="comment"># 1. System 部分：角色 + 规则</span>
+        system = <span class="string">f"""你是一位资深的 {self.dialect} 数据库工程师，精通 AMC（资产管理公司）业务。
+你的任务是将用户的自然语言问题翻译成准确的 {self.dialect} SQL 查询。
+
+## 规则:
+1. 只返回 SQL 语句，不要任何解释
+2. SQL 必须语法正确，可直接执行
+3. 日期格式使用 'YYYY-MM-DD'
+4. 金额字段保留两位小数
+5. 所有查询必须包含 LIMIT（除非是 COUNT/SUM 等聚合查询）
+6. 使用别名(AS)让列名可读
+7. WHERE 条件中字符串使用单引号
+
+## 数据库 Schema:
+{self.schema_desc}
+"""</span>
+
+        <span class="comment"># 2. Few-shot 部分：示例</span>
+        few_shot = <span class="string">""</span>
+        <span class="keyword">if</span> self.examples:
+            few_shot = <span class="string">"\n## 示例:\n"</span>
+            <span class="keyword">for</span> i, ex <span class="keyword">in</span> enumerate(self.examples, <span class="number">1</span>):
+                few_shot += <span class="string">f"\n### 示例 {i}\n"</span>
+                few_shot += <span class="string">f"问题: {ex.question}\n"</span>
+                few_shot += <span class="string">f"SQL:\n```sql\n{ex.sql}\n```\n"</span>
+                <span class="keyword">if</span> ex.explanation:
+                    few_shot += <span class="string">f"解析: {ex.explanation}\n"</span>
+
+        <span class="comment"># 3. 用户问题</span>
+        user = <span class="string">f"问题: {question}\n\n请直接返回 SQL 语句（用 ```sql ``` 包裹）:"</span>
+
+        <span class="keyword">return</span> system + few_shot + <span class="string">"\n"</span> + user
+
+<span class="comment"># 构建 Few-shot 示例（这些示例决定了 LLM 生成 SQL 的风格）</span>
+examples = [
+    FewShotExample(
+        question=<span class="string">"不良资产余额 TOP 10"</span>,
+        sql=<span class="string">"SELECT debtor_name AS 债务人, balance AS 余额 FROM dwd.amc_asset_info WHERE status = '不良' ORDER BY balance DESC LIMIT 10"</span>,
+        explanation=<span class="string">"筛选不良状态，按余额降序，取前10"</span>
+    ),
+    FewShotExample(
+        question=<span class="string">"各省不良资产数量统计"</span>,
+        sql=<span class="string">"SELECT province AS 省份, COUNT(*) AS 不良数量, SUM(balance) AS 总余额 FROM dwd.amc_asset_info WHERE status = '不良' GROUP BY province ORDER BY 总余额 DESC"</span>,
+        explanation=<span class="string">"按省份分组，统计数量和总余额"</span>
+    ),
+    FewShotExample(
+        question=<span class="string">"2026年7月新入库的制造业不良资产有哪些？"</span>,
+        sql=<span class="string">"SELECT debtor_name, asset_type, balance, collect_date FROM dwd.amc_asset_info WHERE status = '不良' AND industry = '制造业' AND collect_date BETWEEN '2026-07-01' AND '2026-07-31' ORDER BY balance DESC LIMIT 20"</span>,
+        explanation=<span class="string">"日期范围筛选 + 行业筛选"</span>
+    ),
+]
+
+<span class="comment"># 测试 Prompt 构建</span>
+builder = NL2SQLPromptBuilder(examples=examples)
+prompt = builder.build(<span class="string">"上月客户经理王五负责的不良资产有多少？"</span>)
+<span class="builtin">print</span>(prompt[:<span class="number">300</span>])  <span class="comment"># 打印 Prompt 前 300 字符</span></pre>
+
+  <h3>Step 3: NL2SQL 完整引擎</h3>
+  <p>把上面的组件组装成完整引擎：</p>
+
+<pre><span class="keyword">import</span> re
+<span class="keyword">import</span> json
+<span class="keyword">import</span> ast
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> typing <span class="keyword">import</span> Optional
+
+<span class="keyword">@dataclass</span>
+<span class="keyword">class</span> <span class="class">NL2SQLEngine</span>:
+    <span class="string">"""NL2SQL 引擎 — 自然语言转 SQL"""</span>
+
+    prompt_builder: NL2SQLPromptBuilder
+    safety_checker: SQLSafetyChecker = field(default_factory=SQLSafetyChecker)
+
+    <span class="comment"># ---- 内部方法：调用 LLM ----</span>
+    <span class="keyword">def</span> <span class="func">_call_llm</span>(self, prompt: <span class="builtin">str</span>) -> <span class="builtin">str</span>:
+        <span class="string">"""调用 LLM（这里用模拟返回，实际替换为 API 调用）"""</span>
+        <span class="comment"># 实际使用时替换为:
+        <span class="comment"># import zhipuai</span>
+        <span class="comment"># response = zhipuai.ZhipuAI().chat.completions.create(...)</span>
+
+        <span class="comment"># ====== 模拟 LLM 返回（用于演示） ======</span>
+        mock_responses = {
+            <span class="string">"王五"</span>: <span class="string">"""```sql
+SELECT COUNT(*) AS 不良资产数量,
+       SUM(balance) AS 总余额
+FROM dwd.amc_asset_info
+WHERE status = '不良'
+  AND manager_name = '王五'
+  AND collect_date BETWEEN '2026-07-01' AND '2026-07-31'
+```"""</span>,
+            <span class="string">"TOP"</span>: <span class="string">"""```sql
+SELECT debtor_name AS 债务人,
+       asset_type AS 类型,
+       balance AS 余额
+FROM dwd.amc_asset_info
+WHERE status = '不良'
+ORDER BY balance DESC
+LIMIT 10
+```"""</span>,
+        }
+        <span class="keyword">for</span> key, resp <span class="keyword">in</span> mock_responses.items():
+            <span class="keyword">if</span> key <span class="keyword">in</span> prompt:
+                <span class="keyword">return</span> resp
+        <span class="keyword">return</span> <span class="string">"""```sql
+SELECT * FROM dwd.amc_asset_info WHERE status = '不良' LIMIT 10
+```"""</span>
+
+    <span class="comment"># ---- 内部方法：从 LLM 输出中提取 SQL ----</span>
+    <span class="keyword">def</span> <span class="func">_extract_sql</span>(self, llm_output: <span class="builtin">str</span>) -> Optional[<span class="builtin">str</span>]:
+        <span class="string">"""从 LLM 输出中提取 SQL（三层 fallback）"""</span>
+
+        <span class="comment"># 策略 1：提取 ```sql ... ``` 代码块</span>
+        pattern = <span class="string">r"```(?:sql)?\s*\n([\s\S]*?)\n\s*```"</span>
+        match = re.search(pattern, llm_output)
+        <span class="keyword">if</span> match:
+            <span class="keyword">return</span> match.group(<span class="number">1</span>).strip()
+
+        <span class="comment"># 策略 2：提取 SELECT/WITH 开头的语句</span>
+        pattern2 = <span class="string">r"(SELECT\s[\s\S]+?)(?:;|\n\n|$)"</span>
+        match2 = re.search(pattern2, llm_output, re.IGNORECASE)
+        <span class="keyword">if</span> match2:
+            <span class="keyword">return</span> match2.group(<span class="number">1</span>).strip()
+
+        <span class="comment"># 策略 3：尝试 ast.literal_eval（处理 Python 字面量）</span>
+        <span class="keyword">try</span>:
+            parsed = ast.literal_eval(llm_output.strip())
+            <span class="keyword">if</span> isinstance(parsed, <span class="builtin">str</span>) <span class="keyword">and</span> parsed.upper().startswith(<span class="string">"SELECT"</span>):
+                <span class="keyword">return</span> parsed
+        <span class="keyword">except</span> (ValueError, SyntaxError):
+            <span class="keyword">pass</span>
+
+        <span class="keyword">return</span> <span class="builtin">None</span>
+
+    <span class="comment"># ---- 核心方法：query ----</span>
+    <span class="keyword">def</span> <span class="func">query</span>(self, question: <span class="builtin">str</span>) -> SQLResult:
+        <span class="string">"""完整 NL2SQL 流水线: 问题 → Prompt → LLM → 提取 → 验证 → 执行"""</span>
+
+        <span class="comment"># 1. 构建 Prompt</span>
+        prompt = self.prompt_builder.build(question)
+
+        <span class="comment"># 2. 调用 LLM</span>
+        <span class="comment"># import time; start = time.perf_counter()</span>
+        llm_output = self._call_llm(prompt)
+
+        <span class="comment"># 3. 提取 SQL</span>
+        sql = self._extract_sql(llm_output)
+        <span class="keyword">if not</span> sql:
+            <span class="keyword">return</span> SQLResult(
+                sql=<span class="string">""</span>, sql_type=SQLType.QUERY,
+                error=<span class="string">f"无法从 LLM 输出中提取 SQL。原始输出: {llm_output[:200]}"</span>
+            )
+
+        <span class="comment"># 4. 安全检查</span>
+        check = self.safety_checker.check(sql)
+        <span class="keyword">if</span> <span class="keyword">not</span> check.is_safe:
+            <span class="keyword">return</span> SQLResult(
+                sql=sql, sql_type=SQLType.QUERY,
+                error=<span class="string">f"SQL 安全检查未通过: {check.issues}"</span>
+            )
+
+        <span class="comment"># 5. 判断 SQL 类型</span>
+        first_word = check.cleaned_sql.split()[<span class="number">0</span>].upper()
+        sql_type = SQLType(first_word.lower())
+
+        <span class="comment"># 6. 执行 SQL（这里用模拟结果，实际连接数据库）</span>
+        <span class="comment"># import time; exec_time = (time.perf_counter() - start) * 1000</span>
+        mock_columns = [<span class="string">"debtor_name"</span>, <span class="string">"balance"</span>]
+        mock_rows = [
+            {<span class="string">"debtor_name"</span>: <span class="string">"某某公司A"</span>, <span class="string">"balance"</span>: <span class="number">850000</span>},
+            {<span class="string">"debtor_name"</span>: <span class="string">"某某公司B"</span>, <span class="string">"balance"</span>: <span class="number">620000</span>},
+        ]
+
+        <span class="keyword">return</span> SQLResult(
+            sql=check.cleaned_sql,
+            sql_type=sql_type,
+            columns=mock_columns,
+            rows=mock_rows,
+            row_count=<span class="builtin">len</span>(mock_rows),
+            execution_time_ms=<span class="number">128.5</span>
+        )
+
+<span class="comment"># ====== 完整测试 ======</span>
+engine = NL2SQLEngine(
+    prompt_builder=NL2SQLPromptBuilder(examples=examples)
+)
+
+<span class="comment"># 测试 1</span>
+result = engine.query(<span class="string">"上月客户经理王五负责的不良资产有多少？"</span>)
+<span class="builtin">print</span>(<span class="string">"=== 生成 SQL ==="</span>)
+<span class="builtin">print</span>(result.sql)
+<span class="builtin">print</span>(<span class="string">"=== 执行结果 ==="</span>)
+<span class="builtin">print</span>(<span class="string">f"行数: {result.row_count}, 耗时: {result.execution_time_ms}ms"</span>)
+<span class="keyword">for</span> row <span class="keyword">in</span> result.rows:
+    <span class="builtin">print</span>(<span class="string">f"  {row}"</span>)</pre>
+
+  <div class="tip-box">
+    <strong>💡 生产环境注意事项</strong>：
+    <ul>
+      <li>把 <code>_call_llm</code> 中的模拟替换为真实 API 调用（如智谱 GLM-4）</li>
+      <li>把模拟数据替换为真实数据库连接（如 <code>mysql-connector</code> 或 <code>sqlalchemy</code>）</li>
+      <li>添加 SQL 执行超时（防止慢查询拖垮服务）</li>
+      <li>添加 LLM 调用重试机制（指数退避）</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ==================== Section 5: 项目结构 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📁</span> P3 项目结构规范
+    <span class="time-tag">约 5 分钟</span>
+  </div>
+
+<pre><span class="comment">amc_report_system/              # 项目根目录
+├── config/
+│   └── settings.py             # pydantic-settings 配置中心
+├── core/
+│   ├── nl2sql/
+│   │   ├── __init__.py
+│   │   ├── engine.py           # NL2SQL 引擎（本节核心）
+│   │   ├── prompt.py           # Prompt 模板构建器
+│   │   ├── schema.py           # AMC Schema 描述
+│   │   ├── safety.py           # SQL 安全检查器
+│   │   └── extractor.py       # SQL 提取器（正则+AST）
+│   ├── executor/
+│   │   ├── __init__.py
+│   │   └── db_executor.py      # SQL 执行器
+│   └── scheduler/
+│       └── task_scheduler.py    # 定时任务调度（Day 57）
+├── report/
+│   ├── __init__.py
+│   ├── chart_generator.py      # 图表生成（Day 57）
+│   ├── template_engine.py      # Jinja2 模板（Day 57）
+│   └── renderer.py             # HTML/PDF 报表渲染
+├── notify/
+│   ├── __init__.py
+│   └── email_sender.py          # 邮件推送（Day 58）
+├── main.py                     # CLI 入口
+├── server.py                   # FastAPI 服务入口
+├── requirements.txt
+└── README.md</pre>
+
+  <div class="concept-box">
+    <strong>📐 分层思维</strong>：每一层只依赖下层，不跨层调用。<code>nl2sql</code> 层只负责生成 SQL，不执行；<code>executor</code> 层只负责执行 SQL，不生成。这种"单一职责"设计让每个模块都能独立测试。
+  </div>
+</div>
+
+<!-- ==================== Section 6: 练习 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">✍️</span> 课后练习
+    <span class="time-tag">约 15 分钟</span>
+  </div>
+
+  <h3>练习 1：增强 Few-shot 示例</h3>
+  <p>为 <code>NL2SQLPromptBuilder</code> 添加更多示例，覆盖以下场景：</p>
+  <ul>
+    <li>JOIN 查询：资产表 JOIN 债务人维度表</li>
+    <li>日期范围查询：按季度统计</li>
+    <li>HAVING 查询：余额超过某阈值的分组</li>
+    <li>子查询：各省不良率排名</li>
+  </ul>
+
+<pre><span class="comment"># 示例答案</span>
+FewShotExample(
+    question=<span class="string">"各行业不良资产余额排名，只看余额超100万的行业"</span>,
+    sql=<span class="string">"""SELECT industry AS 行业,
+       COUNT(*) AS 数量,
+       SUM(balance) AS 总余额
+FROM dwd.amc_asset_info
+WHERE status = '不良'
+GROUP BY industry
+HAVING SUM(balance) > 1000000
+ORDER BY 总余额 DESC"""</span>,
+    explanation=<span class="string">"GROUP BY + HAVING 组合，HAVING 过滤聚合结果"</span>
+),</pre>
+
+  <h3>练习 2：增强 SQL 安全检查器</h3>
+  <p>为 <code>SQLSafetyChecker</code> 添加以下检查：</p>
+  <ul>
+    <li>检测 UNION 查询（防止数据泄露）</li>
+    <li>检测注释注入（<code>--</code> 和 <code>/* */</code>）</li>
+    <li>限制 WHERE 条件数量（防止过于复杂的查询）</li>
+  </ul>
+
+  <h3>练习 3：LeetCode #49 — 字母异位词分组</h3>
+  <p>用 Python 实现 LeetCode 49 题，这道题练习了 <strong>字典分组 + 排序</strong>，是 NL2SQL 中"把相似的查询归类"的思路基础：</p>
+
+<pre><span class="keyword">from</span> collections <span class="keyword">import</span> defaultdict
+
+<span class="keyword">def</span> <span class="func">group_anagrams</span>(strs: <span class="builtin">list</span>[<span class="builtin">str</span>]) -> <span class="builtin">list</span>[<span class="builtin">list</span>[<span class="builtin">str</span>]]:
+    <span class="string">"""字母异位词分组"""</span>
+    groups = defaultdict(<span class="builtin">list</span>)
+    <span class="keyword">for</span> s <span class="keyword">in</span> strs:
+        <span class="comment"># 排序后的字符串作为 key（异位词排序后相同）</span>
+        key = <span class="string">""</span>.join(sorted(s))
+        groups[key].append(s)
+    <span class="keyword">return</span> <span class="builtin">list</span>(groups.values())
+
+<span class="comment"># 测试</span>
+<span class="builtin">print</span>(group_anagrams([<span class="string">"eat"</span>, <span class="string">"tea"</span>, <span class="string">"tan"</span>, <span class="string">"ate"</span>, <span class="string">"nat"</span>, <span class="string">"bat"</span>]))
+<span class="comment"># [["eat", "tea", "ate"], ["tan", "nat"], ["bat"]]</span></pre>
+</div>
+
+<!-- ==================== Section 7: 常见陷阱 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚠️</span> 常见陷阱 Top 5
+  </div>
+
+  <table>
+    <tr><th>#</th><th>陷阱</th><th>说明</th><th>解法</th></tr>
+    <tr>
+      <td><strong>1</strong></td>
+      <td>Schema 描述不够详细</td>
+      <td>LLM 不知道字段含义，生成错误 SQL</td>
+      <td>每个字段都要有业务含义+示例值+业务规则</td>
+    </tr>
+    <tr>
+      <td><strong>2</strong></td>
+      <td>没有安全检查就执行</td>
+      <td>LLM 可能生成 DROP/DELETE 等危险 SQL</td>
+      <td>必须先过 <code>SQLSafetyChecker</code>，禁止写操作</td>
+    </tr>
+    <tr>
+      <td><strong>3</strong></td>
+      <td>Few-shot 示例太少</td>
+      <td>LLM 不了解你的 SQL 风格，生成不规范的 SQL</td>
+      <td>至少 5-10 个覆盖不同场景的示例</td>
+    </tr>
+    <tr>
+      <td><strong>4</strong></td>
+      <td>日期/金额格式不一致</td>
+      <td>LLM 返回的日期格式与数据库不匹配</td>
+      <td>在 Schema 和规则中明确指定格式</td>
+    </tr>
+    <tr>
+      <td><strong>5</strong></td>
+      <td>信任 LLM 的 SQL 直接执行</td>
+      <td>LLM 的 SQL 可能有语法错误或逻辑错误</td>
+      <td>先用 EXPLAIN 验证，再用只读账号执行</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ==================== Section 8: 总结 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📋</span> Day 56 总结
+  </div>
+
+  <div class="summary-box">
+    <h4>今日知识地图</h4>
+    <table>
+      <tr><th>类别</th><th>知识点</th></tr>
+      <tr><td><strong>Python</strong></td><td>ast.literal_eval 安全解析 / 正则 SQL 提取 / Pydantic 模型验证 / dataclass 组合</td></tr>
+      <tr><td><strong>LLM</strong></td><td>NL2SQL 原理 / Schema 描述设计 / Few-shot Prompt / SQL 提取三层 fallback</td></tr>
+      <tr><td><strong>工程</strong></td><td>SQL 安全验证器 / Prompt 构建器模式 / 分层项目结构</td></tr>
+      <tr><td><strong>算法</strong></td><td>LeetCode #49 字母异位词分组（defaultdict + sorted）</td></tr>
+    </table>
+  </div>
+
+  <h3>明日预告</h3>
+  <p><strong>Day 57</strong>：报表生成 + 可视化 + 定时任务</p>
+  <ul>
+    <li>matplotlib/plotly 自动生成图表</li>
+    <li>Jinja2 模板渲染 HTML 报表</li>
+    <li>APScheduler 定时执行报表任务</li>
+    <li>把 NL2SQL 结果变成一张完整的报表</li>
+  </ul>
+</div>
+
+</body>
+</html>
