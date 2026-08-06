@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 57 - P3 自动化数据报表生成（报表渲染 + 数据可视化）</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--purple:#9333ea;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#f0fdf4,#eff6ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #bbf7d0; }
+  .header .badge { display:inline-block;background:#dcfce7;color:#15803d;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--green);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--green); }
+  .tip-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--accent); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  h3 { font-size:16px;font-weight:700;margin:20px 0 10px;color:var(--text); }
+  h4 { font-size:15px;font-weight:600;margin:16px 0 8px;color:var(--accent2); }
+  p { font-size:14.5px;color:var(--text2);margin:8px 0; }
+  ul, ol { padding-left:24px;margin:8px 0; }
+  li { font-size:14.5px;color:var(--text2);margin:4px 0; }
+  code { background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:13.5px;font-family:'Fira Code','Cascadia Code',Consolas,monospace;color:var(--accent2); }
+  pre { background:#1e293b;color:#e2e8f0;padding:18px 22px;border-radius:8px;margin:14px 0;overflow-x:auto;font-size:13px;line-height:1.65;font-family:'Fira Code','Cascadia Code',Consolas,monospace; }
+  pre .comment { color:#64748b; }
+  pre .keyword { color:#c084fc; }
+  pre .string { color:#86efac; }
+  pre .func { color:#93c5fd; }
+  pre .number { color:#fbbf24; }
+  pre .decorator { color:#f0abfc; }
+  pre .class { color:#67e8f9; }
+  pre .builtin { color:#fca5a5; }
+  .inline-code { background:var(--surface2);padding:1px 5px;border-radius:3px;font-size:13px;font-family:'Fira Code',Consolas,monospace;color:var(--accent2); }
+  table { width:100%;border-collapse:collapse;margin:14px 0;font-size:14px; }
+  th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;color:var(--text);border-bottom:2px solid var(--border); }
+  td { padding:9px 14px;border-bottom:1px solid var(--surface3);color:var(--text2); }
+  tr:hover td { background:var(--surface2); }
+  .footer { text-align:center;padding:20px;color:var(--text3);font-size:13px; }
+  .two-col { display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0; }
+  .card { background:var(--surface2);border-radius:8px;padding:16px;border:1px solid var(--surface3); }
+  .card h4 { margin-top:0; }
+  .flow { display:flex;align-items:center;gap:8px;margin:14px 0;flex-wrap:wrap; }
+  .flow .step { background:var(--accent);color:#fff;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600; }
+  .flow .arrow { color:var(--text3);font-size:16px; }
+  .summary-box { background:linear-gradient(135deg,#eff6ff,#f0fdf4);border-radius:8px;padding:18px 22px;margin:14px 0;border:1px solid #bfdbfe; }
+  .summary-box h4 { color:var(--accent2);margin-bottom:8px; }
+  .pitfall { display:flex;gap:10px;margin:10px 0; }
+  .pitfall .num { background:var(--red);color:#fff;min-width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;margin-top:2px; }
+  .pitfall .desc { font-size:14px;color:var(--text2); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Phase 4 · P3 自动化报表生成 · Day 2/3</div>
+  <h1>Day 57 — 报表渲染 + 数据可视化</h1>
+  <div class="subtitle">SQL 查出数据后，如何让 LLM 生成专业分析报告？如何用 Python 画图表？</div>
+</div>
+
+<div class="progress-bar">
+  <span class="label">总进度</span>
+  <div class="track"><div class="fill" style="width:81.4%"></div></div>
+  <span class="percent">57/70</span>
+</div>
+
+<!-- ========== Section 1 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📋</span> 今日学习路线
+    <span class="time-tag">约 60 分钟</span>
+  </div>
+  <div class="flow">
+    <span class="step">Jinja2 模板</span><span class="arrow">→</span>
+    <span class="step">LLM 报表生成</span><span class="arrow">→</span>
+    <span class="step">matplotlib 可视化</span><span class="arrow">→</span>
+    <span class="step">ReportBuilder 整合</span>
+  </div>
+  <p>昨天我们搭好了 NL2SQL 引擎，能将自然语言翻译成 SQL 并查到数据。今天解决两个关键问题：</p>
+  <ol>
+    <li><strong>报表渲染</strong>：把 SQL 结果交给 LLM，生成带数据洞察的自然语言分析报告</li>
+    <li><strong>数据可视化</strong>：用 matplotlib 自动生成图表，嵌入报表</li>
+  </ol>
+  <div class="concept-box">
+    <strong>数仓思维类比：</strong>在传统 ETL 中，SQL 查出数据后 → 写 Stored Procedure 生成汇总 → 用 BI 工具（帆软/Superset）渲染看板。LLM 报表的本质是用 <strong>自然语言模板 + LLM 推理</strong> 替代硬编码的 Stored Procedure，用 <strong>代码生成图表</strong> 替代 BI 拖拽。
+  </div>
+</div>
+
+<!-- ========== Section 2 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🧩</span> Python 知识：Jinja2 模板引擎
+    <span class="time-tag">15 min</span>
+  </div>
+  <p>报表需要把 <strong>数据 + 格式</strong> 结合。Jinja2 是 Python 最流行的模板引擎，Flask/FastAPI 默认用它渲染 HTML。</p>
+
+  <h3>2.1 基础语法三件套</h3>
+  <pre><span class="comment"># 安装</span>
+<span class="comment"># pip install jinja2</span>
+
+<span class="keyword">from</span> jinja2 <span class="keyword">import</span> Template, Environment, FileSystemLoader
+
+<span class="comment"># --- 1. 变量替换 {{ }} ---</span>
+tpl = Template(<span class="string">"不良资产余额: ¥{{ amount | round(2) }} 万元"</span>)
+<span class="func">print</span>(tpl.render(amount=<span class="number">3847.156</span>))
+<span class="comment"># 不良资产余额: ¥3847.16 万元</span>
+
+<span class="comment"># --- 2. 条件判断 {% if %} ---</span>
+tpl = Template(<span class="string">"""
+{% if balance > 5000 %}
+  ⚠️ 预警：余额超5000万，建议关注
+{% elif balance > 3000 %}
+  💡 提示：余额处于中等水平
+{% else %}
+  ✅ 正常：余额在可控范围
+{% endif %}
+"""</span>)
+<span class="func">print</span>(tpl.render(balance=<span class="number">4200</span>))
+
+<span class="comment"># --- 3. 循环 {% for %} ---</span>
+tpl = Template(<span class="string">"""
+{% for item in items %}
+  {{ loop.index }}. {{ item['name'] }} — ¥{{ item['amount'] }}万
+{% endfor %}
+共 {{ items | length }} 条记录
+"""</span>)
+<span class="func">print</span>(tpl.render(items=[
+    {<span class="string">"name"</span>: <span class="string">"恒大地产"</span>, <span class="string">"amount"</span>: <span class="number">1200</span>},
+    {<span class="string">"name"</span>: <span class="string">"融创中国"</span>, <span class="string">"amount"</span>: <span class="number">980</span>},
+    {<span class="string">"name"</span>: <span class="string">"碧桂园"</span>, <span class="string">"amount"</span>: <span class="number">850</span>},
+]))</pre>
+
+  <h3>2.2 常用过滤器（Filters）</h3>
+  <table>
+    <tr><th>过滤器</th><th>效果</th><th>示例</th></tr>
+    <tr><td><code>round(n)</code></td><td>四舍五入</td><td><code>{{ 3.14159 | round(2) }}</code> → 3.14</td></tr>
+    <tr><td><code>int</code></td><td>转整数</td><td><code>{{ 3.7 | int }}</code> → 3</td></tr>
+    <tr><td><code>format</code></td><td>格式化</td><td><code>{{ 3847 | format(',.0f') }}</code> → 3,847</td></tr>
+    <tr><td><code>join(sep)</code></td><td>列表拼接</td><td><code>{{ items | join(', ') }}</code></td></tr>
+    <tr><td><code>default</code></td><td>默认值</td><td><code>{{ name | default('未知') }}</code></td></tr>
+    <tr><td><code>max / min</code></td><td>极值</td><td><code>{{ amounts | max }}</code></td></tr>
+    <tr><td><code>sort / reverse</code></td><td>排序</td><td><code>{{ items | sort(attribute='amount') | reverse }}</code></td></tr>
+    <tr><td><code>first / last</code></td><td>首尾元素</td><td><code>{{ items | first }}</code></td></tr>
+  </table>
+
+  <div class="tip-box">
+    <strong>数仓人秒懂：</strong>Jinja2 过滤器就像 SQL 的窗口函数 —— 不改变原始数据，只在输出时做变换。<code>| round(2)</code> 类似 <code>ROUND(amount, 2)</code>，<code>| max</code> 类似 <code>MAX(amount) OVER()</code>。
+  </div>
+
+  <h3>3.3 从文件加载模板</h3>
+  <pre><span class="comment"># templates/report.html.j2</span>
+<span class="comment"># &lt;h2&gt;{{ title }}&lt;/h2&gt;</span>
+<span class="comment"># &lt;p&gt;生成时间：{{ created_at }}&lt;/p&gt;</span>
+<span class="comment"># &lt;table&gt;</span>
+<span class="comment">#   {% for row in data %}</span>
+<span class="comment">#   &lt;tr&gt;{% for cell in row %}&lt;td&gt;{{ cell }}&lt;/td&gt;{% endfor %}&lt;/tr&gt;</span>
+<span class="comment">#   {% endfor %}</span>
+<span class="comment"># &lt;/table&gt;</span>
+
+<span class="keyword">from</span> jinja2 <span class="keyword">import</span> Environment, FileSystemLoader
+<span class="keyword">from</span> pathlib <span class="keyword">import</span> Path
+
+<span class="comment"># Environment = 模板环境（可配置全局过滤器、全局变量）</span>
+env = Environment(
+    loader=FileSystemLoader(<span class="string">"templates"</span>),   <span class="comment"># 模板目录</span>
+    trim_blocks=<span class="keyword">True</span>,                     <span class="comment"># 去掉 {% %} 后的空行</span>
+    lstrip_blocks=<span class="keyword">True</span>,                    <span class="comment"># 去掉行首空白</span>
+)
+
+tpl = env.get_template(<span class="string">"report.html.j2"</span>)
+html = tpl.render(
+    title=<span class="string">"不良资产余额TOP10"</span>,
+    created_at=<span class="string">"2026-08-06 09:30"</span>,
+    data=[
+        [<span class="string">"1"</span>, <span class="string">"恒大地产"</span>, <span class="string">"1200"</span>],
+        [<span class="string">"2"</span>, <span class="string">"融创中国"</span>, <span class="string">"980"</span>],
+    ]
+)
+<span class="func">print</span>(html)</pre>
+
+  <h3>2.4 自定义过滤器</h3>
+  <pre><span class="comment"># 数仓人最爱：金额格式化（万/亿）</span>
+<span class="keyword">def</span> <span class="func">format_amount</span>(value, unit=<span class="string">"万"</span>):
+    <span class="string">"""将数字格式化为带单位的金额"""</span>
+    <span class="keyword">if</span> value >= <span class="number">10000</span>:
+        <span class="keyword">return</span> <span class="string">f"¥{value / 10000:.2f}亿"</span>
+    <span class="keyword">return</span> <span class="string">f"¥{value:,.2f}{unit}"</span>
+
+<span class="comment"># 注册到 Jinja2 环境</span>
+env.filters[<span class="string">"amount"</span>] = format_amount
+
+<span class="comment"># 模板中使用：{{ 384715600 | amount }}</span>
+<span class="comment"># 输出：¥3.85亿</span>
+
+<span class="comment"># --- 变化率颜色标记过滤器 ---</span>
+<span class="keyword">def</span> <span class="func">trend_color</span>(value):
+    <span class="string">"""根据变化率返回颜色样式"""</span>
+    <span class="keyword">if</span> value > <span class="number">0</span>:
+        <span class="keyword">return</span> <span class="string">"color:red"</span>    <span class="comment"># 涨 = 红色（中国股市惯例）</span>
+    <span class="keyword">elif</span> value < <span class="number">0</span>:
+        <span class="keyword">return</span> <span class="string">"color:green"</span>  <span class="comment"># 跌 = 绿色</span>
+    <span class="keyword">return</span> <span class="string">"color:gray"</span>
+
+env.filters[<span class="string">"trend"</span>] = trend_color</pre>
+
+  <div class="warn-box">
+    <strong>注意：</strong>Jinja2 模板不是 Python 代码！模板里不能 <code>import</code>、不能调用任意函数、不能写复杂逻辑。复杂运算应在 Python 代码中完成，模板只负责"填空"。
+  </div>
+</div>
+
+<!-- ========== Section 3 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📊</span> Python 知识：matplotlib 数据可视化
+    <span class="time-tag">20 min</span>
+  </div>
+  <p>报表离不开图表。matplotlib 是 Python 可视化的基石（类似 SQL 里的 <code>PIVOT</code> —— 把行列数据变成视觉结构）。</p>
+
+  <h3>3.1 基础图表四件套</h3>
+  <pre><span class="keyword">import</span> matplotlib
+matplotlib.use(<span class="string">"Agg"</span>)  <span class="comment"># 无GUI后端（服务器环境必须）</span>
+<span class="keyword">import</span> matplotlib.pyplot <span class="keyword">as</span> plt
+<span class="keyword">import</span> numpy <span class="keyword">as</span> np
+
+<span class="comment"># --- 中文显示（必须设置，否则全是方块） ---</span>
+plt.rcParams[<span class="string">"font.sans-serif"</span>] = [<span class="string">"SimHei"</span>, <span class="string">"Microsoft YaHei"</span>]
+plt.rcParams[<span class="string">"axes.unicode_minus"</span>] = <span class="keyword">False</span>  <span class="comment"># 负号正常显示</span>
+
+<span class="comment"># ======== 1. 柱状图（分类对比） ========</span>
+fig, ax = plt.subplots(figsize=(<span class="number">10</span>, <span class="number">5</span>))
+
+names = [<span class="string">"恒大"</span>, <span class="string">"融创"</span>, <span class="string">"碧桂园"</span>, <span class="string">"万科"</span>, <span class="string">"保利"</span>]
+amounts = [<span class="number">1200</span>, <span class="number">980</span>, <span class="number">850</span>, <span class="number">620</span>, <span class="number">450</span>]
+colors = [<span class="string">"#dc2626"</span>, <span class="string">"#ea580c"</span>, <span class="string">"#ca8a04"</span>, <span class="string">"#16a34a"</span>, <span class="string">"#3b82f6"</span>]
+
+bars = ax.bar(names, amounts, color=colors, width=<span class="number">0.6</span>)
+
+<span class="comment"># 在柱顶标注数值</span>
+<span class="keyword">for</span> bar, val <span class="keyword">in</span> <span class="builtin">zip</span>(bars, amounts):
+    ax.text(bar.get_x() + bar.get_width()/<span class="number">2</span>, bar.get_height() + <span class="number">20</span>,
+            <span class="string">f"¥{val}"</span>, ha=<span class="string">"center"</span>, va=<span class="string">"bottom"</span>, fontsize=<span class="number">11</span>)
+
+ax.set_title(<span class="string">"不良资产余额 TOP5（万元）"</span>, fontsize=<span class="number">14</span>, fontweight=<span class="keyword">bold</span>)
+ax.set_ylabel(<span class="string">"余额（万元）"</span>)
+ax.spines[<span class="string">"top"</span>].set_visible(<span class="keyword">False</span>)   <span class="comment"># 隐藏顶部边框</span>
+ax.spines[<span class="string">"right"</span>].set_visible(<span class="keyword">False</span>)  <span class="comment"># 隐藏右侧边框</span>
+plt.tight_layout()
+fig.savefig(<span class="string">"chart_bar.png"</span>, dpi=<span class="number">150</span>, bbox_inches=<span class="string">"tight"</span>)
+plt.close(fig)
+<span class="func">print</span>(<span class="string">"柱状图已保存"</span>)</pre>
+
+  <h3>3.2 折线图（趋势分析）</h3>
+  <pre><span class="comment"># ======== 2. 折线图（时间趋势） ========</span>
+fig, ax = plt.subplots(figsize=(<span class="number">10</span>, <span class="number">5</span>))
+
+months = [<span class="string">"1月"</span>, <span class="string">"2月"</span>, <span class="string">"3月"</span>, <span class="string">"4月"</span>, <span class="string">"5月"</span>, <span class="string">"6月"</span>]
+balances = [<span class="number">3200</span>, <span class="number">3350</span>, <span class="number">3480</span>, <span class="number">3620</span>, <span class="number">3710</span>, <span class="number">3847</span>]
+new_bad = [<span class="number">150</span>, <span class="number">180</span>, <span class="number">160</span>, <span class="number">200</span>, <span class="number">130</span>, <span class="number">170</span>]
+
+ax.plot(months, balances, <span class="string">"o-"</span>, color=<span class="string">"#dc2626"</span>, linewidth=<span class="number">2</span>,
+        markersize=<span class="number">8</span>, label=<span class="string">"总余额"</span>)
+ax.plot(months, new_bad, <span class="string">"s--"</span>, color=<span class="string">"#3b82f6"</span>, linewidth=<span class="number">2</span>,
+        markersize=<span class="number">8</span>, label=<span class="string">"新增不良"</span>)
+
+<span class="comment"># 标注关键数据点</span>
+ax.annotate(<span class="string">"峰值"</span>, xy=(<span class="number">5</span>, <span class="number">3847</span>), xytext=(<span class="number">3.5</span>, <span class="number">4000</span>),
+            arrowprops=dict(arrowstyle=<span class="string">"->"</span>, color=<span class="string">"#dc2626"</span>),
+            fontsize=<span class="number">12</span>, color=<span class="string">"#dc2626"</span>)
+
+ax.legend(loc=<span class="string">"upper left"</span>)
+ax.set_title(<span class="string">"不良资产余额月度趋势"</span>, fontsize=<span class="number">14</span>, fontweight=<span class="keyword">bold</span>)
+ax.set_ylabel(<span class="string">"金额（万元）"</span>)
+ax.fill_between(months, balances, alpha=<span class="number">0.1</span>, color=<span class="string">"#dc2626"</span>)  <span class="comment"># 面积填充</span>
+ax.grid(axis=<span class="string">"y"</span>, alpha=<span class="number">0.3</span>)
+plt.tight_layout()
+fig.savefig(<span class="string">"chart_line.png"</span>, dpi=<span class="number">150</span>, bbox_inches=<span class="string">"tight"</span>)
+plt.close(fig)</pre>
+
+  <h3>3.3 饼图 + 组合子图</h3>
+  <pre><span class="comment"># ======== 3. 饼图（占比分布） ========</span>
+fig, axes = plt.subplots(<span class="number">1</span>, <span class="number">2</span>, figsize=(<span class="number">12</span>, <span class="number">5</span>))
+
+<span class="comment"># 左图：饼图</span>
+categories = [<span class="string">"房地产"</span>, <span class="string">"制造业"</span>, <span class="string">"批发零售"</span>, <span class="string">"其他"</span>]
+values = [<span class="number">45</span>, <span class="number">25</span>, <span class="number">18</span>, <span class="number">12</span>]
+explode = (<span class="number">0.05</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>)  <span class="comment"># 房地产稍微突出</span>
+
+axes[<span class="number">0</span>].pie(values, labels=categories, explode=explode,
+           autopct=<span class="string">"%1.1f%%"</span>, startangle=<span class="number">90</span>,
+           colors=[<span class="string">"#dc2626"</span>, <span class="string">"#3b82f6"</span>, <span class="string">"#ca8a04"</span>, <span class="string">"#94a3b8"</span>])
+axes[<span class="number">0</span>].set_title(<span class="string">"不良资产行业分布"</span>)
+
+<span class="comment"># 右图：水平条形图</span>
+regions = [<span class="string">"华东"</span>, <span class="string">"华南"</span>, <span class="string">"华北"</span>, <span class="string">"华中"</span>, <span class="string">"西部"</span>]
+region_vals = [<span class="number">1580</span>, <span class="number">920</span>, <span class="number">670</span>, <span class="number">420</span>, <span class="number">257</span>]
+axes[<span class="number">1</span>].barh(regions, region_vals, color=<span class="string">"#6366f1"</span>, height=<span class="number">0.5</span>)
+axes[<span class="number">1</span>].set_title(<span class="string">"区域分布（万元）"</span>)
+<span class="keyword">for</span> i, v <span class="keyword">in</span> <span class="builtin">enumerate</span>(region_vals):
+    axes[<span class="number">1</span>].text(v + <span class="number">20</span>, i, <span class="string">f"¥{v}"</span>, va=<span class="string">"center"</span>, fontsize=<span class="number">11</span>)
+
+plt.tight_layout()
+fig.savefig(<span class="string">"chart_combo.png"</span>, dpi=<span class="number">150</span>, bbox_inches=<span class="string">"tight"</span>)
+plt.close(fig)</pre>
+
+  <div class="concept-box">
+    <strong>关键设置：</strong><code>matplotlib.use("Agg")</code> 是在无GUI的服务器/CI环境中必须调用的，否则会报 <code>Display</code> 错误。类比：就像 SQL 里 <code>SET NOCOUNT ON</code> 关掉不必要的信息输出。
+  </div>
+</div>
+
+<!-- ========== Section 4 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🤖</span> LLM 实战：基于查询结果的报表生成
+    <span class="time-tag">20 min</span>
+  </div>
+  <p>SQL 查出的是"数据"，我们需要 LLM 把数据翻译成"洞察"。</p>
+
+  <h3>4.1 报表生成的 Prompt 设计</h3>
+  <div class="tip-box">
+    <strong>核心思路：</strong>把 SQL 结果（列名 + 数据行）喂给 LLM，让它做三件事：<strong>① 描述数据概况</strong> → <strong>② 发现异常/趋势</strong> → <strong>③ 给出建议</strong>。这就是一个标准的"数据分析报告"结构。
+  </div>
+
+  <pre><span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> typing <span class="keyword">import</span> Optional
+<span class="keyword">from</span> datetime <span class="keyword">import</span> datetime
+
+<span class="comment"># --- 报表上下文（SQL结果 + 元数据） ---</span>
+@dataclass
+<span class="keyword">class</span> <span class="class">ReportContext</span>:
+    <span class="string">"""报表生成所需的上下文信息"""</span>
+    query: str                          <span class="comment"># 用户原始问题</span>
+    sql: str                            <span class="comment"># 生成的 SQL</span>
+    columns: list[str]                  <span class="comment"># 查询结果的列名</span>
+    data: list[dict]                    <span class="comment"># 查询结果（字典列表）</span>
+    report_type: str = <span class="string">"analysis"</span>    <span class="comment"># analysis / summary / comparison</span>
+    period: str = <span class="string">"2026年上半年"</span>     <span class="comment"># 时间范围</span>
+    max_rows: int = <span class="number">20</span>               <span class="comment"># 最大展示行数</span>
+
+    <span class="keyword">def</span> <span class="func">format_data</span>(self) -> str:
+        <span class="string">"""将数据格式化为 LLM 易读的文本"""</span>
+        <span class="comment"># 只取前 max_rows 行，避免 Token 爆炸</span>
+        rows = self.data[:self.max_rows]
+        header = <span class="string">" | "</span>.join(self.columns)
+        lines = [header, <span class="string">"-"</span> * len(header)]
+        <span class="keyword">for</span> row <span class="keyword">in</span> rows:
+            line = <span class="string">" | "</span>.join(<span class="builtin">str</span>(row.get(c, <span class="string">""</span>)) <span class="keyword">for</span> c <span class="keyword">in</span> self.columns)
+            lines.append(line)
+        <span class="keyword">return</span> <span class="string">"\n"</span>.join(lines)
+
+
+<span class="comment"># --- 报表 Prompt 构建器 ---</span>
+<span class="keyword">class</span> <span class="class">ReportPromptBuilder</span>:
+    <span class="string">"""构建报表生成的 Prompt"""</span>
+
+    SYSTEM_ANALYSIS = <span class="string">"""你是一位专业的金融数据分析师，擅长不良资产管理领域。
+请根据查询结果生成一份简洁、专业的分析报告。
+
+报告结构：
+1. **数据概况**：一句话总结查询范围和总体情况
+2. **关键发现**：列出 2-3 个最重要的数据洞察（用具体数字）
+3. **趋势/异常**：标注同比/环比变化、异常值
+4. **建议**：基于数据给出 1-2 条可执行的建议
+
+格式要求：
+- 使用中文
+- 数字用 ¥ 和万/亿为单位
+- 变化用 ↑↓ 箭头标记
+- 语气专业但不冗余，每段不超过 3 句话"""</span>
+
+    SYSTEM_SUMMARY = <span class="string">"""你是一位数据分析师。请生成一份简短的数据摘要：
+- 总体概况（1句话）
+- TOP3 关键指标
+- 结论（1句话）
+控制在 200 字以内。"""</span>
+
+    @classmethod
+    <span class="keyword">def</span> <span class="func">build</span>(cls, ctx: ReportContext) -> str:
+        <span class="string">"""构建完整的 Prompt"""</span>
+        system = (cls.SYSTEM_ANALYSIS <span class="keyword">if</span> ctx.report_type == <span class="string">"analysis"</span>
+                  <span class="keyword">else</span> cls.SYSTEM_SUMMARY)
+
+        user_prompt = <span class="string">f"""## 查询背景
+- 用户问题：{ctx.query}
+- 时间范围：{ctx.period}
+- 查询 SQL：```sql
+{ctx.sql}
+```
+
+## 查询结果（共 {len(ctx.data)} 行，展示前 {ctx.max_rows} 行）
+{ctx.format_data()}
+
+## 要求
+请根据以上数据，生成{ctx.period}的{'详细分析报告' if ctx.report_type == 'analysis' else '数据摘要'}。
+重点关注数据中的异常值、趋势变化和排名变化。"""</span>
+        <span class="keyword">return</span> system, user_prompt</pre>
+
+  <h3>4.2 完整报表生成引擎</h3>
+  <pre><span class="keyword">import</span> json
+<span class="keyword">import</span> re
+<span class="keyword">from</span> zhipuai <span class="keyword">import</span> ZhipuAI
+
+<span class="keyword">class</span> <span class="class">ReportGenerator</span>:
+    <span class="string">"""基于 LLM 的智能报表生成引擎"""</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, api_key: str, model: str = <span class="string">"glm-4-flash"</span>):
+        self.client = ZhipuAI(api_key=api_key)
+        self.model = model
+
+    <span class="keyword">def</span> <span class="func">generate</span>(self, ctx: ReportContext) -> str:
+        <span class="string">"""生成报表文本"""</span>
+        system_prompt, user_prompt = ReportPromptBuilder.build(ctx)
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {<span class="string">"role"</span>: <span class="string">"system"</span>, <span class="string">"content"</span>: system_prompt},
+                {<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: user_prompt},
+            ],
+            temperature=<span class="number">0.3</span>,  <span class="comment"># 低温度：报表要准确，不要太发散</span>
+        )
+        <span class="keyword">return</span> response.choices[<span class="number">0</span>].message.content
+
+    <span class="keyword">def</span> <span class="func">generate_with_fallback</span>(self, ctx: ReportContext, retries: int = <span class="number">2</span>) -> str:
+        <span class="string">"""带降级重试的报表生成"""</span>
+        models = [self.model, <span class="string">"glm-4-flash"</span>]  <span class="comment"># 降级模型列表</span>
+        <span class="keyword">for</span> model <span class="keyword">in</span> models:
+            <span class="keyword">for</span> attempt <span class="keyword">in</span> <span class="builtin">range</span>(retries + <span class="number">1</span>):
+                <span class="keyword">try</span>:
+                    <span class="comment"># 临时切换模型</span>
+                    orig_model = self.model
+                    self.model = model
+                    result = self.generate(ctx)
+                    self.model = orig_model
+                    <span class="keyword">return</span> result
+                <span class="keyword">except</span> Exception <span class="keyword">as</span> e:
+                    self.model = orig_model
+                    <span class="keyword">if</span> attempt == retries:
+                        <span class="keyword">continue</span>  <span class="comment"># 下一个模型</span>
+        <span class="keyword">return</span> <span class="string">f"[报表生成失败] 查询：{ctx.query}\n原始数据行数：{len(ctx.data)}"</span></pre>
+
+  <h3>4.3 LLM 驱动的图表推荐</h3>
+  <div class="tip-box">
+    <strong>进阶技巧：</strong>让 LLM 根据 SQL 结果的特征自动推荐合适的图表类型。比如有日期列 → 推荐折线图，有分类列 + 数值列 → 推荐柱状图。这比硬编码判断更灵活。
+  </div>
+  <pre><span class="comment"># --- 图表推荐（基于 LLM 推理） ---</span>
+CHART_RECOMMEND_PROMPT = <span class="string">"""根据以下 SQL 查询的列信息，推荐最合适的图表类型。
+
+列信息：{columns}
+样本数据：{sample}
+查询类型：{query_type}
+
+可选图表类型：
+- bar: 柱状图（适合分类对比）
+- line: 折线图（适合时间趋势）
+- pie: 饼图（适合占比分布，不超过6类）
+- scatter: 散点图（适合相关性分析）
+- table: 纯表格（不适合可视化的数据）
+
+请只返回 JSON 格式：
+{"chart_type": "bar", "x_column": "...", "y_column": "...", "title": "...", "reason": "..."}"""</span>
+
+<span class="keyword">def</span> <span class="func">recommend_chart</span>(columns: list[str], sample: list[dict],
+                   query: str, client: ZhipuAI) -> dict:
+    <span class="string">"""让 LLM 推荐合适的图表类型"""</span>
+    prompt = CHART_RECOMMEND_PROMPT.format(
+        columns=columns,
+        sample=json.dumps(sample[:<span class="number">3</span>], ensure_ascii=<span class="keyword">False</span>),
+        query_type=<span class="string">"分析类"</span> <span class="keyword">if</span> <span class="string">"分析"</span> <span class="keyword">in</span> query <span class="keyword">else</span> <span class="string">"汇总类"</span>,
+    )
+    resp = client.chat.completions.create(
+        model=<span class="string">"glm-4-flash"</span>,
+        messages=[{<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: prompt}],
+        temperature=<span class="number">0.1</span>,
+    )
+    <span class="comment"># 提取 JSON（容错处理）</span>
+    content = resp.choices[<span class="number">0</span>].message.content
+    json_match = re.search(<span class="string">r'\{[^}]+\}'</span>, content)
+    <span class="keyword">if</span> json_match:
+        <span class="keyword">return</span> json.loads(json_match.group())
+    <span class="keyword">return</span> {<span class="string">"chart_type"</span>: <span class="string">"table"</span>, <span class="string">"reason"</span>: <span class="string">"无法解析推荐结果"</span>}</pre>
+</div>
+
+<!-- ========== Section 5 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏗️</span> LLM 实战：ReportBuilder 整合报表 + 图表
+    <span class="time-tag">15 min</span>
+  </div>
+  <p>把上面的模块组装成一个完整的报表生成器：SQL → 数据 → LLM 分析 → 图表 → Jinja2 渲染 → HTML 输出。</p>
+
+  <pre><span class="keyword">import</span> base64
+<span class="keyword">from</span> pathlib <span class="keyword">import</span> Path
+<span class="keyword">from</span> io <span class="keyword">import</span> BytesIO
+<span class="keyword">import</span> matplotlib.pyplot <span class="keyword">as</span> plt
+
+<span class="keyword">class</span> <span class="class">ChartRenderer</span>:
+    <span class="string">"""自动生成图表并转为 base64 内嵌到 HTML"""</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self):
+        plt.rcParams[<span class="string">"font.sans-serif"</span>] = [<span class="string">"SimHei"</span>, <span class="string">"Microsoft YaHei"</span>]
+        plt.rcParams[<span class="string">"axes.unicode_minus"</span>] = <span class="keyword">False</span>
+
+    <span class="keyword">def</span> <span class="func">render_to_base64</span>(self, chart_func) -> str:
+        <span class="string">"""执行绘图函数，返回 base64 编码的 PNG"""</span>
+        buf = BytesIO()
+        fig = chart_func()  <span class="comment"># 调用绘图函数，返回 fig</span>
+        fig.savefig(buf, format=<span class="string">"png"</span>, dpi=<span class="number">150</span>,
+                   bbox_inches=<span class="string">"tight"</span>, facecolor=<span class="string">"white"</span>)
+        plt.close(fig)
+        buf.seek(<span class="number">0</span>)
+        b64 = base64.b64encode(buf.read()).decode(<span class="string">"utf-8"</span>)
+        <span class="keyword">return</span> <span class="string">f"data:image/png;base64,{b64}"</span>
+
+    <span class="keyword">def</span> <span class="func">render_bar</span>(self, names, values, title=<span class="string">""</span>,
+                 colors=<span class="keyword">None</span>) -> str:
+        <span class="string">"""生成柱状图 base64"""</span>
+        <span class="keyword">def</span> <span class="func">draw</span>():
+            fig, ax = plt.subplots(figsize=(<span class="number">8</span>, <span class="number">4</span>))
+            c = colors <span class="keyword">or</span> [<span class="string">"#3b82f6"</span>] * len(names)
+            bars = ax.bar(names, values, color=c, width=<span class="number">0.5</span>)
+            <span class="keyword">for</span> bar, v <span class="keyword">in</span> <span class="builtin">zip</span>(bars, values):
+                ax.text(bar.get_x() + bar.get_width()/<span class="number">2</span>, bar.get_height(),
+                        <span class="builtin">str</span>(v), ha=<span class="string">"center"</span>, va=<span class="string">"bottom"</span>, fontsize=<span class="number">10</span>)
+            ax.set_title(title, fontsize=<span class="number">13</span>, fontweight=<span class="keyword">bold</span>)
+            ax.spines[<span class="string">"top"</span>].set_visible(<span class="keyword">False</span>)
+            ax.spines[<span class="string">"right"</span>].set_visible(<span class="keyword">False</span>)
+            <span class="keyword">return</span> fig
+        <span class="keyword">return</span> self.render_to_base64(draw)
+
+    <span class="keyword">def</span> <span class="func">render_line</span>(self, x_labels, y_values, title=<span class="string">""</span>,
+                  label=<span class="string">""</span>, color=<span class="string">"#dc2626"</span>) -> str:
+        <span class="string">"""生成折线图 base64"""</span>
+        <span class="keyword">def</span> <span class="func">draw</span>():
+            fig, ax = plt.subplots(figsize=(<span class="number">8</span>, <span class="number">4</span>))
+            ax.plot(x_labels, y_values, <span class="string">"o-"</span>, color=color,
+                    linewidth=<span class="number">2</span>, markersize=<span class="number">6</span>, label=label)
+            ax.fill_between(<span class="builtin">range</span>(len(x_labels)), y_values,
+                            alpha=<span class="number">0.1</span>, color=color)
+            ax.legend()
+            ax.set_title(title, fontsize=<span class="number">13</span>, fontweight=<span class="keyword">bold</span>)
+            ax.grid(axis=<span class="string">"y"</span>, alpha=<span class="number">0.3</span>)
+            <span class="keyword">return</span> fig
+        <span class="keyword">return</span> self.render_to_base64(draw)
+
+
+<span class="comment"># --- 完整报表构建器 ---</span>
+<span class="keyword">class</span> <span class="class">ReportBuilder</span>:
+    <span class="string">"""整合数据 + LLM 分析 + 图表 + 模板的报表构建器"""</span>
+
+    <span class="comment"># HTML 报表模板</span>
+    TEMPLATE = <span class="string">"""
+&lt;html lang="zh-CN"&gt;
+&lt;head&gt;&lt;meta charset="UTF-8"&gt;
+&lt;title&gt;{{ title }}&lt;/title&gt;
+&lt;style&gt;
+  body { font-family: sans-serif; max-width: 800px;
+         margin: 0 auto; padding: 20px; background: #f8fafc; }
+  .card { background: white; border-radius: 12px;
+          padding: 24px; margin: 16px 0;
+          border: 1px solid #e2e8f0; }
+  h1 { color: #1e293b; font-size: 22px; }
+  h2 { color: #3b82f6; font-size: 17px; margin-top: 20px; }
+  .meta { color: #94a3b8; font-size: 13px; }
+  .content { color: #475569; line-height: 1.8; font-size: 14px; }
+  img { max-width: 100%; border-radius: 8px; margin: 12px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  th { background: #f1f5f9; padding: 8px 12px;
+       text-align: left; font-size: 13px; }
+  td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0;
+       font-size: 13px; color: #475569; }
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;div class="card"&gt;
+    &lt;h1&gt;{{ title }}&lt;/h1&gt;
+    &lt;p class="meta"&gt;生成时间：{{ created_at }} | 查询：{{ query }}&lt;/p&gt;
+  &lt;/div&gt;
+
+  &lt;div class="card"&gt;
+    &lt;h2&gt;📊 数据分析&lt;/h2&gt;
+    &lt;div class="content"&gt;{{ analysis | safe }}&lt;/div&gt;
+  &lt;/div&gt;
+
+  {% if chart_image %}
+  &lt;div class="card"&gt;
+    &lt;h2&gt;📈 数据可视化&lt;/h2&gt;
+    &lt;img src="{{ chart_image }}" alt="数据图表"&gt;
+  &lt;/div&gt;
+  {% endif %}
+
+  {% if data %}
+  &lt;div class="card"&gt;
+    &lt;h2&gt;📋 原始数据&lt;/h2&gt;
+    &lt;table&gt;
+      &lt;tr&gt;{% for col in columns %}&lt;th&gt;{{ col }}&lt;/th&gt;{% endfor %}&lt;/tr&gt;
+      {% for row in data %}
+      &lt;tr&gt;{% for col in columns %}&lt;td&gt;{{ row[col] }}&lt;/td&gt;{% endfor %}&lt;/tr&gt;
+      {% endfor %}
+    &lt;/table&gt;
+  &lt;/div&gt;
+  {% endif %}
+&lt;/body&gt;
+&lt;/html&gt;
+"""</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, report_gen: ReportGenerator,
+                 chart_renderer: ChartRenderer):
+        self.report_gen = report_gen
+        self.chart = chart_renderer
+
+    <span class="keyword">def</span> <span class="func">build</span>(self, ctx: ReportContext,
+              chart_type: str = <span class="string">"auto"</span>) -> str:
+        <span class="string">"""构建完整的 HTML 报表"""</span>
+        <span class="comment"># Step 1: LLM 生成分析文本</span>
+        analysis = self.report_gen.generate(ctx)
+
+        <span class="comment"># Step 2: 生成图表（如果有数值列）</span>
+        chart_image = <span class="keyword">None</span>
+        <span class="keyword">if</span> chart_type != <span class="string">"none"</span> <span class="keyword">and</span> ctx.data:
+            chart_image = self._auto_chart(ctx, chart_type)
+
+        <span class="comment"># Step 3: Jinja2 渲染 HTML</span>
+        tpl = Template(self.TEMPLATE)
+        html = tpl.render(
+            title=<span class="string">f"AMC 数据分析报告 — {ctx.period}"</span>,
+            created_at=datetime.now().strftime(<span class="string">"%Y-%m-%d %H:%M"</span>),
+            query=ctx.query,
+            analysis=analysis,     <span class="comment"># | safe 允许 HTML 标签</span>
+            chart_image=chart_image,
+            data=ctx.data[:<span class="number">50</span>],  <span class="comment"># 最多展示50行</span>
+            columns=ctx.columns,
+        )
+        <span class="keyword">return</span> html
+
+    <span class="keyword">def</span> <span class="func">_auto_chart</span>(self, ctx: ReportContext,
+                    chart_type: str) -> Optional[str]:
+        <span class="string">"""根据数据自动选择图表类型"""</span>
+        <span class="keyword">try</span>:
+            <span class="comment"># 简单策略：有日期列用折线，有名称+数值用柱状</span>
+            date_cols = [c <span class="keyword">for</span> c <span class="keyword">in</span> ctx.columns
+                       <span class="keyword">if</span> <span class="string">"日期"</span> <span class="keyword">in</span> c <span class="keyword">or</span> <span class="string">"时间"</span> <span class="keyword">in</span> c <span class="keyword">or</span> <span class="string">"月份"</span> <span class="keyword">in</span> c]
+            name_cols = [c <span class="keyword">for</span> c <span class="keyword">in</span> ctx.columns
+                       <span class="keyword">if</span> <span class="string">"名称"</span> <span class="keyword">in</span> c <span class="keyword">or</span> <span class="string">"行业"</span> <span class="keyword">in</span> c <span class="keyword">or</span> <span class="string">"企业"</span> <span class="keyword">in</span> c]
+            num_cols = [c <span class="keyword">for</span> c <span class="keyword">in</span> ctx.columns
+                       <span class="keyword">if</span> <span class="builtin">isinstance</span>(ctx.data[<span class="number">0</span>].get(c), (<span class="builtin">int</span>, <span class="builtin">float</span>))]
+
+            <span class="keyword">if</span> date_cols <span class="keyword">and</span> num_cols:
+                <span class="comment"># 折线图</span>
+                x = [<span class="builtin">str</span>(r[date_cols[<span class="number">0</span>]) <span class="keyword">for</span> r <span class="keyword">in</span> ctx.data]
+                y = [r[num_cols[<span class="number">0</span>]] <span class="keyword">for</span> r <span class="keyword">in</span> ctx.data]
+                <span class="keyword">return</span> self.chart.render_line(x, y, title=ctx.query)
+            <span class="keyword">elif</span> name_cols <span class="keyword">and</span> num_cols:
+                <span class="comment"># 柱状图</span>
+                x = [<span class="builtin">str</span>(r[name_cols[<span class="number">0</span>]) <span class="keyword">for</span> r <span class="keyword">in</span> ctx.data[:<span class="number">10</span>]]
+                y = [r[num_cols[<span class="number">0</span>]] <span class="keyword">for</span> r <span class="keyword">in</span> ctx.data[:<span class="number">10</span>]]
+                <span class="keyword">return</span> self.chart.render_bar(x, y, title=ctx.query)
+        <span class="keyword">except</span> Exception:
+            <span class="keyword">pass</span>  <span class="comment"># 图表生成失败不影响报表</span>
+        <span class="keyword">return</span> <span class="keyword">None</span>
+
+    <span class="keyword">def</span> <span class="func">save</span>(self, html: str, output_path: str):
+        <span class="string">"""保存报表到文件"""</span>
+        Path(output_path).parent.mkdir(parents=<span class="keyword">True</span>, exist_ok=<span class="keyword">True</span>)
+        Path(output_path).write_text(html, encoding=<span class="string">"utf-8"</span>)
+        <span class="func">print</span>(<span class="string">f"报表已保存: {output_path}"</span>)</pre>
+
+  <h3>5.2 端到端使用示例</h3>
+  <pre><span class="comment"># ======== 完整使用示例 ========</span>
+<span class="keyword">from</span> dotenv <span class="keyword">import</span> load_dotenv
+load_dotenv()
+
+<span class="comment"># 初始化组件</span>
+report_gen = ReportGenerator(api_key=os.getenv(<span class="string">"ZHIPU_API_KEY"</span>))
+chart_renderer = ChartRenderer()
+builder = ReportBuilder(report_gen, chart_renderer)
+
+<span class="comment"># 模拟 SQL 查询结果</span>
+ctx = ReportContext(
+    query=<span class="string">"各行业不良资产余额排名"</span>,
+    sql=<span class="string">"SELECT industry, SUM(balance) as total FROM bad_assets GROUP BY industry ORDER BY total DESC"</span>,
+    columns=[<span class="string">"industry"</span>, <span class="string">"total"</span>],
+    data=[
+        {<span class="string">"industry"</span>: <span class="string">"房地产"</span>, <span class="string">"total"</span>: <span class="number">4250</span>},
+        {<span class="string">"industry"</span>: <span class="string">"制造业"</span>, <span class="string">"total"</span>: <span class="number">2380</span>},
+        {<span class="string">"industry"</span>: <span class="string">"批发零售"</span>, <span class="string">"total"</span>: <span class="number">1720</span>},
+        {<span class="string">"industry"</span>: <span class="string">"建筑业"</span>, <span class="string">"total"</span>: <span class="number">980</span>},
+        {<span class="string">"industry"</span>: <span class="string">"交通运输"</span>, <span class="string">"total"</span>: <span class="number">650</span>},
+    ],
+    period=<span class="string">"2026年上半年"</span>,
+)
+
+<span class="comment"># 生成报表</span>
+html = builder.build(ctx)
+builder.save(html, <span class="string">"output/report_2026h1.html"</span>)
+<span class="func">print</span>(<span class="string">"报表生成完成！"</span>)</pre>
+</div>
+
+<!-- ========== Section 6 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚡</span> Python 知识补充：base64 与 BytesIO
+    <span class="time-tag">5 min</span>
+  </div>
+  <p>上面用到了 <code>base64</code> 和 <code>BytesIO</code>，这两个在报表/图片处理中非常常用。</p>
+
+  <pre><span class="keyword">import</span> base64
+<span class="keyword">from</span> io <span class="keyword">import</span> BytesIO
+<span class="keyword">from</span> pathlib <span class="keyword">import</span> Path
+
+<span class="comment"># --- BytesIO：内存中的"文件" ---</span>
+<span class="comment"># 就像 SQL 临时表：在内存中操作，不落盘</span>
+buf = BytesIO()
+buf.write(<span class="string">b"hello"</span>)
+buf.seek(<span class="number">0</span>)          <span class="comment"># 指针回到开头（重要！）</span>
+content = buf.read()  <span class="comment"># b'hello'</span>
+
+<span class="comment"># matplotlib 的 fig.savefig() 可以直接写 BytesIO</span>
+fig = plt.figure()
+plt.plot([<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>], [<span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>])
+buf = BytesIO()
+fig.savefig(buf, format=<span class="string">"png"</span>, dpi=<span class="number">150</span>)
+buf.seek(<span class="number">0</span>)
+png_bytes = buf.read()  <span class="comment"># PNG 二进制数据，没落盘</span>
+plt.close(fig)
+
+<span class="comment"># --- base64：二进制 ↔ 字符串 ---</span>
+<span class="comment"># 为什么需要？HTML 的 &lt;img src="data:image/png;base64,..."&gt; 需要 base64</span>
+b64_str = base64.b64encode(png_bytes).decode(<span class="string">"utf-8"</span>)
+img_tag = <span class="string">f'&lt;img src="data:image/png;base64,{b64_str}"&gt;'</span>
+
+<span class="comment"># 反向：base64 → 文件</span>
+<span class="comment"># Path("output.png").write_bytes(base64.b64decode(b64_str))</span>
+
+<span class="comment"># --- 文件 vs 内存 对比 ---</span>
+<span class="comment"># 写文件：fig.savefig("chart.png")  ← 落盘，需要管理文件</span>
+<span class="comment"># 写内存：fig.savefig(BytesIO())     ← 纯内存，适合嵌入 HTML/JSON</span></pre>
+
+  <div class="concept-box">
+    <strong>数仓类比：</strong>BytesIO 就像 SQL 的 <code>WITH cte AS (...)</code> —— 在内存中暂存中间结果，不需要创建物理临时表。base64 编码就像把 BLOB 字段转成 VARCHAR 存储 —— 用字符串形式携带二进制数据。
+  </div>
+</div>
+
+<!-- ========== Section 7 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚠️</span> 常见陷阱 Top 5
+  </div>
+
+  <div class="pitfall">
+    <span class="num">1</span>
+    <span class="desc"><strong>Jinja2 的 <code>| safe</code> 过滤器</strong>：LLM 返回的文本可能包含 <code>&lt;b&gt;</code>、<code>&lt;h3&gt;</code> 等 HTML 标签。不写 <code>| safe</code>，Jinja2 会自动转义成 <code>&amp;lt;b&amp;gt;</code>，格式全没了。但 <code>| safe</code> 有 XSS 风险 —— 确保数据来源可信。</span>
+  </div>
+  <div class="pitfall">
+    <span class="num">2</span>
+    <span class="desc"><strong>matplotlib 中文字体</strong>：Windows 上 <code>SimHei</code>（黑体）和 <code>Microsoft YaHei</code>（微软雅黑）通常可用，但 Linux/Mac 上不一定。如果出现方块，需要指定系统自带的中文字体路径。</span>
+  </div>
+  <div class="pitfall">
+    <span class="num">3</span>
+    <span class="desc"><strong>matplotlib 内存泄漏</strong>：每次创建 <code>fig, ax</code> 后一定要 <code>plt.close(fig)</code>。否则 figure 对象会一直堆积在内存里，生成几百张图后 OOM。</span>
+  </div>
+  <div class="pitfall">
+    <span class="num">4</span>
+    <span class="desc"><strong>Token 爆炸</strong>：SQL 查出 10000 行直接喂给 LLM？不行。<code>ReportContext.max_rows</code> 控制展示行数，图表也只取 Top-N。大数据量时考虑先做聚合。</span>
+  </div>
+  <div class="pitfall">
+    <span class="num">5</span>
+    <span class="desc"><strong>LLM 编造数据</strong>：LLM 生成报告时可能"创造"原文没有的数字。 mitigation：在 Prompt 中强调"仅基于查询结果中的数据，不要编造或推测具体数字"。</span>
+  </div>
+</div>
+
+<!-- ========== Section 8 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">✅</span> 最佳实践速查表
+  </div>
+  <table>
+    <tr><th>场景</th><th>最佳实践</th><th>原因</th></tr>
+    <tr><td>报表温度</td><td><code>temperature=0.2~0.3</code></td><td>低随机性，数字和事实更准确</td></tr>
+    <tr><td>模板渲染</td><td><code>trim_blocks + lstrip_blocks</code></td><td>避免大量空行</td></tr>
+    <tr><td>图表 DPI</td><td><code>dpi=150</code></td><td>屏幕阅读清晰，文件不过大</td></tr>
+    <tr><td>大量图表</td><td><code>plt.close(fig)</code></td><td>防止内存泄漏</td></tr>
+    <tr><td>大结果集</td><td>先聚合再可视化</td><td>柱状图超过20根柱子就看不清了</td></tr>
+    <tr><td>报表存档</td><td>HTML + 日期目录</td><td>便于回溯和历史对比</td></tr>
+    <tr><td>错误处理</td><td>图表失败不影响报表</td><td><code>try/except</code> 包裹图表生成</td></tr>
+  </table>
+</div>
+
+<!-- ========== Section 9 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏋️</span> 今日练习
+  </div>
+
+  <h3>练习 1：增强 ChartRenderer</h3>
+  <p>给 <code>ChartRenderer</code> 添加 <code>render_pie()</code> 方法，支持饼图生成并转 base64。</p>
+
+  <h3>练习 2：Markdown 报表</h3>
+  <p>修改 <code>ReportBuilder</code>，支持输出 Markdown 格式报表（用 <code>md_table</code> 生成表格）。提示：Jinja2 模板可以渲染任何文本格式，不只是 HTML。</p>
+
+  <h3>练习 3：LeetCode #49 — 字母异位词分组</h3>
+  <p>用今天学的 <code>defaultdict</code> + <code>sorted</code> 完成。思路：对每个字符串排序后作为 key，相同 key 的字符串放到同一个 list。</p>
+
+  <pre><span class="keyword">from</span> collections <span class="keyword">import</span> defaultdict
+
+<span class="keyword">def</span> <span class="func">groupAnagrams</span>(strs: list[str]) -> list[list[str]]:
+    groups = defaultdict(list)
+    <span class="keyword">for</span> s <span class="keyword">in</span> strs:
+        key = <span class="string">""</span>.join(sorted(s))  <span class="comment"># "eat" → "aet"</span>
+        groups[key].append(s)
+    <span class="keyword">return</span> list(groups.values())
+
+<span class="comment"># 测试</span>
+<span class="func">print</span>(groupAnagrams([<span class="string">"eat"</span>,<span class="string">"tea"</span>,<span class="string">"tan"</span>,<span class="string">"ate"</span>,<span class="string">"nat"</span>,<span class="string">"bat"</span>]))
+<span class="comment"># [["eat","tea","ate"], ["tan","nat"], ["bat"]]</span></pre>
+</div>
+
+<!-- ========== Section 10 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🚀</span> 下一步预告
+  </div>
+  <div class="summary-box">
+    <h4>Day 58：P3 收官 — 定时调度 + 多渠道通知 + 报表分发</h4>
+    <p>明天我们将学习：</p>
+    <ul>
+      <li><strong>APScheduler 定时调度</strong>：让报表每天/每周自动生成（类似数仓的 Airflow DAG）</li>
+      <li><strong>多格式输出</strong>：HTML / PDF / Excel 三种格式</li>
+      <li><strong>通知推送</strong>：报表生成后自动发送（邮件/企业微信/飞书）</li>
+      <li><strong>P3 完整收官</strong>：回顾三天知识图谱，总结核心收获</li>
+    </ul>
+  </div>
+</div>
+
+<div class="footer">
+  LLM 120天学习计划 · Day 57/70 · P3 自动化数据报表生成 Day 2/3
+</div>
+
+</body>
+</html>
