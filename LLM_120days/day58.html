@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 58 - P3 收官：定时调度 + 多渠道通知 + 报表分发</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--purple:#9333ea;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#f0fdf4,#eff6ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #bbf7d0; }
+  .header .badge { display:inline-block;background:#dcfce7;color:#15803d;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--green);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--green); }
+  .tip-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--accent); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  pre { background:#1e293b;color:#e2e8f0;padding:18px 22px;border-radius:8px;overflow-x:auto;margin:14px 0;font-size:13.5px;line-height:1.7; }
+  code { font-family:'Cascadia Code','Fira Code',Consolas,monospace; }
+  .inline-code { background:var(--surface2);color:var(--accent2);padding:2px 7px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace; }
+  .compare-table { width:100%;border-collapse:collapse;margin:14px 0;font-size:14px; }
+  .compare-table th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border-bottom:2px solid var(--border); }
+  .compare-table td { padding:10px 14px;border-bottom:1px solid var(--surface3); }
+  .compare-table tr:hover { background:#f8fafc; }
+  .compare-table .highlight { background:#f0fdf4;font-weight:600; }
+  .step-list { counter-reset:step; }
+  .step-list > li { counter-increment:step;position:relative;padding-left:42px;margin-bottom:14px;list-style:none; }
+  .step-list > li::before { content:counter(step);position:absolute;left:0;top:2px;width:28px;height:28px;background:var(--accent);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700; }
+  .sub-list { padding-left:20px;margin:8px 0; }
+  .sub-list li { margin-bottom:6px; }
+  .summary-card { background:linear-gradient(135deg,#eff6ff,#f0fdf4);border:2px solid #bbf7d0;border-radius:var(--radius);padding:20px 24px;margin:16px 0; }
+  .summary-card h3 { color:var(--green);margin-bottom:10px; }
+  .footer { text-align:center;padding:24px;color:var(--text3);font-size:13px;margin-top:24px; }
+  .tag { display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;margin:2px 4px 2px 0; }
+  .tag-python { background:#dbeafe;color:#1d4ed8; }
+  .tag-llm { background:#f3e8ff;color:#7c3aed; }
+  .tag-project { background:#dcfce7;color:#15803d; }
+  h4 { font-size:15px;font-weight:700;margin:16px 0 8px 0;color:var(--text); }
+  ul, ol { padding-left:20px;margin:8px 0; }
+  li { margin-bottom:4px; }
+  a { color:var(--accent);text-decoration:none; }
+  a:hover { text-decoration:underline; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Phase 4 · P3 收官 · Day 58/70</div>
+  <h1>📅 定时调度 + 多渠道通知 + 报表分发</h1>
+  <p class="subtitle">P3 自动化报表系统最后一站 — 从"手动运行"到"全自动无人值守"</p>
+</div>
+
+<div class="progress-bar">
+  <div class="label">总进度</div>
+  <div class="track"><div class="fill" style="width:82.9%"></div></div>
+  <div class="percent">58/70</div>
+  <div class="label" style="margin-left:8px">P3 Day 3/3</div>
+</div>
+
+<!-- ===================== Section 1: 项目总览 ===================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🎯</span> P3 三天全景回顾
+    <span class="time-tag">5 min</span>
+  </div>
+
+  <p>P3 自动化数据报表生成系统完整链路：</p>
+
+  <div class="compare-table">
+    <table>
+      <tr><th>Day</th><th>主题</th><th>核心产出</th></tr>
+      <tr><td>D56</td><td>架构设计 + NL2SQL</td><td>Schema描述 · Few-shot模板 · 安全验证 · NL2SQLEngine</td></tr>
+      <tr><td>D57</td><td>报表渲染 + 可视化</td><td>Jinja2模板 · matplotlib图表 · LLM图表推荐 · ReportBuilder</td></tr>
+      <tr class="highlight"><td>D58</td><td><strong>定时调度 + 通知 + 分发</strong></td><td><strong>APScheduler · 通知渠道 · 报表分发 · 全链路集成</strong></td></tr>
+    </table>
+  </div>
+
+  <div class="concept-box">
+    <strong>📊 数仓类比</strong>：Day56 = ETL数据准备 + SQL建模，Day57 = 报表渲染引擎，Day58 = 调度系统（类似 Airflow/DolphinScheduler 的核心能力）。
+  </div>
+</div>
+
+<!-- ===================== Section 2: Python 知识 ===================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span> Python 知识：定时任务 + 通知发送
+    <span class="time-tag">25 min</span>
+  </div>
+
+  <span class="tag tag-python">Python</span>
+
+  <h4>2.1 APScheduler 定时任务框架</h4>
+
+  <p>Python 最主流的定时任务库，支持三种触发器：</p>
+
+  <pre><code># pip install apscheduler
+from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.date import DateTrigger
+from datetime import datetime
+
+# ---- 创建调度器（后台模式，不阻塞主线程）----
+scheduler = BackgroundScheduler()
+
+# ---- 三种触发器 ----
+
+# 1) interval：固定间隔执行（类似 every 30 minutes）
+scheduler.add_job(
+    generate_daily_report,
+    IntervalTrigger(hours=1),          # 每小时
+    id="hourly_report"
+)
+
+# 2) cron：类 Cron 表达式（类似 Airflow 的 schedule）
+# 格式：分 时 日 月 星期
+scheduler.add_job(
+    generate_daily_report,
+    CronTrigger(hour=8, minute=0),     # 每天早8点
+    id="daily_report_8am"
+)
+
+# 3) date：一次性定时执行
+scheduler.add_job(
+    send_summary,
+    DateTrigger(run_date=datetime(2026, 8, 8, 18, 0)),  # 指定时间
+    id="one_time_summary"
+)
+
+# ---- 启动调度器 ----
+scheduler.start()
+print("调度器已启动，任务数:", len(scheduler.get_jobs()))</code></pre>
+
+  <div class="tip-box">
+    <strong>💡 BlockingScheduler vs BackgroundScheduler</strong>：<br>
+    <code>BlockingScheduler</code> 会阻塞当前线程（适合独立脚本）；<code>BackgroundScheduler</code> 在后台运行（适合嵌入 FastAPI 等服务）。生产环境推荐后者。
+  </div>
+
+  <h4>2.2 Cron 表达式速查</h4>
+
+  <div class="compare-table">
+    <table>
+      <tr><th>表达式</th><th>含义</th><th>AMC 场景</th></tr>
+      <tr><td><code>0 8 * * *</code></td><td>每天 8:00</td><td>每日经营日报</td></tr>
+      <tr><td><code>0 8 * * 1-5</code></td><td>工作日 8:00</td><td>工作日简报</td></tr>
+      <tr><td><code>0 9 1 * *</code></td><td>每月1号 9:00</td><td>月度资产汇总</td></tr>
+      <tr><td><code>0 8 * * 0</code></td><td>每周日 8:00</td><td>周度风险报告</td></tr>
+      <tr><td><code>*/30 9-18 * * 1-5</code></td><td>工作日 9-18 点每30分钟</td><td>高频风险监控</td></tr>
+    </table>
+  </div>
+
+  <h4>2.3 邮件发送 — smtplib</h4>
+
+  <pre><code>import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
+from pathlib import Path
+
+def send_email(
+    to: str,
+    subject: str,
+    html_body: str,
+    attachments: list[Path] | None = None,
+    smtp_host: str = "smtp.qq.com",
+    smtp_port: int = 465,
+    username: str = "your@qq.com",
+    password: str = "xxx"  # QQ邮箱用授权码，不是密码
+) -> bool:
+    """发送 HTML 邮件，支持附件"""
+    try:
+        msg = MIMEMultipart()
+        msg["From"] = f"AMC报表系统 &lt;{username}&gt;"
+        msg["To"] = to
+        msg["Subject"] = subject
+
+        # HTML 正文
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
+
+        # 附件（报表 PDF/HTML）
+        for file_path in (attachments or []):
+            with open(file_path, "rb") as f:
+                part = MIMEBase("application", "octet-stream")
+                part.set_payload(f.read())
+                encoders.encode_base64(part)
+                part.add_header(
+                    "Content-Disposition",
+                    f"attachment; filename={file_path.name}"
+                )
+                msg.attach(part)
+
+        # 发送
+        with smtplib.SMTP_SSL(smtp_host, smtp_port) as server:
+            server.login(username, password)
+            server.sendmail(username, to, msg.as_string())
+
+        print(f"邮件发送成功 → {to}")
+        return True
+
+    except Exception as e:
+        print(f"邮件发送失败: {e}")
+        return False</code></pre>
+
+  <div class="warn-box">
+    <strong>⚠️ QQ/网易邮箱注意</strong>：必须先开启 SMTP 服务并获取<strong>授权码</strong>，不能用登录密码。设置路径：QQ邮箱 → 设置 → 账户 → POP3/SMTP 服务 → 开启 → 生成授权码。
+  </div>
+
+  <h4>2.4 Webhook 通知 — 飞书/钉钉/企业微信</h4>
+
+  <pre><code>import requests
+import json
+
+def send_webhook(
+    url: str,
+    title: str,
+    content: str,
+    msg_type: str = "interactive"  # "text" | "interactive"
+) -> bool:
+    """
+    发送 Webhook 通知
+    兼容飞书/钉钉/企业微信的通用 Webhook 格式
+    """
+    try:
+        if msg_type == "text":
+            payload = {
+                "msg_type": "text",
+                "content": {"text": f"{title}\n{content}"}
+            }
+        else:
+            # 飞书 interactive 卡片格式
+            payload = {
+                "msg_type": "interactive",
+                "card": {
+                    "header": {
+                        "title": {"tag": "plain_text", "content": title},
+                        "template": "blue"
+                    },
+                    "elements": [
+                        {"tag": "markdown", "content": content},
+                        {"tag": "hr"},
+                        {"tag": "note", "elements": [
+                            {"tag": "plain_text", "content": "AMC 报表系统自动生成"}
+                        ]}
+                    ]
+                }
+            }
+
+        resp = requests.post(url, json=payload, timeout=10)
+        result = resp.json()
+
+        if result.get("code", 0) == 0 or resp.status_code == 200:
+            print(f"Webhook 通知成功 → {title}")
+            return True
+        else:
+            print(f"Webhook 失败: {result}")
+            return False
+
+    except Exception as e:
+        print(f"Webhook 异常: {e}")
+        return False</code></pre>
+
+  <h4>2.5 报表文件存储与归档</h4>
+
+  <pre><code>import os
+from pathlib import Path
+from datetime import datetime
+import shutil
+
+class ReportArchiver:
+    """报表文件归档管理器"""
+
+    def __init__(self, base_dir: str = "reports"):
+        self.base_dir = Path(base_dir)
+        # 按日期归档: reports/2026-08/07/
+        self.today_dir = self.base_dir / datetime.now().strftime("%Y-%m/%d")
+        self.today_dir.mkdir(parents=True, exist_ok=True)
+
+    def save(self, filename: str, content: str) -> Path:
+        """保存报表文件，自动带时间戳"""
+        timestamp = datetime.now().strftime("%H%M%S")
+        safe_name = f"{timestamp}_{filename}"
+        path = self.today_dir / safe_name
+        path.write_text(content, encoding="utf-8")
+        print(f"报表已保存: {path}")
+        return path
+
+    def save_binary(self, filename: str, data: bytes) -> Path:
+        """保存二进制文件（如 PDF 图片）"""
+        timestamp = datetime.now().strftime("%H%M%S")
+        safe_name = f"{timestamp}_{filename}"
+        path = self.today_dir / safe_name
+        path.write_bytes(data)
+        return path
+
+    def cleanup_old(self, keep_days: int = 30):
+        """清理超过 N 天的旧报表"""
+        from datetime import timedelta
+        cutoff = datetime.now() - timedelta(days=keep_days)
+
+        for dir_path in self.base_dir.rglob("*"):
+            if dir_path.is_dir():
+                try:
+                    # 解析日期目录名
+                    date_str = dir_path.name
+                    dir_date = datetime.strptime(date_str, "%Y-%m-%d")
+                    if dir_date < cutoff:
+                        shutil.rmtree(dir_path)
+                        print(f"已清理旧目录: {dir_path}")
+                except (ValueError, OSError):
+                    pass  # 跳过无法解析的目录
+
+    def get_latest(self, limit: int = 5) -> list[Path]:
+        """获取最近的 N 份报表"""
+        all_reports = sorted(
+            self.base_dir.rglob("*.html"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True
+        )
+        return all_reports[:limit]
+
+    def disk_usage(self) -> dict:
+        """统计报表占用空间"""
+        total_size = sum(
+            f.stat().st_size for f in self.base_dir.rglob("*") if f.is_file()
+        )
+        return {
+            "total_files": sum(1 for _ in self.base_dir.rglob("*") if _.is_file()),
+            "total_size_mb": round(total_size / 1024 / 1024, 2),
+            "base_dir": str(self.base_dir)
+        }</code></pre>
+</div>
+
+<!-- ===================== Section 3: LLM 实战 ===================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🤖</span> LLM 实战：智能通知摘要 + 渠道路由
+    <span class="time-tag">20 min</span>
+  </div>
+
+  <span class="tag tag-llm">LLM</span>
+
+  <h4>3.1 通知内容智能生成</h4>
+
+  <p>不同渠道需要不同格式：邮件要正式详细，Webhook 要简洁有力。</p>
+
+  <pre><code>from dataclasses import dataclass, field
+from typing import Literal
+
+@dataclass
+class NotificationContent:
+    """通知内容（LLM 生成 + 模板组装）"""
+    subject: str           # 邮件标题
+    email_body: str         # 邮件 HTML 正文
+    webhook_title: str      # 飞书卡片标题
+    webhook_content: str    # 飞书卡片内容（Markdown）
+    priority: Literal["high", "medium", "low"] = "medium"
+    recipients: list[str] = field(default_factory=list)
+
+
+class NotificationFormatter:
+    """基于 LLM 的通知内容格式化器"""
+
+    EMAIL_PROMPT = """你是AMC（资产管理公司）报表通知助手。根据报表摘要，生成通知内容。
+
+## 报表摘要
+{summary}
+
+## 要求
+1. 生成邮件标题（简洁，20字以内）
+2. 生成邮件HTML正文（格式美观，关键数据用加粗，包含3-5个要点）
+3. 生成Webhook卡片内容（Markdown格式，控制在200字以内，适合飞书展示）
+4. 判断优先级：涉及重大风险→high，常规数据→medium，正常无异常→low
+
+请严格按以下JSON格式输出：
+{{
+  "subject": "邮件标题",
+  "email_body": "&lt;邮件HTML正文&gt;",
+  "webhook_title": "卡片标题",
+  "webhook_content": "Markdown内容",
+  "priority": "high/medium/low"
+}}"""
+
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+
+    def format(self, report_summary: str) -> NotificationContent:
+        """调用 LLM 生成多格式通知内容"""
+        from zhipuai import ZhipuAI
+        client = ZhipuAI(api_key=self.api_key)
+
+        resp = client.chat.completions.create(
+            model="glm-4-flash",
+            messages=[
+                {"role": "system", "content": "你是通知格式化助手，只输出JSON。"},
+                {"role": "user", "content": self.EMAIL_PROMPT.format(
+                    summary=report_summary
+                )}
+            ],
+            temperature=0.3,  # 低随机性，确保格式稳定
+        )
+
+        import json
+        try:
+            data = json.loads(resp.choices[0].message.content)
+            return NotificationContent(
+                subject=data["subject"],
+                email_body=data["email_body"],
+                webhook_title=data["webhook_title"],
+                webhook_content=data["webhook_content"],
+                priority=data.get("priority", "medium")
+            )
+        except (json.JSONDecodeError, KeyError) as e:
+            # Fallback：LLM 输出异常时用模板兜底
+            return self._fallback_format(report_summary)
+
+    def _fallback_format(self, summary: str) -> NotificationContent:
+        """降级：用固定模板生成通知"""
+        return NotificationContent(
+            subject="[AMC] 每日数据报表已生成",
+            email_body=f"&lt;h2&gt;AMC 日报&lt;/h2&gt;&lt;p&gt;{summary}&lt;/p&gt;",
+            webhook_title="📊 AMC 日报",
+            webhook_content=summary[:200],
+            priority="medium"
+        )</code></pre>
+
+  <h4>3.2 多渠道路由策略</h4>
+
+  <pre><code>from enum import Enum
+
+class ChannelType(Enum):
+    EMAIL = "email"
+    WEBHOOK = "webhook"
+    CONSOLE = "console"
+
+class NotificationRouter:
+    """通知渠道路由器 — 根据优先级选择渠道"""
+
+    # 路由规则：优先级 → 渠道列表
+    ROUTING_RULES = {
+        "high":   [ChannelType.EMAIL, ChannelType.WEBHOOK, ChannelType.CONSOLE],
+        "medium": [ChannelType.WEBHOOK, ChannelType.CONSOLE],
+        "low":    [ChannelType.CONSOLE],
+    }
+
+    def __init__(self):
+        self.channels = {
+            ChannelType.EMAIL: {
+                "enabled": True,
+                "recipients": ["team@amc.com"],
+                "webhook_url": None
+            },
+            ChannelType.WEBHOOK: {
+                "enabled": True,
+                "webhook_url": "https://open.feishu.cn/open-apis/bot/v2/hook/xxx"
+            },
+            ChannelType.CONSOLE: {
+                "enabled": True
+            }
+        }
+
+    def route(self, notification: NotificationContent) -> list[ChannelType]:
+        """根据优先级决定发送渠道"""
+        rules = self.ROUTING_RULES.get(notification.priority, ["console"])
+        active = [ch for ch in rules if self.channels[ch]["enabled"]]
+        print(f"📋 优先级={notification.priority}, "
+              f"路由渠道={[ch.value for ch in active]}")
+        return active
+
+    def send(self, notification: NotificationContent) -> dict:
+        """执行多渠道分发"""
+        channels = self.route(notification)
+        results = {}
+
+        for ch in channels:
+            if ch == ChannelType.EMAIL:
+                results["email"] = send_email(
+                    to="team@amc.com",
+                    subject=notification.subject,
+                    html_body=notification.email_body
+                )
+            elif ch == ChannelType.WEBHOOK:
+                url = self.channels[ch]["webhook_url"]
+                results["webhook"] = send_webhook(
+                    url=url,
+                    title=notification.webhook_title,
+                    content=notification.webhook_content
+                )
+            elif ch == ChannelType.CONSOLE:
+                print(f"🔔 [{notification.priority.upper()}] "
+                      f"{notification.webhook_title}")
+                print(f"   {notification.webhook_content[:100]}...")
+                results["console"] = True
+
+        return results</code></pre>
+</div>
+
+<!-- ===================== Section 4: 工程实战 ===================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏗️</span> 工程实战：P3 全链路调度系统
+    <span class="time-tag">25 min</span>
+  </div>
+
+  <span class="tag tag-project">项目</span>
+
+  <h4>4.1 完整项目结构</h4>
+
+  <pre><code>amc_report_system/
+├── config.py            # 配置中心（pydantic-settings）
+├── models.py            # 数据模型（Pydantic）
+├── nl2sql/
+│   ├── engine.py       # NL2SQL 引擎（D56）
+│   └── safety.py        # SQL 安全验证（D56）
+├── rendering/
+│   ├── charts.py        # 图表渲染器（D57）
+│   ├── templates/       # Jinja2 模板（D57）
+│   └── builder.py       # 报表构建器（D57）
+├── scheduling/
+│   ├── scheduler.py    # 调度管理器（D58）⭐
+│   ├── notifier.py      # 多渠道通知（D58）⭐
+│   ├── archiver.py      # 报表归档（D58）⭐
+│   └── jobs.py          # 任务定义（D58）⭐
+├── main.py              # FastAPI 主入口
+├── scheduler_main.py    # 调度器独立启动入口 ⭐
+└── requirements.txt</code></pre>
+
+  <h4>4.2 调度管理器 — 完整实现</h4>
+
+  <pre><code># scheduling/scheduler.py
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
+from datetime import datetime
+import logging
+
+logger = logging.getLogger("scheduler")
+
+class ReportScheduler:
+    """AMC 报表调度管理器"""
+
+    # ---- 预定义任务配置 ----
+    JOBS = {
+        "daily_report": {
+            "cron": "0 8 * * 1-5",      # 工作日早8点
+            "description": "AMC每日经营日报",
+            "priority": "medium"
+        },
+        "weekly_risk": {
+            "cron": "0 8 * * 0",          # 每周日早8点
+            "description": "周度风险分析报告",
+            "priority": "medium"
+        },
+        "monthly_summary": {
+            "cron": "0 9 1 * *",          # 每月1号早9点
+            "description": "月度资产汇总报告",
+            "priority": "high"
+        },
+        "risk_alert": {
+            "interval_minutes": 30,       # 每30分钟
+            "description": "实时风险预警检查",
+            "priority": "high"
+        }
+    }
+
+    def __init__(self):
+        self.scheduler = BackgroundScheduler(
+            timezone="Asia/Shanghai",      # 明确时区！
+            job_defaults={
+                "coalesce": True,          # 合并错过的执行
+                "max_instances": 1,         # 同一任务不并发
+                "misfire_grace_time": 3600  # 允许1小时内补执行
+            }
+        )
+        self._setup_event_listeners()
+
+    def _setup_event_listeners(self):
+        """监听任务执行事件，记录日志"""
+        self.scheduler.add_listener(
+            self._on_job_success,
+            EVENT_JOB_EXECUTED
+        )
+        self.scheduler.add_listener(
+            self._on_job_error,
+            EVENT_JOB_ERROR
+        )
+
+    def _on_job_success(self, event):
+        logger.info(f"✅ 任务完成: {event.job_id}")
+
+    def _on_job_error(self, event):
+        logger.error(f"❌ 任务失败: {event.job_id}, "
+                     f"异常: {event.exception}")
+
+    def register_jobs(self, job_func):
+        """注册所有预定义任务"""
+        for job_id, config in self.JOBS.items():
+            if "cron" in config:
+                # 解析 cron 表达式
+                parts = config["cron"].split()
+                trigger = CronTrigger(
+                    minute=parts[0],
+                    hour=parts[1],
+                    day=parts[2],
+                    month=parts[3],
+                    day_of_week=parts[4]
+                )
+            else:
+                trigger = IntervalTrigger(
+                    minutes=config.get("interval_minutes", 60)
+                )
+
+            self.scheduler.add_job(
+                job_func,
+                trigger=trigger,
+                id=job_id,
+                name=config["description"],
+                kwargs={"job_id": job_id, "priority": config["priority"]}
+            )
+            logger.info(f"📋 已注册: {job_id} ({config['description']})")
+
+    def start(self):
+        """启动调度器"""
+        self.scheduler.start()
+        logger.info("🚀 调度器已启动")
+
+    def stop(self):
+        """优雅停止"""
+        self.scheduler.shutdown(wait=True)
+        logger.info("🛑 调度器已停止")
+
+    def status(self) -> dict:
+        """获取所有任务状态"""
+        jobs = self.scheduler.get_jobs()
+        return {
+            "running": self.scheduler.running,
+            "job_count": len(jobs),
+            "jobs": [
+                {
+                    "id": j.id,
+                    "name": j.name,
+                    "next_run": str(j.next_run_time) if j.next_run_time else None,
+                    "trigger": str(j.trigger)
+                }
+                for j in jobs
+            ]
+        }</code></pre>
+
+  <h4>4.3 任务执行函数 — 完整链路</h4>
+
+  <pre><code># scheduling/jobs.py
+import logging
+from datetime import datetime
+from rendering.builder import ReportBuilder  # D57 的报表构建器
+from nl2sql.engine import NL2SQLEngine        # D56 的 NL2SQL 引擎
+from scheduling.notifier import NotificationRouter, NotificationFormatter
+from scheduling.archiver import ReportArchiver
+
+logger = logging.getLogger("jobs")
+
+async def execute_report_job(
+    job_id: str,
+    priority: str,
+    natural_query: str = "生成今日AMC经营日报"
+):
+    """
+    完整的报表生成 + 分发 任务
+    一次调度的完整执行流程：
+    1. NL2SQL 查询数据
+    2. LLM 生成报表
+    3. 渲染 HTML + 图表
+    4. 归档文件
+    5. 格式化通知
+    6. 多渠道分发
+    """
+    start_time = datetime.now()
+    job_logger = lambda msg: logger.info(f"[{job_id}] {msg}")
+    job_logger(f"========== 开始执行 ==========")
+
+    try:
+        # Step 1: NL2SQL 获取数据
+        job_logger("Step 1/5: NL2SQL 查询数据...")
+        engine = NL2SQLEngine()
+        sql_result = engine.query(natural_query)
+
+        # Step 2: LLM 生成报表分析
+        job_logger("Step 2/5: LLM 生成报表分析...")
+        builder = ReportBuilder()
+        html_report = await builder.build_report(
+            query=natural_query,
+            data=sql_result,
+            title=f"AMC {job_id}"
+        )
+
+        # Step 3: 归档报表
+        job_logger("Step 3/5: 归档报表文件...")
+        archiver = ReportArchiver()
+        report_path = archiver.save(f"{job_id}.html", html_report)
+
+        # Step 4: LLM 格式化通知内容
+        job_logger("Step 4/5: 生成通知内容...")
+        formatter = NotificationFormatter(api_key="your-key")
+        notification = formatter.format(
+            report_summary=sql_result["summary"]
+        )
+
+        # Step 5: 多渠道分发
+        job_logger("Step 5/5: 分发通知...")
+        router = NotificationRouter()
+        send_results = router.send(notification)
+
+        # 汇总结果
+        elapsed = (datetime.now() - start_time).total_seconds()
+        job_logger(f"========== 执行完成 ({elapsed:.1f}s) ==========")
+
+        return {
+            "job_id": job_id,
+            "status": "success",
+            "report_path": str(report_path),
+            "notification": send_results,
+            "elapsed_seconds": elapsed
+        }
+
+    except Exception as e:
+        logger.error(f"[{job_id}] 任务失败: {e}", exc_info=True)
+        # 失败时也要通知（高优先级）
+        if priority == "high":
+            router = NotificationRouter()
+            router.send(NotificationContent(
+                subject=f"[告警] {job_id} 执行失败",
+                email_body=f"&lt;p&gt;任务 {job_id} 失败: {e}&lt;/p&gt;",
+                webhook_title="⚠️ 报表生成失败",
+                webhook_content=f"任务 {job_id} 异常: {str(e)[:100]}",
+                priority="high"
+            ))
+        return {
+            "job_id": job_id,
+            "status": "failed",
+            "error": str(e)
+        }</code></pre>
+
+  <h4>4.4 调度器独立入口</h4>
+
+  <pre><code># scheduler_main.py
+"""
+AMC 报表调度系统 — 独立启动入口
+用法：python scheduler_main.py
+"""
+import asyncio
+import signal
+import sys
+import logging
+from scheduling.scheduler import ReportScheduler
+from scheduling.jobs import execute_report_job
+
+# 日志配置
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler(
+            "scheduler.log", encoding="utf-8"
+        )
+    ]
+)
+
+def main():
+    # 1. 创建调度器
+    scheduler = ReportScheduler()
+
+    # 2. 注册任务（async 函数需要包装）
+    def sync_job_wrapper(job_id: str, priority: str):
+        """将 async 任务包装为同步调用"""
+        asyncio.run(execute_report_job(
+            job_id=job_id, priority=priority
+        ))
+
+    scheduler.register_jobs(sync_job_wrapper)
+
+    # 3. 优雅退出信号处理
+    def shutdown(signum, frame):
+        print("\n🛑 收到停止信号，正在关闭调度器...")
+        scheduler.stop()
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, shutdown)   # Ctrl+C
+    signal.signal(signal.SIGTERM, shutdown)   # kill
+
+    # 4. 启动
+    scheduler.start()
+    print("\n" + "="*50)
+    print("  AMC 报表调度系统已启动")
+    print("  按 Ctrl+C 停止")
+    print("="*50 + "\n")
+
+    # 5. 查看任务状态
+    import json
+    print(json.dumps(scheduler.status(), indent=2, ensure_ascii=False))
+
+    # 6. 阻塞主线程，保持进程运行
+    try:
+        while True:
+            import time
+            time.sleep(3600)  # 每小时检查一次
+    except KeyboardInterrupt:
+        scheduler.stop()
+
+if __name__ == "__main__":
+    main()</code></pre>
+
+  <div class="tip-box">
+    <strong>💡 生产部署建议</strong>：独立调度器适合内网环境。如果是 Web 服务，推荐把 <code>BackgroundScheduler</code> 嵌入 FastAPI 的 <code>lifespan</code> 中，随服务自动启停，避免多进程管理。
+  </div>
+</div>
+
+<!-- ===================== Section 5: P3 收官总结 ===================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏆</span> P3 项目收官总结
+    <span class="time-tag">10 min</span>
+  </div>
+
+  <h4>5.1 P3 三天知识图谱</h4>
+
+  <div class="compare-table">
+    <table>
+      <tr><th>模块</th><th>Day</th><th>核心技术</th><th>数仓类比</th></tr>
+      <tr>
+        <td><strong>数据查询</strong></td>
+        <td>D56</td>
+        <td>NL2SQL · Schema描述 · Few-shot · SQL安全</td>
+        <td>SQL建模 + 数据准备</td>
+      </tr>
+      <tr>
+        <td><strong>报表渲染</strong></td>
+        <td>D57</td>
+        <td>Jinja2 · matplotlib · LLM图表推荐 · HTML输出</td>
+        <td>报表引擎 + 可视化</td>
+      </tr>
+      <tr class="highlight">
+        <td><strong>调度分发</strong></td>
+        <td>D58</td>
+        <td>APScheduler · smtplib · Webhook · 归档管理</td>
+        <td>调度系统(Airflow)</td>
+      </tr>
+    </table>
+  </div>
+
+  <h4>5.2 P3 完整数据流图</h4>
+
+  <div class="concept-box">
+    <strong>用户提问</strong> → NL2SQL引擎（自然语言→SQL→执行→结果）→ LLM分析（生成报表摘要）→ 报表构建器（Jinja2模板+matplotlib图表→HTML）→ 归档器（按日期存储）→ 通知格式化（LLM生成多渠道内容）→ 渠道路由（按优先级选择Email/Webhook/Console）→ 分发完成
+  </div>
+
+  <h4>5.3 核心能力升级</h4>
+
+  <div class="compare-table">
+    <table>
+      <tr><th>能力维度</th><th>学之前</th><th>学之后</th></tr>
+      <tr>
+        <td>数据获取</td>
+        <td>手写SQL查询</td>
+        <td>自然语言→SQL自动转换</td>
+      </tr>
+      <tr>
+        <td>报表生成</td>
+        <td>手动Excel</td>
+        <td>全自动化 HTML + 图表</td>
+      </tr>
+      <tr>
+        <td>定时执行</td>
+        <td>无</td>
+        <td>APScheduler 灵活调度</td>
+      </tr>
+      <tr>
+        <td>结果分发</td>
+        <td>手动发送</td>
+        <td>多渠道自动通知</td>
+      </tr>
+      <tr>
+        <td>异常处理</td>
+        <td>忽略或人工处理</td>
+        <td>自动降级 + 告警通知</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="summary-card">
+    <h3>🏆 P3 自动化报表系统 — 收官！</h3>
+    <p>三天时间完成了一个从"数据查询→报表渲染→调度分发"的完整自动化系统。<br>
+    这套系统的思路和数仓 ETL 管线高度一致：<strong>提取(NL2SQL)→ 转换(LLM分析+渲染)→ 加载(归档+分发)</strong>。<br>
+    作为数据开发工程师，这正是你最熟悉的领域 — 只是工具从 SQL Server Agent 换成了 Python + LLM。</p>
+  </div>
+</div>
+
+<!-- ===================== Section 6: 常见陷阱 ===================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🚨</span> 常见陷阱 Top 5
+    <span class="time-tag">5 min</span>
+  </div>
+
+  <div class="error-box">
+    <strong>❌ 陷阱 1：时区问题</strong><br>
+    APScheduler 默认时区取决于系统。生产环境<strong>必须显式指定</strong> <code>timezone="Asia/Shanghai"</code>，否则 Cron 触发时间会差8小时。
+  </div>
+
+  <div class="error-box">
+    <strong>❌ 陷阱 2：多进程重复执行</strong><br>
+    gunicorn/uvicorn 启动多个 worker 时，每个 worker 都会创建 BackgroundScheduler，导致任务重复执行。解决方案：只用 1 个 worker，或用 <code>uwsgi.mule</code> 隔离。
+  </div>
+
+  <div class="error-box">
+    <strong>❌ 陷阱 3：邮件授权码 ≠ 登录密码</strong><br>
+    QQ邮箱/网易邮箱的 SMTP 密码是<strong>授权码</strong>，不是登录密码。且授权码不要硬编码在代码中，用环境变量或 .env 管理。
+  </div>
+
+  <div class="warn-box">
+    <strong>⚠️ 陷阱 4：任务超时无处理</strong><br>
+    LLM API 调用可能超时或无响应。每个任务应设置 <code>timeout</code>，并在 <code>EVENT_JOB_ERROR</code> 中处理，避免一个任务卡死影响后续调度。
+  </div>
+
+  <div class="warn-box">
+    <strong>⚠️ 陷阱 5：报表堆积不清理</strong><br>
+    每日生成报表会逐渐占满磁盘。<code>ReportArchiver.cleanup_old()</code> 应在每次调度后自动执行，或单独设一个清理任务。
+  </div>
+</div>
+
+<!-- ===================== Section 7: 最佳实践速查 ===================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📋</span> 最佳实践速查表
+    <span class="time-tag">—</span>
+  </div>
+
+  <div class="compare-table">
+    <table>
+      <tr><th>维度</th><th>推荐做法</th></tr>
+      <tr><td>调度器选择</td><td>Web服务→<code>BackgroundScheduler</code>，独立进程→<code>BlockingScheduler</code></td></tr>
+      <tr><td>任务并发</td><td><code>max_instances=1</code> 防止同一任务重叠执行</td></tr>
+      <tr><td>错过执行</td><td><code>coalesce=True</code> 合并多次错过为一次</td></tr>
+      <tr><td>日志策略</td><td>双Handler（控制台+文件），任务ID做日志标识</td></tr>
+      <tr><td>通知分级</td><td>high→全渠道，medium→Webhook+日志，low→仅日志</td></tr>
+      <tr><td>异常处理</td><td>高优先级任务失败→告警通知，低优先级→只记录日志</td></tr>
+      <tr><td>文件管理</td><td>按年月/日归档，自动清理30天前的旧文件</td></tr>
+      <tr><td>敏感信息</td><td>API Key / 授权码→环境变量 / .env，禁止硬编码</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ===================== Section 8: 练习 ===================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">💪</span> 课后练习
+    <span class="time-tag">15 min</span>
+  </div>
+
+  <ol>
+    <li>
+      <strong>增加一个"实时监控"任务</strong>：每15分钟检查一次数据异常，发现异常时自动发高优先级通知。<br>
+      <span class="inline-code">CronTrigger(minute="*/15")</span>
+    </li>
+    <li>
+      <strong>实现通知重试机制</strong>：发送失败时最多重试3次，间隔递增（5s→15s→45s）。<br>
+      提示：用 <code>tenacity</code> 库或自己写递归重试
+    </li>
+    <li>
+      <strong>LeetCode #23 — 合并 K 个升序链表</strong>（用优先队列 heapq）<br>
+      调度器的任务队列本质上就是优先队列，这道题帮你理解底层原理。
+    </li>
+  </ol>
+</div>
+
+<!-- ===================== Section 9: 预告 ===================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔮</span> 下一站预告
+  </div>
+
+  <div class="summary-card">
+    <h3>🚀 Day 59：P4 — 智能数据质检系统（架构设计 + 规则引擎）</h3>
+    <p>Phase 4 项目实战继续！P4 是一个<strong>智能数据质检系统</strong>，覆盖：<br>
+    • 规则引擎（空值/越界/一致性/跨表校验）<br>
+    • LLM 辅助异常诊断<br>
+    • 质检报告自动生成<br>
+    这和你的 AMC 数仓 DWS 层的数据质量问题高度相关！</p>
+  </div>
+</div>
+
+<div class="footer">
+  <p>LLM 120天学习计划 · Day 58/70 · P3 自动化报表系统收官 🎉</p>
+</div>
+
+</body>
+</html>
