@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 63 - P5 智能客服/对话系统（对话管理 + 回复生成）</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--purple:#9333ea;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#ede9fe,#e0e7ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #c4b5fd; }
+  .header .badge { display:inline-block;background:#e0e7ff;color:#4338ca;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--purple));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--purple);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#faf5ff;border-left:3px solid var(--purple);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--purple); }
+  .tip-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--accent); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  pre { background:#1e293b;color:#e2e8f0;padding:18px 20px;border-radius:8px;overflow-x:auto;font-size:13.5px;line-height:1.6;margin:12px 0;tab-size:4; }
+  pre .comment { color:#64748b;font-style:italic; }
+  pre .keyword { color:#c084fc; }
+  pre .string { color:#86efac; }
+  pre .func { color:#93c5fd; }
+  pre .decorator { color:#fbbf24; }
+  pre .class-name { color:#67e8f9; }
+  pre .number { color:#fbbf24; }
+  pre .builtin { color:#f0abfc; }
+  code { background:var(--surface2);padding:2px 7px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--accent2); }
+  pre code { background:none;padding:0;color:inherit;font-size:13.5px; }
+  .compare-table { width:100%;border-collapse:collapse;margin:14px 0;font-size:14px; }
+  .compare-table th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border); }
+  .compare-table td { padding:10px 14px;border:1px solid var(--border); }
+  .compare-table tr:hover { background:var(--surface2); }
+  .flow-chart { background:var(--surface2);padding:20px 24px;border-radius:8px;margin:14px 0;text-align:center;font-size:14px;overflow-x:auto; }
+  .flow-chart .step { display:inline-block;background:var(--accent);color:#fff;padding:8px 16px;border-radius:6px;margin:4px;font-weight:600; }
+  .flow-chart .arrow { display:inline-block;color:var(--text3);margin:4px 6px;font-weight:700; }
+  .flow-chart .step.active { background:var(--purple); }
+  .flow-chart .step.green { background:var(--green); }
+  .flow-chart .step.orange { background:var(--orange); }
+  ul,ol { padding-left:22px;margin:10px 0; }
+  li { margin:5px 0;font-size:14px;color:var(--text2); }
+  li strong { color:var(--text); }
+  .sub-list { list-style:none;padding-left:0;margin:4px 0 12px 0; }
+  .sub-list li::before { content:"›";color:var(--accent);font-weight:700;margin-right:8px; }
+  .tag { display:inline-block;font-size:12px;padding:2px 8px;border-radius:10px;font-weight:600;margin:2px; }
+  .tag-new { background:#dbeafe;color:#1d4ed8; }
+  .tag-review { background:#fef3c7;color:#92400e; }
+  .tag-core { background:#ede9fe;color:#5b21b6; }
+  .tag-practice { background:#dcfce7;color:#166534; }
+  h3 { font-size:16px;font-weight:700;margin:18px 0 10px;color:var(--text); }
+  .summary-box { background:linear-gradient(135deg,#eff6ff,#e0e7ff);border:1px solid #bfdbfe;border-radius:var(--radius);padding:20px 24px;margin:20px 0; }
+  .summary-box h3 { margin-top:0;color:var(--accent2); }
+  .footer { text-align:center;color:var(--text3);font-size:13px;margin-top:30px;padding-top:16px;border-top:1px solid var(--surface3); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Phase 4 · 项目实战 · P5 Day 2/3</div>
+  <h1>Day 63 — 智能客服/对话系统（对话管理 + 回复生成）</h1>
+  <div class="subtitle">多轮对话状态机 · 槽位填充 · 模板 + LLM 混合回复策略 · AMC 问答实战</div>
+</div>
+
+<div class="progress-bar">
+  <span class="label">LLM 120天进度</span>
+  <div class="track"><div class="fill" style="width:90%"></div></div>
+  <span class="percent">63/70</span>
+</div>
+
+<!-- ==================== 1. 概述 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">📋</span> 今日学习路线 <span class="time-tag">约 60 分钟</span></div>
+
+  <h3>Day 62 回顾</h3>
+  <p style="font-size:14px;color:var(--text2)">昨天完成了 P5 架构设计 + 意图识别：四层架构（接入→处理→业务→数据）、<code>IntentType</code> 七种意图枚举、混合意图分类器（规则优先→LLM 兜底→fallback）、实体提取器（AMC 五类实体）、<code>RequestProcessor</code> 请求预处理集成。</p>
+
+  <h3>今天要完成什么？</h3>
+  <ul>
+    <li><strong>对话状态管理</strong> — 多轮对话的核心，记住"之前聊了什么"</li>
+    <li><strong>槽位填充</strong> — 缺信息时主动追问，凑齐了再执行</li>
+    <li><strong>回复生成</strong> — 模板快速回复 + LLM 语义回复混合策略</li>
+    <li><strong>完整串联</strong> — ConversationManager 集成意图→槽位→回复全流程</li>
+  </ul>
+
+  <div class="flow-chart">
+    <span class="step">用户输入</span><span class="arrow">→</span>
+    <span class="step">意图识别</span><span class="arrow">→</span>
+    <span class="step active">对话管理</span><span class="arrow">→</span>
+    <span class="step active">槽位检查</span><span class="arrow">→</span>
+    <span class="step active">回复生成</span><span class="arrow">→</span>
+    <span class="step green">输出</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>数仓类比：</strong>对话管理就像 ETL 中的 <strong>状态表</strong>。每次处理一条记录时，先从状态表查出当前进度（哪些字段已填充、哪些还缺），处理完后更新状态。对话中的"槽位"就相当于表里必须填的 NOT NULL 字段——缺了就补，全了就执行。
+  </div>
+</div>
+
+<!-- ==================== 2. Python 知识 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🐍</span> Python 知识：UUID / copy.deepcopy / Match-Case 进阶 <span class="time-tag">15 min</span></div>
+
+  <h3>2.1 uuid — 唯一会话 ID 生成</h3>
+  <p style="font-size:14px;color:var(--text2)">每个对话需要一个唯一 ID 来追踪，<code>uuid4()</code> 生成随机 UUID，比自增 ID 更安全（不泄露用户量）。</p>
+  <pre><code><span class="keyword">import</span> uuid
+
+<span class="comment"># uuid4 = 完全随机，适合会话ID、请求追踪ID</span>
+session_id = uuid.<span class="func">uuid4</span>()
+<span class="builtin">print</span>(session_id)           <span class="comment"># 'a8098c1a-f86e-11da-bd1a-00112444be1e'</span>
+<span class="builtin">print</span>(<span class="builtin">str</span>(session_id))       <span class="comment"># 字符串形式</span>
+<span class="builtin">print</span>(session_id.<span class="func">hex</span>[:<span class="number">8</span>])  <span class="comment"># 取前8位做短ID: 'a8098c1a'</span>
+
+<span class="comment"># uuid4 vs uuid1 vs uuid5 对比</span>
+<span class="comment"># uuid4: 随机，最常用（会话ID/追踪ID）</span>
+<span class="comment"># uuid1: 基于时间戳+MAC地址（可逆，不推荐用于安全场景）</span>
+<span class="comment"># uuid5: 基于命名空间+名称（确定性，适合生成稳定ID）</span>
+<span class="comment"># 数仓类比: uuid4 就像雪花算法的分布式ID</span></code></pre>
+
+  <h3>2.2 copy.deepcopy — 对话状态的安全复制</h3>
+  <p style="font-size:14px;color:var(--text2)">对话状态是嵌套字典/列表，浅拷贝 <code>.copy()</code> 只复制第一层，修改内层会污染原始数据。<code>deepcopy</code> 递归复制所有层级。</p>
+  <pre><code><span class="keyword">import</span> copy
+
+<span class="comment"># 浅拷贝的陷阱</span>
+state = {<span class="string">"slots"</span>: {<span class="string">"asset_id"</span>: <span class="keyword">None</span>, <span class="string">"date"</span>: <span class="keyword">None</span>}}
+shallow = state.<span class="func">copy</span>()
+shallow[<span class="string">"slots"</span>][<span class="string">"asset_id"</span>] = <span class="string">"A001"</span>
+<span class="builtin">print</span>(state[<span class="string">"slots"</span>][<span class="string">"asset_id"</span>])  <span class="comment"># 'A001' — 被污染了！</span>
+
+<span class="comment"># deepcopy 安全复制</span>
+original = {<span class="string">"slots"</span>: {<span class="string">"asset_id"</span>: <span class="keyword">None</span>, <span class="string">"date"</span>: <span class="keyword">None</span>}}
+snapshot = copy.<span class="func">deepcopy</span>(original)
+snapshot[<span class="string">"slots"</span>][<span class="string">"asset_id"</span>] = <span class="string">"A001"</span>
+<span class="builtin">print</span>(original[<span class="string">"slots"</span>][<span class="string">"asset_id"</span>])  <span class="comment"># None — 原始数据安全</span>
+<span class="comment"># 数仓类比: deepcopy 就像 INSERT INTO ... SELECT * FROM（完全独立副本）</span></code></pre>
+
+  <h3>2.3 match-case 进阶 — 意图路由</h3>
+  <p style="font-size:14px;color:var(--text2)">Python 3.10 的 <code>match-case</code> 比 <code>if-elif</code> 更清晰地表达"根据值走不同分支"。</p>
+  <pre><code><span class="keyword">from</span> enum <span class="keyword">import</span> Enum
+
+<span class="keyword">class</span> <span class="class-name">Intent</span>(Enum):
+    QUERY_BALANCE = <span class="string">"query_balance"</span>
+    QUERY_RISK    = <span class="string">"query_risk"</span>
+    GREETING      = <span class="string">"greeting"</span>
+    UNKNOWN       = <span class="string">"unknown"</span>
+
+<span class="comment"># match-case 意图路由</span>
+<span class="keyword">def</span> <span class="func">route_intent</span>(intent: Intent, slots: <span class="builtin">dict</span>) -> <span class="builtin">str</span>:
+    <span class="keyword">match</span> intent:
+        <span class="keyword">case</span> Intent.QUERY_BALANCE:
+            <span class="keyword">if</span> slots.<span class="func">get</span>(<span class="string">"asset_id"</span>):
+                <span class="keyword">return</span> <span class="string">f"查询 <span class="builtin">{slots['asset_id']}</span> 余额"</span>
+            <span class="keyword">return</span> <span class="string">"请问要查询哪笔资产的余额？"</span>
+        <span class="keyword">case</span> Intent.QUERY_RISK:
+            <span class="keyword">return</span> <span class="string">"正在查询风险等级..."</span>
+        <span class="keyword">case</span> Intent.GREETING:
+            <span class="keyword">return</span> <span class="string">"您好！请问有什么可以帮您？"</span>
+        <span class="keyword">case</span> _:  <span class="comment"># 兜底，相当于 default</span>
+            <span class="keyword">return</span> <span class="string">"抱歉，我没有理解您的意思"</span>
+
+<span class="builtin">print</span>(<span class="func">route_intent</span>(Intent.QUERY_BALANCE, {<span class="string">"asset_id"</span>: <span class="string">"A001"</span>}))
+<span class="comment"># 输出: 查询 A001 余额</span></code></pre>
+
+  <div class="tip-box">
+    <strong>match-case vs if-elif 选择指南：</strong>当分支条件是"某个值等于什么"时，用 match-case 更清晰；当分支条件是复杂的布尔表达式时，用 if-elif 更灵活。两者可以混用——外层 match 分大类，case 内部 if 处理细节。
+  </div>
+</div>
+
+<!-- ==================== 3. 对话状态管理 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🔄</span> 对话状态管理（ConversationState） <span class="time-tag">15 min</span></div>
+
+  <h3>3.1 状态模型设计</h3>
+  <p style="font-size:14px;color:var(--text2)">对话状态需要记录三件事：① 对话元信息（ID/创建时间/用户）；② 当前意图与阶段；③ 已填充的槽位信息。</p>
+  <pre><code><span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> datetime <span class="keyword">import</span> datetime
+<span class="keyword">from</span> enum <span class="keyword">import</span> Enum
+<span class="keyword">from</span> typing <span class="keyword">import</span> Optional
+<span class="keyword">import</span> uuid
+
+<span class="keyword">class</span> <span class="class-name">DialogPhase</span>(Enum):
+    <span class="string">"""对话阶段：类比数仓 ETL 的不同 stage"""</span>
+    SLOT_FILLING  = <span class="string">"slot_filling"</span>   <span class="comment"># 收集信息中（ETL 抽取阶段）</span>
+    EXECUTING     = <span class="string">"executing"</span>      <span class="comment"># 执行任务中（ETL 转换阶段）</span>
+    RESULT_SHOWING = <span class="string">"result_showing"</span>  <span class="comment"># 展示结果中（ETL 加载阶段）</span>
+    CLOSED        = <span class="string">"closed"</span>          <span class="comment"># 对话已结束</span>
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="class-name">ConversationState</span>:
+    <span class="string">"""对话状态 — 每个用户会话一份"""</span>
+    session_id: <span class="builtin">str</span> = field(default_factory=<span class="keyword">lambda</span>: <span class="builtin">str</span>(uuid.<span class="func">uuid4</span>()))
+    user_id: <span class="builtin">str</span> = <span class="string">"anonymous"</span>
+    intent: Optional[<span class="builtin">str</span>] = <span class="keyword">None</span>        <span class="comment"># 当前意图</span>
+    phase: DialogPhase = DialogPhase.SLOT_FILLING
+    slots: <span class="builtin">dict</span> = field(default_factory=<span class="builtin">dict</span>)  <span class="comment"># 已填充的槽位</span>
+    history: <span class="builtin">list</span> = field(default_factory=<span class="builtin">list</span>)  <span class="comment"># 对话历史</span>
+    created_at: <span class="builtin">str</span> = field(
+        default_factory=<span class="keyword">lambda</span>: datetime.<span class="func">now</span>().<span class="func">isoformat</span>()
+    )
+    turn_count: <span class="builtin">int</span> = <span class="number">0</span>                  <span class="comment"># 对话轮次计数</span>
+
+    <span class="keyword">def</span> <span class="func">add_turn</span>(self, user_msg: <span class="builtin">str</span>, bot_msg: <span class="builtin">str</span>):
+        <span class="string">"""记录一轮对话到历史"""</span>
+        self.history.<span class="func">append</span>({
+            <span class="string">"turn"</span>: self.turn_count,
+            <span class="string">"user"</span>: user_msg,
+            <span class="string">"bot"</span>: bot_msg,
+            <span class="string">"timestamp"</span>: datetime.<span class="func">now</span>().<span class="func">isoformat</span>()
+        })
+        self.turn_count += <span class="number">1</span>
+
+    <span class="keyword">def</span> <span class="func">is_slot_filled</span>(self, slot_name: <span class="builtin">str</span>) -> <span class="builtin">bool</span>:
+        <span class="string">"""检查某个槽位是否已填"""</span>
+        val = self.slots.<span class="func">get</span>(slot_name)
+        <span class="keyword">return</span> val <span class="keyword">is not</span> <span class="keyword">None</span> <span class="keyword">and</span> val != <span class="string">""</span>
+
+    <span class="keyword">def</span> <span class="func">get_missing_slots</span>(self, required: <span class="builtin">list</span>) -> <span class="builtin">list</span>:
+        <span class="string">"""返回尚未填充的必需槽位列表"""</span>
+        <span class="keyword">return</span> [s <span class="keyword">for</span> s <span class="keyword">in</span> required <span class="keyword">if not</span> self.<span class="func">is_slot_filled</span>(s)]
+
+    <span class="keyword">def</span> <span class="func">to_dict</span>(self) -> <span class="builtin">dict</span>:
+        <span class="string">"""序列化为字典（用于持久化）"""</span>
+        <span class="keyword">return</span> {
+            <span class="string">"session_id"</span>: self.session_id,
+            <span class="string">"user_id"</span>: self.user_id,
+            <span class="string">"intent"</span>: self.intent,
+            <span class="string">"phase"</span>: self.phase.value,
+            <span class="string">"slots"</span>: self.slots,
+            <span class="string">"turn_count"</span>: self.turn_count,
+        }</code></pre>
+
+  <h3>3.2 SessionManager — 会话存储管理</h3>
+  <p style="font-size:14px;color:var(--text2)">生产环境用 Redis 存会话，开发阶段用内存字典即可。</p>
+  <pre><code><span class="keyword">import</span> time
+<span class="keyword">from</span> typing <span class="keyword">import</span> Optional
+
+<span class="keyword">class</span> <span class="class-name">SessionManager</span>:
+    <span class="string">"""会话存储 — 内存版（生产环境替换为 Redis）"""</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, ttl: <span class="builtin">int</span> = <span class="number">1800</span>):
+        <span class="string">"""ttl: 会话超时秒数，默认30分钟"""</span>
+        self._sessions: <span class="builtin">dict</span>[<span class="builtin">str</span>, ConversationState] = {}
+        self._last_access: <span class="builtin">dict</span>[<span class="builtin">str</span>, <span class="builtin">float</span>] = {}
+        self.ttl = ttl
+
+    <span class="keyword">def</span> <span class="func">get_or_create</span>(self, session_id: <span class="builtin">str</span>) -> ConversationState:
+        <span class="string">"""获取已有会话，不存在则创建新会话"""</span>
+        <span class="keyword">if</span> session_id <span class="keyword">in</span> self._sessions:
+            self._last_access[session_id] = time.<span class="func">time</span>()
+            <span class="keyword">return</span> self._sessions[session_id]
+        <span class="comment"># 创建新会话</span>
+        state = ConversationState(session_id=session_id)
+        self._sessions[session_id] = state
+        self._last_access[session_id] = time.<span class="func">time</span>()
+        <span class="keyword">return</span> state
+
+    <span class="keyword">def</span> <span class="func">cleanup_expired</span>(self) -> <span class="builtin">int</span>:
+        <span class="string">"""清理过期会话，返回清理数量"""</span>
+        now = time.<span class="func">time</span>()
+        expired = [
+            sid <span class="keyword">for</span> sid, last <span class="keyword">in</span> self._last_access.<span class="func">items</span>()
+            <span class="keyword">if</span> now - last > self.ttl
+        ]
+        <span class="keyword">for</span> sid <span class="keyword">in</span> expired:
+            <span class="keyword">del</span> self._sessions[sid]
+            <span class="keyword">del</span> self._last_access[sid]
+        <span class="keyword">return</span> <span class="builtin">len</span>(expired)
+
+    <span class="keyword">def</span> <span class="func">close</span>(self, session_id: <span class="builtin">str</span>):
+        <span class="string">"""关闭指定会话"""</span>
+        state = self._sessions.<span class="func">get</span>(session_id)
+        <span class="keyword">if</span> state:
+            state.phase = DialogPhase.CLOSED</code></pre>
+</div>
+
+<!-- ==================== 4. 槽位填充 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🧩</span> 槽位填充（Slot Filling） <span class="time-tag">15 min</span></div>
+
+  <h3>4.1 核心原理</h3>
+  <p style="font-size:14px;color:var(--text2)">槽位填充是"缺少必要信息时主动追问"的机制。就像去银行办业务：柜员发现缺身份证时会先问你"请出示身份证"，而不是直接报错。</p>
+
+  <div class="concept-box">
+    <strong>数仓类比：</strong>槽位填充 = 数仓的 NOT NULL 约束检查。执行任务前，先检查所有必填字段（槽位）是否齐全，缺了就抛异常（追问用户），全了才执行 INSERT（处理任务）。
+  </div>
+
+  <table class="compare-table">
+    <tr><th>要素</th><th>说明</th><th>AMC 示例</th></tr>
+    <tr><td><strong>意图→槽位映射</strong></td><td>每个意图需要哪些必填信息</td><td>查询余额 → 需要 asset_id</td></tr>
+    <tr><td><strong>槽位提取</strong></td><td>从用户输入中提取信息填入槽位</td><td>"A001余额多少" → asset_id="A001"</td></tr>
+    <tr><td><strong>追问策略</strong></td><td>缺哪个槽位就追问哪个</td><td>"请问要查询哪笔资产？"</td></tr>
+    <tr><td><strong>完成判定</strong></td><td>所有必填槽位已填充</td><td>触发实际查询</td></tr>
+  </table>
+
+  <h3>4.2 SlotF 实现</h3>
+  <pre><code><span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="class-name">SlotDefinition</span>:
+    <span class="string">"""单个槽位的定义"""</span>
+    name: <span class="builtin">str</span>           <span class="comment"># 槽位名称，如 "asset_id"</span>
+    display_name: <span class="builtin">str</span>   <span class="comment"># 追问时显示的名称，如 "资产编号"</span>
+    required: <span class="builtin">bool</span> = <span class="keyword">True</span> <span class="comment"># 是否必填</span>
+    prompt: <span class="builtin">str</span> = <span class="string">""</span>    <span class="comment"># 追问话术模板，如 "请问要查询哪笔{display_name}？"</span>
+
+<span class="keyword">class</span> <span class="class-name">SlotFillingManager</span>:
+    <span class="string">"""
+    槽位填充管理器
+    职责：检查槽位完整性 → 追问缺失项 → 确认是否可执行
+    """</span>
+
+    <span class="comment"># 意图 → 需要的槽位定义列表</span>
+    INTENT_SLOTS: <span class="builtin">dict</span>[<span class="builtin">str</span>, <span class="builtin">list</span>[SlotDefinition]] = {
+        <span class="string">"query_balance"</span>: [
+            SlotDefinition(<span class="string">"asset_id"</span>, <span class="string">"资产编号"</span>, prompt=<span class="string">"请问要查询哪笔资产的余额？请提供资产编号。"</span>),
+        ],
+        <span class="string">"query_risk"</span>: [
+            SlotDefinition(<span class="string">"debtor_name"</span>, <span class="string">"债务人名称"</span>, prompt=<span class="string">"请问要查询哪位债务人的风险等级？"</span>),
+        ],
+        <span class="string">"query_detail"</span>: [
+            SlotDefinition(<span class="string">"asset_id"</span>, <span class="string">"资产编号"</span>),
+            SlotDefinition(<span class="string">"report_date"</span>, <span class="string">"报告日期"</span>, required=<span class="keyword">False</span>),
+        ],
+        <span class="comment"># greeting / farewell 等不需要槽位</span>
+    }
+
+    <span class="keyword">def</span> <span class="func">get_required_slots</span>(self, intent: <span class="builtin">str</span>) -> <span class="builtin">list</span>[SlotDefinition]:
+        <span class="string">"""获取某意图的必填槽位列表"""</span>
+        definitions = self.INTENT_SLOTS.<span class="func">get</span>(intent, [])
+        <span class="keyword">return</span> [s <span class="keyword">for</span> s <span class="keyword">in</span> definitions <span class="keyword">if</span> s.required]
+
+    <span class="keyword">def</span> <span class="func">check_and_prompt</span>(
+        self, intent: <span class="builtin">str</span>, state: ConversationState
+    ) -> Optional[<span class="builtin">str</span>]:
+        <span class="string">"""
+        检查槽位完整性。
+        返回 None 表示全部齐全，返回 str 表示追问话术。
+        """</span>
+        required = self.<span class="func">get_required_slots</span>(intent)
+        <span class="keyword">if not</span> required:
+            <span class="keyword">return</span> <span class="keyword">None</span>  <span class="comment"># 该意图不需要槽位</span>
+
+        <span class="comment"># 找出第一个缺失的必填槽位</span>
+        <span class="keyword">for</span> slot_def <span class="keyword">in</span> required:
+            <span class="keyword">if not</span> state.<span class="func">is_slot_filled</span>(slot_def.name):
+                <span class="keyword">return</span> slot_def.prompt
+
+        <span class="keyword">return</span> <span class="keyword">None</span>  <span class="comment"># 全部齐全</span>
+
+    <span class="keyword">def</span> <span class="func">fill_from_entities</span>(
+        self, state: ConversationState, entities: <span class="builtin">dict</span>
+    ) -> <span class="builtin">int</span>:
+        <span class="string">"""从实体提取结果填充槽位，返回新填充数量"""</span>
+        filled = <span class="number">0</span>
+        <span class="keyword">for</span> key, value <span class="keyword">in</span> entities.<span class="func">items</span>():
+            <span class="keyword">if</span> value <span class="keyword">and</span> key <span class="keyword">not in</span> state.slots:
+                state.slots[key] = value
+                filled += <span class="number">1</span>
+        <span class="keyword">return</span> filled</code></pre>
+
+  <div class="warn-box">
+    <strong>追问策略要点：</strong>每次只追问<strong>第一个</strong>缺失槽位，不要一次性列出所有缺失项（用户体验差）。追问话术要口语化且具体，不要说"请补充信息"，而要说"请问要查询哪笔资产的余额？"
+  </div>
+</div>
+
+<!-- ==================== 5. 回复生成 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">💬</span> 回复生成（模板 + LLM 混合策略） <span class="time-tag">20 min</span></div>
+
+  <h3>5.1 两层回复策略</h3>
+  <table class="compare-table">
+    <tr><th>策略</th><th>适用场景</th><th>优势</th><th>劣势</th></tr>
+    <tr><td><strong>模板回复</strong></td><td>固定意图（问候/告别/常见FAQ）</td><td>速度快、成本低、100%可控</td><td>不灵活，覆盖范围有限</td></tr>
+    <tr><td><strong>LLM 回复</strong></td><td>开放问答、复杂分析、个性化回复</td><td>灵活、语义理解强</td><td>延迟高、成本高、可能幻觉</td></tr>
+  </table>
+
+  <div class="tip-box">
+    <strong>核心原则：</strong>能走模板的绝不走 LLM。模板处理 80% 的常见场景，LLM 处理 20% 的复杂场景。这就像数仓里：简单聚合用物化视图（模板），复杂分析才跑实时 SQL（LLM）。
+  </div>
+
+  <h3>5.2 TemplateResponder — 模板回复器</h3>
+  <pre><code><span class="keyword">from</span> string <span class="keyword">import</span> Template
+
+<span class="keyword">class</span> <span class="class-name">TemplateResponder</span>:
+    <span class="string">"""模板回复器 — 速度快、零成本、100%可控"""</span>
+
+    <span class="comment"># 意图 → 模板列表（按优先级排序）</span>
+    TEMPLATES: <span class="builtin">dict</span>[<span class="builtin">str</span>, <span class="builtin">list</span>[<span class="builtin">str</span>]] = {
+        <span class="string">"greeting"</span>: [
+            <span class="string">"您好！我是AMC智能助手，请问有什么可以帮您？"</span>,
+            <span class="string">"您好！可以帮您查询不良资产余额、风险等级等信息。"</span>,
+        ],
+        <span class="string">"farewell"</span>: [
+            <span class="string">"再见！如有其他问题，随时找我。"</span>,
+            <span class="string">"好的，祝您工作顺利！"</span>,
+        ],
+        <span class="string">"thanks"</span>: [
+            <span class="string">"不客气！还有其他需要帮助的吗？"</span>,
+        ],
+        <span class="string">"query_balance"</span>: [
+            <span class="string">"资产 $asset_id 的当前余额为 ¥$amount 元（截至 $date）。"</span>,
+        ],
+        <span class="string">"query_risk"</span>: [
+            <span class="string">"债务人 $debtor_name 的当前风险等级为 $risk_level。"</span>,
+        ],
+    }
+
+    <span class="keyword">def</span> <span class="func">can_handle</span>(self, intent: <span class="builtin">str</span>) -> <span class="builtin">bool</span>:
+        <span class="string">"""判断该意图是否可以用模板处理"""</span>
+        <span class="keyword">return</span> intent <span class="keyword">in</span> self.TEMPLATES
+
+    <span class="keyword">def</span> <span class="func">respond</span>(
+        self, intent: <span class="builtin">str</span>, slots: <span class="builtin">dict</span> = <span class="keyword">None</span>, index: <span class="builtin">int</span> = <span class="number">0</span>
+    ) -> Optional[<span class="builtin">str</span>]:
+        <span class="string">"""
+        用模板生成回复。
+        slots: 槽位数据，用于替换模板变量
+        index: 模板列表索引（轮换不同话术）
+        """</span>
+        templates = self.TEMPLATES.<span class="func">get</span>(intent)
+        <span class="keyword">if not</span> templates:
+            <span class="keyword">return</span> <span class="keyword">None</span>
+
+        tpl = templates[index % <span class="builtin">len</span>(templates)]  <span class="comment"># 轮换</span>
+        <span class="keyword">if</span> slots:
+            tpl = Template(tpl).<span class="func">safe_substitute</span>(**slots)
+        <span class="keyword">return</span> tpl
+
+    <span class="keyword">def</span> <span class="func">get_slot_filling_prompt</span>(self, intent: <span class="builtin">str</span>) -> Optional[<span class="builtin">str</span>]:
+        <span class="string">"""获取槽位追问话术（也是模板化处理）"""</span>
+        prompts = {
+            <span class="string">"query_balance"</span>: <span class="string">"请问要查询哪笔资产的余额？请提供资产编号（如 A001）。"</span>,
+            <span class="string">"query_risk"</span>: <span class="string">"请问要查询哪位债务人的风险等级？"</span>,
+            <span class="string">"query_detail"</span>: <span class="string">"请问要查询哪笔资产的详情？请提供资产编号。"</span>,
+        }
+        <span class="keyword">return</span> prompts.<span class="func">get</span>(intent)</code></pre>
+
+  <h3>5.3 LLMResponder — LLM 回复器</h3>
+  <pre><code><span class="keyword">from</span> typing <span class="keyword">import</span> Optional
+<span class="keyword">import</span> json, re
+
+<span class="keyword">class</span> <span class="class-name">LLMResponder</span>:
+    <span class="string">"""LLM 回复器 — 处理复杂语义问答"""</span>
+
+    <span class="comment"># 系统 Prompt：角色 + 约束 + 上下文</span>
+    SYSTEM_PROMPT = <span class="string">"""你是AMC（资产管理公司）智能客服助手。
+用户可能咨询不良资产相关的问题。
+
+## 回复要求
+1. 基于提供的信息回答，不要编造数据
+2. 如果提供的信息不足以回答，诚实说明
+3. 语气专业但友好
+4. 回复控制在 200 字以内
+5. 使用 markdown 格式提高可读性"""</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, api_key: <span class="builtin">str</span>):
+        <span class="keyword">from</span> zhipuai <span class="keyword">import</span> ZhipuAI
+        self.client = ZhipuAI(api_key=api_key)
+        self.model = <span class="string">"glm-4-flash"</span>  <span class="comment"># 轻量模型，速度快</span>
+
+    <span class="keyword">def</span> <span class="func">respond</span>(
+        self,
+        query: <span class="builtin">str</span>,
+        context: <span class="builtin">str</span> = <span class="string">""</span>,
+        history: <span class="builtin">list</span> = <span class="keyword">None</span>,
+    ) -> <span class="builtin">str</span>:
+        <span class="string">"""
+        调用 LLM 生成回复
+        context: 检索到的参考资料
+        history: 对话历史（用于多轮理解）
+        """</span>
+        messages = [{<span class="string">"role"</span>: <span class="string">"system"</span>, <span class="string">"content"</span>: self.SYSTEM_PROMPT}]
+
+        <span class="comment"># 组装参考资料</span>
+        <span class="keyword">if</span> context:
+            messages.<span class="func">append</span>({
+                <span class="string">"role"</span>: <span class="string">"system"</span>,
+                <span class="string">"content"</span>: <span class="string">f"参考资料：\n{context}"</span>
+            })
+
+        <span class="comment"># 加入对话历史（最近5轮）</span>
+        <span class="keyword">if</span> history:
+            recent = history[-<span class="number">10</span>:]  <span class="comment"># 最近5轮（每轮user+bot两条）</span>
+            messages.<span class="func">extend</span>(recent)
+
+        <span class="comment"># 当前问题</span>
+        messages.<span class="func">append</span>({<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: query})
+
+        <span class="comment"># 调用 API</span>
+        response = self.client.chat.completions.<span class="func">create</span>(
+            model=self.model,
+            messages=messages,
+            temperature=<span class="number">0.3</span>,  <span class="comment"># 客服场景低温度，保证稳定</span>
+            max_tokens=<span class="number">500</span>,
+        )
+        <span class="keyword">return</span> response.choices[<span class="number">0</span>].message.content</code></pre>
+
+  <h3>5.4 HybridResponder — 混合回复路由</h3>
+  <pre><code><span class="keyword">class</span> <span class="class-name">HybridResponder</span>:
+    <span class="string">"""
+    混合回复策略路由：
+    模板优先（快+便宜） → LLM 兜底（灵活+智能）
+    """</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, template: TemplateResponder, llm: LLMResponder):
+        self.template = template
+        self.llm = llm
+
+    <span class="keyword">def</span> <span class="func">respond</span>(
+        self, intent: <span class="builtin">str</span>, query: <span class="builtin">str</span>,
+        slots: <span class="builtin">dict</span> = <span class="keyword">None</span>, context: <span class="builtin">str</span> = <span class="string">""</span>,
+        history: <span class="builtin">list</span> = <span class="keyword">None</span>,
+    ) -> <span class="builtin">str</span>:
+        <span class="string">"""
+        混合回复：模板优先，LLM 兜底
+        """</span>
+        <span class="comment"># 第一步：尝试模板回复</span>
+        <span class="keyword">if</span> self.template.<span class="func">can_handle</span>(intent):
+            reply = self.template.<span class="func">respond</span>(intent, slots)
+            <span class="keyword">if</span> reply:
+                <span class="keyword">return</span> reply
+
+        <span class="comment"># 第二步：模板无法处理，走 LLM</span>
+        <span class="keyword">return</span> self.llm.<span class="func">respond</span>(
+            query=query,
+            context=context,
+            history=history,
+        )</code></pre>
+</div>
+
+<!-- ==================== 6. 完整串联 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🔗</span> ConversationManager — 全流程集成 <span class="time-tag">15 min</span></div>
+
+  <pre><code><span class="keyword">import</span> copy
+<span class="keyword">from</span> typing <span class="keyword">import</span> Optional
+
+<span class="keyword">class</span> <span class="class-name">ConversationManager</span>:
+    <span class="string">"""
+    对话管理器 — 串联意图→槽位→回复的完整流程
+    类比数仓: ODS(用户输入) → DWD(意图+实体) → DWS(槽位填充) → ADS(回复输出)
+    """</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, api_key: <span class="builtin">str</span> = <span class="string">""</span>):
+        self.sessions = SessionManager(ttl=<span class="number">1800</span>)
+        self.slot_mgr = SlotFillingManager()
+        self.template = TemplateResponder()
+        <span class="comment"># LLM Responder（开发阶段可传空 key 走 mock）</span>
+        self.llm = LLMResponder(api_key) <span class="keyword">if</span> api_key <span class="keyword">else None</span>
+        self.responder = HybridResponder(self.template, self.llm) <span class="keyword">if</span> self.llm <span class="keyword">else None</span>
+
+    <span class="keyword">def</span> <span class="func">chat</span>(
+        self, session_id: <span class="builtin">str</span>, user_input: <span class="builtin">str</span>
+    ) -> <span class="builtin">dict</span>:
+        <span class="string">"""
+        处理一轮对话（完整管线）
+        返回: {"reply": str, "intent": str, "phase": str, "slots": dict}
+        """</span>
+        <span class="comment"># 1. 获取/创建会话状态</span>
+        state = self.sessions.<span class="func">get_or_create</span>(session_id)
+
+        <span class="comment"># 2. 意图识别 + 实体提取（Day 62 的模块）</span>
+        intent = self._<span class="func">classify_intent</span>(user_input)
+        entities = self._<span class="func">extract_entities</span>(user_input)
+
+        <span class="comment"># 3. 意图切换时重置槽位</span>
+        <span class="keyword">if</span> intent != state.intent:
+            state.slots.<span class="func">clear</span>()  <span class="comment"># 新意图，清空旧槽位</span>
+            state.intent = intent
+
+        <span class="comment"># 4. 填充槽位</span>
+        new_filled = self.slot_mgr.<span class="func">fill_from_entities</span>(state, entities)
+
+        <span class="comment"># 5. 槽位检查 + 追问</span>
+        missing_prompt = self.slot_mgr.<span class="func">check_and_prompt</span>(intent, state)
+        <span class="keyword">if</span> missing_prompt:
+            state.phase = DialogPhase.SLOT_FILLING
+            state.<span class="func">add_turn</span>(user_input, missing_prompt)
+            <span class="keyword">return</span> {
+                <span class="string">"reply"</span>: missing_prompt,
+                <span class="string">"intent"</span>: intent,
+                <span class="string">"phase"</span>: state.phase.value,
+                <span class="string">"slots"</span>: copy.<span class="func">deepcopy</span>(state.slots),
+                <span class="string">"action"</span>: <span class="string">"ask_slot"</span>,
+            }
+
+        <span class="comment"># 6. 槽位齐全，生成回复</span>
+        state.phase = DialogPhase.EXECUTING
+
+        <span class="comment"># 执行业务逻辑（如查询数据库）</span>
+        business_result = self._<span class="func">execute_business</span>(intent, state.slots)
+
+        <span class="comment"># 生成回复</span>
+        <span class="keyword">if</span> self.responder:
+            reply = self.responder.<span class="func">respond</span>(
+                intent=intent,
+                query=user_input,
+                slots={**state.slots, **business_result},
+                history=self._<span class="func">build_history</span>(state),
+            )
+        <span class="keyword">else</span>:
+            reply = self._<span class="func">mock_reply</span>(intent, state.slots, business_result)
+
+        state.phase = DialogPhase.RESULT_SHOWING
+        state.<span class="func">add_turn</span>(user_input, reply)
+
+        <span class="keyword">return</span> {
+            <span class="string">"reply"</span>: reply,
+            <span class="string">"intent"</span>: intent,
+            <span class="string">"phase"</span>: state.phase.value,
+            <span class="string">"slots"</span>: copy.<span class="func">deepcopy</span>(state.slots),
+            <span class="string">"action"</span>: <span class="string">"reply"</span>,
+        }
+
+    <span class="keyword">def</span> <span class="func">_classify_intent</span>(self, text: <span class="builtin">str</span>) -> <span class="builtin">str</span>:
+        <span class="string">"""意图分类（简化版，生产环境用 Day 62 的 IntentClassifier）"""</span>
+        text_lower = text.<span class="func">lower</span>()
+        <span class="keyword">if</span> <span class="keyword">any</span>(w <span class="keyword">in</span> text_lower <span class="keyword">for</span> w <span class="keyword">in</span> [<span class="string">"你好"</span>, <span class="string">"在吗"</span>, <span class="string">"hello"</span>]):
+            <span class="keyword">return</span> <span class="string">"greeting"</span>
+        <span class="keyword">if</span> <span class="keyword">any</span>(w <span class="keyword">in</span> text_lower <span class="keyword">for</span> w <span class="keyword">in</span> [<span class="string">"余额"</span>, <span class="string">"多少"</span>, <span class="string">"多少钱"</span>]):
+            <span class="keyword">return</span> <span class="string">"query_balance"</span>
+        <span class="keyword">if</span> <span class="keyword">any</span>(w <span class="keyword">in</span> text_lower <span class="keyword">for</span> w <span class="keyword">in</span> [<span class="string">"风险"</span>, <span class="string">"等级"</span>]):
+            <span class="keyword">return</span> <span class="string">"query_risk"</span>
+        <span class="keyword">if</span> <span class="keyword">any</span>(w <span class="keyword">in</span> text_lower <span class="keyword">for</span> w <span class="keyword">in</span> [<span class="string">"再见"</span>, <span class="string">"拜拜"</span>, <span class="string">"bye"</span>]):
+            <span class="keyword">return</span> <span class="string">"farewell"</span>
+        <span class="keyword">return</span> <span class="string">"unknown"</span>
+
+    <span class="keyword">def</span> <span class="func">_extract_entities</span>(self, text: <span class="builtin">str</span>) -> <span class="builtin">dict</span>:
+        <span class="string">"""实体提取（简化版正则提取）"""</span>
+        entities = {}
+        <span class="comment"># 提取资产编号: A001, B023 等</span>
+        asset_match = re.<span class="func">search</span>(<span class="string">r'[A-Z]\d{3}'</span>, text)
+        <span class="keyword">if</span> asset_match:
+            entities[<span class="string">"asset_id"</span>] = asset_match.<span class="func">group</span>()
+        <span class="keyword">return</span> entities
+
+    <span class="keyword">def</span> <span class="func">_execute_business</span>(self, intent: <span class="builtin">str</span>, slots: <span class="builtin">dict</span>) -> <span class="builtin">dict</span>:
+        <span class="string">"""执行业务逻辑（mock 版本）"""</span>
+        <span class="comment"># 生产环境: 这里调用数据库查询</span>
+        mock_results = {
+            <span class="string">"query_balance"</span>: {<span class="string">"amount"</span>: <span class="string">"1,250,000"</span>, <span class="string">"date"</span>: <span class="string">"2026-08-13"</span>},
+            <span class="string">"query_risk"</span>: {<span class="string">"risk_level"</span>: <span class="string">"关注"</span>, <span class="string">"score"</span>: <span class="string">"72"</span>},
+        }
+        <span class="keyword">return</span> mock_results.<span class="func">get</span>(intent, {})
+
+    <span class="keyword">def</span> <span class="func">_build_history</span>(self, state: ConversationState) -> <span class="builtin">list</span>:
+        <span class="string">"""构建 LLM 所需的对话历史格式"""</span>
+        history = []
+        <span class="keyword">for</span> turn <span class="keyword">in</span> state.history:
+            history.<span class="func">append</span>({<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: turn[<span class="string">"user"</span>]})
+            history.<span class="func">append</span>({<span class="string">"role"</span>: <span class="string">"assistant"</span>, <span class="string">"content"</span>: turn[<span class="string">"bot"</span>]})
+        <span class="keyword">return</span> history
+
+    <span class="keyword">def</span> <span class="func">_mock_reply</span>(self, intent: <span class="builtin">str</span>, slots: <span class="builtin">dict</span>, result: <span class="builtin">dict</span>) -> <span class="builtin">str</span>:
+        <span class="string">"""Mock 回复（无 API Key 时使用）"""</span>
+        <span class="keyword">match</span> intent:
+            <span class="keyword">case</span> <span class="string">"greeting"</span>:
+                <span class="keyword">return</span> <span class="string">"您好！我是AMC智能助手，请问有什么可以帮您？"</span>
+            <span class="keyword">case</span> <span class="string">"query_balance"</span>:
+                asset = slots.<span class="func">get</span>(<span class="string">"asset_id"</span>, <span class="string">"未知"</span>)
+                amount = result.<span class="func">get</span>(<span class="string">"amount"</span>, <span class="string">"N/A"</span>)
+                <span class="keyword">return</span> <span class="string">f"资产 <span class="builtin">{asset}</span> 的当前余额为 ¥<span class="builtin">{amount}</span> 元。"</span>
+            <span class="keyword">case</span> <span class="string">"query_risk"</span>:
+                name = slots.<span class="func">get</span>(<span class="string">"debtor_name"</span>, <span class="string">"未知"</span>)
+                level = result.<span class="func">get</span>(<span class="string">"risk_level"</span>, <span class="string">"N/A"</span>)
+                <span class="keyword">return</span> <span class="string">f"债务人 <span class="builtin">{name}</span> 的风险等级为：<span class="builtin">{level}</span>。"</span>
+            <span class="keyword">case</span> <span class="string">"farewell"</span>:
+                <span class="keyword">return</span> <span class="string">"再见！如有其他问题，随时找我。"</span>
+            <span class="keyword">case</span> _:
+                <span class="keyword">return</span> <span class="string">"抱歉，我暂时无法回答这个问题。您可以说「查询余额」试试。"</span></code></pre>
+
+  <h3>6.2 完整对话演示</h3>
+  <pre><code><span class="comment"># ====== 完整多轮对话演示 ======</span>
+mgr = ConversationManager()  <span class="comment"># 无 API Key，走 mock 模式</span>
+session = <span class="string">"test-session-001"</span>
+
+<span class="comment"># 第一轮：问候</span>
+r1 = mgr.<span class="func">chat</span>(session, <span class="string">"你好"</span>)
+<span class="builtin">print</span>(<span class="string">f"轮次1 → {r1['action']}: {r1['reply']}"</span>)
+<span class="comment"># 轮次1 → reply: 您好！我是AMC智能助手，请问有什么可以帮您？</span>
+
+<span class="comment"># 第二轮：查余额但没给资产编号</span>
+r2 = mgr.<span class="func">chat</span>(session, <span class="string">"我想查一下余额"</span>)
+<span class="builtin">print</span>(<span class="string">f"轮次2 → {r2['action']}: {r2['reply']}"</span>)
+<span class="comment"># 轮次2 → ask_slot: 请问要查询哪笔资产的余额？请提供资产编号。</span>
+
+<span class="comment"># 第三轮：补充资产编号</span>
+r3 = mgr.<span class="func">chat</span>(session, <span class="string">"A001的余额是多少"</span>)
+<span class="builtin">print</span>(<span class="string">f"轮次3 → {r3['action']}: {r3['reply']}"</span>)
+<span class="comment"># 轮次3 → reply: 资产 A001 的当前余额为 ¥1,250,000 元。</span>
+<span class="builtin">print</span>(<span class="string">f"当前槽位: {r3['slots']}"</span>)
+<span class="comment"># 当前槽位: {'asset_id': 'A001'}</span>
+
+<span class="comment"># 第四轮：切换意图查风险（槽位会被清空）</span>
+r4 = mgr.<span class="func">chat</span>(session, <span class="string">"张三的风险等级是什么"</span>)
+<span class="builtin">print</span>(<span class="string">f"轮次4 → {r4['action']}: {r4['reply']}"</span>)
+<span class="comment"># 轮次4 → reply: 债务人 张三 的风险等级为：关注。</span></code></pre>
+
+  <div class="flow-chart">
+    <span class="step">用户："你好"</span><span class="arrow">→</span>
+    <span class="step green">模板回复</span><span class="arrow">→</span>
+    <span class="step">用户："查余额"</span><span class="arrow">→</span>
+    <span class="step orange">追问资产编号</span><span class="arrow">→</span>
+    <span class="step">用户："A001"</span><span class="arrow">→</span>
+    <span class="step active">执行查询+回复</span>
+  </div>
+</div>
+
+<!-- ==================== 7. 常见陷阱 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">⚠️</span> 常见陷阱 Top 5</div>
+
+  <ol>
+    <li><strong>意图切换不清空槽位</strong> — 用户从"查余额"切到"查风险"，旧的 asset_id 会残留在 slots 中。解决：检测到意图变化时 <code>state.slots.clear()</code>。</li>
+    <li><strong>追问死循环</strong> — 用户反复给无效输入（如"不知道"），系统一直追问同一问题。解决：设置最大追问次数（如3次），超限后给出退出选项或转人工。</li>
+    <li><strong>对话历史膨胀</strong> — 20轮对话后把全部 history 传给 LLM，Token 爆炸。解决：滑动窗口只保留最近 5-10 轮，或用摘要压缩早期对话。</li>
+    <li><strong>模板变量未替换</strong> — <code>Template.safe_substitute</code> 遇到缺失变量会保留 <code>$var</code> 原样。解决：先用 <code>.substitute()</code> 试一下，KeyError 时 fallback 到默认值。</li>
+    <li><strong>会话内存泄漏</strong> — 内存版 SessionManager 不会自动清理过期会话。解决：定时调用 <code>cleanup_expired()</code>，或使用 Redis 的 TTL 自动过期。</li>
+  </ol>
+
+  <div class="error-box">
+    <strong>安全红线：</strong>回复中绝对不能暴露系统内部信息（数据库表名、SQL 错误、堆栈跟踪）。所有异常都要 catch 后返回通用话术"暂时无法处理，请稍后再试"。
+  </div>
+</div>
+
+<!-- ==================== 8. 最佳实践速查 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">✅</span> 最佳实践速查表</div>
+
+  <table class="compare-table">
+    <tr><th>场景</th><th>推荐做法</th><th>避免做法</th></tr>
+    <tr><td>回复策略选择</td><td>模板优先，LLM 兜底</td><td>所有回复都走 LLM</td></tr>
+    <tr><td>槽位追问</td><td>每次追问 1 个，话术具体</td><td>一次列出所有缺失项</td></tr>
+    <tr><td>意图切换</td><td>切换时清空旧槽位</td><td>保留旧槽位导致混乱</td></tr>
+    <tr><td>对话历史</td><td>滑动窗口保留最近 5-10 轮</td><td>全量传给 LLM</td></tr>
+    <tr><td>会话管理</td><td>设置 TTL 自动过期</td><td>永不过期导致内存泄漏</td></tr>
+    <tr><td>LLM 温度</td><td>客服场景 0.2-0.3</td><td>用 0.8+ 导致回复不稳定</td></tr>
+    <tr><td>错误处理</td><td>catch 后返回通用话术</td><td>暴露异常堆栈</td></tr>
+  </table>
+</div>
+
+<!-- ==================== 9. 练习 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🏋️</span> 课后练习</div>
+
+  <h3>练习 1：追问次数限制（必做）</h3>
+  <p style="font-size:14px;color:var(--text2)">在 <code>SlotFillingManager</code> 中增加最大追问次数。超过 3 次追问未成功时，返回"抱歉我没有理解，您可以换一种方式描述，或输入「转人工」联系客服。"提示：在 <code>ConversationState</code> 中增加 <code>ask_count</span> 字段。</p>
+
+  <h3>练习 2：对话摘要压缩（进阶）</h3>
+  <p style="font-size:14px;color:var(--text2)">当对话历史超过 10 轮时，调用 LLM 将早期对话压缩为一段摘要（100字以内），替换掉原始历史记录。提示：在 <code>_build_history</code> 中判断长度，超长时先摘要再传。</p>
+
+  <h3>练习 3：LeetCode #347 — 前 K 个高频元素</h3>
+  <pre><code><span class="comment"># 给定一个非空整数数组，返回出现频率前 k 高的元素。</span>
+<span class="comment"># 示例: nums = [1,1,1,2,2,3], k = 2 → [1, 2]</span>
+<span class="comment"># 提示: Counter + most_common(k) 即可一行搞定</span>
+<span class="keyword">from</span> collections <span class="keyword">import</span> Counter
+
+<span class="keyword">def</span> <span class="func">top_k_frequent</span>(nums: <span class="builtin">list</span>, k: <span class="builtin">int</span>) -> <span class="builtin">list</span>:
+    <span class="comment"># TODO: 用 Counter 实现</span>
+    <span class="keyword">pass</span></code></pre>
+</div>
+
+<!-- ==================== 10. 总结 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">📝</span> 今日总结</div>
+
+  <div class="summary-box">
+    <h3>Day 63 核心收获</h3>
+    <ol>
+      <li><strong>对话状态管理</strong> — ConversationState 记录意图/阶段/槽位/历史，SessionManager 管理会话生命周期</li>
+      <li><strong>槽位填充</strong> — 意图→槽位映射 + 缺失检查 + 单项追问，像数仓 NOT NULL 约束一样保证数据完整性</li>
+      <li><strong>混合回复策略</strong> — 模板处理 80% 常见场景（快+便宜），LLM 处理 20% 复杂场景（灵活+智能）</li>
+      <li><strong>ConversationManager</strong> — 完整管线：意图→槽位检查→追问/执行→回复，类比数仓 ODS→DWD→DWS→ADS</li>
+      <li><strong>Python 工具</strong> — uuid 会话 ID、copy.deepcopy 安全复制、match-case 意图路由、Template 安全替换</li>
+    </ol>
+  </div>
+
+  <h3>P5 进度</h3>
+  <table class="compare-table">
+    <tr><th>Day</th><th>主题</th><th>状态</th></tr>
+    <tr><td>Day 62</td><td>架构设计 + 意图识别</td><td>✅ 已完成</td></tr>
+    <tr><td>Day 63</td><td>对话管理 + 回复生成</td><td><span class="tag tag-new">✅ 今天</span></td></tr>
+    <tr><td>Day 64</td><td>多轮对话优化 + FastAPI 部署（P5 收官）</td><td>待进行</td></tr>
+  </table>
+
+  <h3>总进度</h3>
+  <div class="flow-chart">
+    <span class="step">D1-7</span><span class="arrow">核心</span>
+    <span class="arrow">→</span>
+    <span class="step">D8-14</span><span class="arrow">拓展</span>
+    <span class="arrow">→</span>
+    <span class="step">D15-28</span><span class="arrow">工程</span>
+    <span class="arrow">→</span>
+    <span class="step">D29-42</span><span class="arrow">RAG+Agent</span>
+    <span class="arrow">→</span>
+    <span class="step">D43-49</span><span class="arrow">微调部署</span>
+    <span class="arrow">→</span>
+    <span class="step active">D50-63</span><span class="arrow">项目实战</span>
+    <span class="arrow">→</span>
+    <span class="step">D64-70</span>
+  </div>
+</div>
+
+<div class="footer">
+  LLM 120天转型计划 · Day 63/70 · P5 智能客服/对话系统 Day 2/3
+</div>
+
+</body>
+</html>

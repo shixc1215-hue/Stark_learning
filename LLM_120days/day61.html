@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 61 - P4 收官：质检报告可视化 + 告警通知 + 自动修复建议</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--purple:#9333ea;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#fef3c7,#fff7ed);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #fde68a; }
+  .header .badge { display:inline-block;background:#fef9c3;color:#a16207;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--green);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--green); }
+  .tip-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--accent); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  .purple-box { background:#faf5ff;border-left:3px solid var(--purple);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .purple-box strong { color:var(--purple); }
+  h3 { font-size:16px;font-weight:700;margin:18px 0 10px;color:var(--text); }
+  h4 { font-size:14px;font-weight:700;margin:14px 0 8px;color:var(--accent2); }
+  p, li { font-size:14px;color:var(--text2);line-height:1.85; }
+  ul, ol { padding-left:22px;margin:8px 0; }
+  code { background:var(--surface2);padding:2px 7px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--accent); }
+  pre { background:#1e293b;color:#e2e8f0;padding:18px 22px;border-radius:8px;overflow-x:auto;margin:12px 0;font-size:13px;line-height:1.7;font-family:'Cascadia Code','Fira Code',Consolas,monospace; }
+  pre .comment { color:#64748b;font-style:italic; }
+  pre .keyword { color:#c084fc; }
+  pre .string { color:#34d399; }
+  pre .func { color:#60a5fa; }
+  pre .decorator { color:#fbbf24; }
+  pre .class { color:#f472b6; }
+  pre .number { color:#fb923c; }
+  pre .type { color:#22d3ee; }
+  table { width:100%;border-collapse:collapse;margin:12px 0;font-size:13px; }
+  th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:700;color:var(--text);border-bottom:2px solid var(--border); }
+  td { padding:10px 14px;border-bottom:1px solid var(--surface3);color:var(--text2); }
+  tr:hover td { background:var(--surface2); }
+  .compare-table th:nth-child(2) { background:#dcfce7; }
+  .compare-table th:nth-child(3) { background:#fef9c3; }
+  .flow-steps { display:flex;flex-wrap:wrap;gap:8px;margin:14px 0;align-items:center; }
+  .flow-step { background:var(--surface2);border:1px solid var(--border);padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;color:var(--text2); }
+  .flow-arrow { color:var(--text3);font-size:16px;font-weight:700; }
+  .badge-tag { display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;margin:0 2px; }
+  .badge-green { background:#dcfce7;color:#16a34a; }
+  .badge-red { background:#fee2e2;color:#dc2626; }
+  .badge-blue { background:#dbeafe;color:#3b82f6; }
+  .badge-orange { background:#ffedd5;color:#ea580c; }
+  .badge-purple { background:#f3e8ff;color:#9333ea; }
+  .summary-box { background:linear-gradient(135deg,#eff6ff,#f0fdf4);border:2px solid var(--accent);border-radius:var(--radius);padding:20px 24px;margin:16px 0; }
+  .summary-box h3 { color:var(--accent);margin-top:0; }
+  .checklist { list-style:none;padding-left:0; }
+  .checklist li { padding:4px 0;font-size:14px;color:var(--text2); }
+  .checklist li::before { content:"✅ "; }
+  .next-box { background:linear-gradient(135deg,#faf5ff,#fdf4ff);border:1px solid #e9d5ff;border-radius:var(--radius);padding:18px 24px;margin:16px 0; }
+  .next-box h3 { color:var(--purple);margin-top:0; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Phase 4 · P4 收官 · Day 61/70</div>
+  <h1>质检报告可视化 + 告警通知 + 自动修复建议</h1>
+  <div class="subtitle">智能数据质检系统最后一块拼图：把检测结果变成人能看懂的报告，自动告警，智能修复</div>
+</div>
+
+<div class="progress-bar">
+  <div class="label">LLM 120天总进度</div>
+  <div class="track"><div class="fill" style="width:87.1%"></div></div>
+  <div class="percent">61/70</div>
+</div>
+
+<!-- ==================== 一、今日路线图 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🗺️</span> 今日路线图
+    <span class="time-tag">⏱️ 约 60 分钟</span>
+  </div>
+  <div class="flow-steps">
+    <div class="flow-step">HTML报告渲染</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">质量趋势图表</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">告警分级通知</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">LLM修复建议</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">P4收官串联</div>
+  </div>
+
+  <div class="concept-box">
+    <strong>🎯 今日目标：</strong>将 Day59（规则引擎）+ Day60（LLM检测+归因）的检测结果，转化为 HTML 质检报告 → 质量趋势图表 → 分级告警 → LLM 自动生成修复 SQL。完成 P4 智能数据质检系统全链路收官。
+  </div>
+</div>
+
+<!-- ==================== 二、Python 知识 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span> Python 知识：Jinja2 高级 + matplotlib 图表 + base64 内嵌
+    <span class="time-tag">⏱️ 15 分钟</span>
+  </div>
+
+  <h3>2.1 Jinja2 模板高级用法（回顾 + 扩展）</h3>
+  <p>Day57 学过 Jinja2 基础，今天重点用于 <strong>HTML 质检报告渲染</strong>。</p>
+
+<pre>
+<span class="comment"># Jinja2 核心：变量渲染 + 条件 + 循环</span>
+<span class="keyword">from</span> <span class="class">jinja2</span> <span class="keyword">import</span> <span class="class">Environment</span>, <span class="func">FileSystemLoader</span>, <span class="func">Template</span>
+
+<span class="comment"># 方式1：直接从字符串创建（适合内联模板）</span>
+template_str = <span class="string">"""
+{% for rule in rules %}
+  &lt;tr&gt;
+    &lt;td&gt;{{ rule.name }}&lt;/td&gt;
+    &lt;td class="{{ 'pass' if rule.passed else 'fail' }}"&gt;
+      {{ '✅ 通过' if rule.passed else '❌ 失败' }}
+    &lt;/td&gt;
+    &lt;td&gt;{{ rule.violations|length }}&lt;/td&gt;
+  &lt;/tr&gt;
+{% endfor %}
+"""</span>
+template = <span class="func">Template</span>(template_str)
+html = template.<span class="func">render</span>(rules=quality_results)
+
+<span class="comment"># 方式2：从文件加载（适合复杂模板）</span>
+env = <span class="class">Environment</span>(<span class="func">loader=FileSystemLoader</span>(<span class="string">"templates"</span>))
+template = env.<span class="func">get_template</span>(<span class="string">"report.html.j2"</span>)
+
+<span class="comment"># Jinja2 过滤器（管道符 | 调用）</span>
+<span class="comment"># {{ value|round(2) }}  →  四舍五入2位</span>
+<span class="comment"># {{ value|default("N/A") }}  →  默认值</span>
+<span class="comment"># {{ items|join(", ") }}  →  列表拼接</span>
+<span class="comment"># {{ score * 100|round(1) }}  →  注意运算优先级！</span>
+
+<span class="comment"># 自定义过滤器（注册到 Environment）</span>
+<span class="keyword">def</span> <span class="func">severity_color</span>(severity):
+    <span class="string">"根据严重级别返回CSS颜色类"</span>
+    colors = {<span class="string">"CRITICAL"</span>: <span class="string">"red"</span>, <span class="string">"HIGH"</span>: <span class="string">"orange"</span>, <span class="string">"MEDIUM"</span>: <span class="string">"yellow"</span>, <span class="string">"LOW"</span>: <span class="string">"green"</span>}
+    <span class="keyword">return</span> colors.<span class="func">get</span>(severity, <span class="string">"blue"</span>)
+
+env.filters[<span class="string">"severity_color"</span>] = severity_color
+<span class="comment"># 模板中: &lt;span class="{{ item.severity|severity_color }}"&gt;</span>
+</pre>
+
+  <div class="tip-box">
+    <strong>数仓人速记：</strong>Jinja2 的模板语法和 SQL 的 CASE WHEN 思路一样 —— 根据条件渲染不同内容。<code>{{ '✅' if passed else '❌' }}</code> 等价于 SQL 的 <code>CASE WHEN passed THEN '✅' ELSE '❌' END</code>。
+  </div>
+
+  <h3>2.2 matplotlib 图表生成（回顾 Day57 + 扩展）</h3>
+
+<pre>
+<span class="keyword">import</span> matplotlib
+matplotlib.<span class="func">use</span>(<span class="string">"Agg"</span>)  <span class="comment"># 无GUI后端，服务器环境必选</span>
+<span class="keyword">import</span> matplotlib.pyplot <span class="keyword">as</span> plt
+<span class="keyword">from</span> io <span class="keyword">import</span> BytesIO
+<span class="keyword">import</span> base64
+
+<span class="keyword">def</span> <span class="func">chart_to_base64</span>(fig) -> <span class="type">str</span>:
+    <span class="string">"将 matplotlib 图表转为 base64 字符串（内嵌HTML）"</span>
+    buf = <span class="func">BytesIO</span>()
+    fig.<span class="func">savefig</span>(buf, format=<span class="string">"png"</span>, dpi=<span class="number">150</span>, bbox_inches=<span class="string">"tight"</span>)
+    plt.<span class="func">close</span>(fig)  <span class="comment"># 必须关闭，否则内存泄漏</span>
+    <span class="keyword">return</span> base64.<span class="func">b64encode</span>(buf.<span class="func">getvalue</span>()).<span class="func">decode</span>()
+
+<span class="comment"># 质量趋势图：最近N天得分折线</span>
+<span class="keyword">def</span> <span class="func">plot_quality_trend</span>(scores: <span class="type">dict</span>) -> <span class="type">str</span>:
+    <span class="string">"""scores = {"2026-08-08": 92.5, "2026-08-09": 88.3, ...}"""</span>
+    dates = <span class="func">list</span>(scores.<span class="func">keys</span>())
+    values = <span class="func">list</span>(scores.<span class="func">values</span>())
+
+    fig, ax = plt.<span class="func">subplots</span>(figsize=(<span class="number">8</span>, <span class="number">3</span>))
+    ax.<span class="func">plot</span>(dates, values, <span class="string">"o-"</span>, color=<span class="string">"#3b82f6"</span>, linewidth=<span class="number">2</span>, markersize=<span class="number">6</span>)
+    ax.<span class="func">axhline</span>(y=<span class="number">80</span>, color=<span class="string">"#dc2626"</span>, linestyle=<span class="string">"--"</span>, alpha=<span class="number">0.5</span>, label=<span class="string">"告警线(80分)"</span>)
+    ax.<span class="func">set_ylim</span>(<span class="number">0</span>, <span class="number">100</span>)
+    ax.<span class="func">set_title</span>(<span class="string">"数据质量趋势"</span>, fontsize=<span class="number">14</span>)
+    ax.<span class="func">set_ylabel</span>(<span class="string">"质量得分"</span>)
+    <span class="keyword">for</span> i, v <span class="keyword">in</span> <span class="func">enumerate</span>(values):
+        ax.<span class="func">annotate</span>(<span class="func">f</span><span class="string">"{v}"</span>, (dates[i], v), textcoords=<span class="string">"offset points"</span>, xytext=(<span class="number">0</span>,<span class="number">8</span>), ha=<span class="string">"center"</span>, fontsize=<span class="number">10</span>)
+    ax.<span class="func">legend</span>()
+    <span class="keyword">return</span> <span class="func">chart_to_base64</span>(fig)
+</pre>
+
+  <h3>2.3 Python 核心补充：string.Template 安全替换</h3>
+  <p>当你不想用 Jinja2（轻量场景），可以用标准库的 <code>string.Template</code>：</p>
+
+<pre>
+<span class="keyword">from</span> string <span class="keyword">import</span> Template
+
+<span class="comment"># 安全！不会被注入恶意代码（不像 f-string 那样执行表达式）</span>
+t = <span class="func">Template</span>(<span class="string">"质量得分：$score / 100，异常数：$count"</span>)
+result = t.<span class="func">substitute</span>(score=<span class="number">92.5</span>, count=<span class="number">3</span>)
+<span class="comment"># → "质量得分：92.5 / 100，异常数：3"</span>
+
+<span class="comment"># safe_substitute：缺失变量不报错，保留占位符</span>
+t.<span class="func">safe_substitute</span>(score=<span class="number">92.5</span>)
+<span class="comment"># → "质量得分：92.5 / 100，异常数：$count"</span>
+</pre>
+
+  <div class="tip-box">
+    <strong>安全提示：</strong>拼接 HTML/SQL 时，永远不要直接用 <code>f-string</code> 插入用户数据 —— 存在注入风险。<code>string.Template</code> 和 <code>Jinja2</code> 都是更安全的替代。
+  </div>
+</div>
+
+<!-- ==================== 三、HTML 质检报告渲染 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📊</span> HTML 质检报告渲染
+    <span class="time-tag">⏱️ 15 分钟</span>
+  </div>
+
+  <h3>3.1 报告模板设计</h3>
+  <p>质检报告分三部分：<strong>① 总览仪表盘</strong> → <strong>② 规则明细表</strong> → <strong>③ LLM 异常详情</strong>。</p>
+
+<pre>
+<span class="comment"># report_template.py — HTML报告模板</span>
+<span class="keyword">from</span> <span class="class">jinja2</span> <span class="keyword">import</span> Template
+
+REPORT_HTML = <span class="string">"""&lt;!DOCTYPE html&gt;
+&lt;html lang="zh-CN"&gt;
+&lt;head&gt;&lt;meta charset="UTF-8"&gt;
+&lt;title&gt;数据质检报告 {{ report_date }}&lt;/title&gt;
+&lt;style&gt;
+  body { font-family: sans-serif; padding: 20px; background: #f8fafc; }
+  .card { background: #fff; border-radius: 12px; padding: 20px; margin: 16px 0;
+          border: 1px solid #e2e8f0; }
+  .metric { display: inline-block; text-align: center; margin: 10px 20px; }
+  .metric .num { font-size: 32px; font-weight: 700; }
+  .metric .label { color: #64748b; font-size: 13px; }
+  .pass { color: #16a34a; } .fail { color: #dc2626; }
+  .warn { color: #ea580c; } table { width: 100%; border-collapse: collapse; }
+  th { background: #f1f5f9; padding: 10px; text-align: left; }
+  td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
+&lt;/style&gt;
+&lt;/head&gt;&lt;body&gt;
+&lt;h1&gt;数据质检报告 - {{ report_date }}&lt;/h1&gt;
+
+&lt;!-- 第一部分：总览仪表盘 --&gt;
+&lt;div class="card"&gt;
+  &lt;div class="metric"&gt;
+    &lt;div class="num {{ 'pass' if overall_score &gt;= 80 else 'fail' }}"&gt;
+      {{ overall_score|round(1) }}&lt;/div&gt;
+    &lt;div class="label"&gt;质量得分&lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class="metric"&gt;
+    &lt;div class="num"&gt;{{ total_checks }}&lt;/div&gt;
+    &lt;div class="label"&gt;检查总数&lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class="metric"&gt;
+    &lt;div class="num fail"&gt;{{ anomaly_count }}&lt;/div&gt;
+    &lt;div class="label"&gt;异常数&lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class="metric"&gt;
+    &lt;div class="num"&gt;{{ duration }}s&lt;/div&gt;
+    &lt;div class="label"&gt;检测耗时&lt;/div&gt;
+  &lt;/div&gt;
+  {% if chart_image %}
+  &lt;div style="margin-top:16px"&gt;
+    &lt;img src="data:image/png;base64,{{ chart_image }}" width="100%"&gt;
+  &lt;/div&gt;
+  {% endif %}
+&lt;/div&gt;
+
+&lt;!-- 第二部分：规则明细表 --&gt;
+&lt;div class="card"&gt;
+  &lt;h2&gt;规则检查明细&lt;/h2&gt;
+  &lt;table&gt;
+    &lt;tr&gt;&lt;th&gt;规则名&lt;/th&gt;&lt;th&gt;状态&lt;/th&gt;&lt;th&gt;违反数&lt;/th&gt;&lt;th&gt;严重级别&lt;/th&gt;&lt;th&gt;详情&lt;/th&gt;&lt;/tr&gt;
+    {% for r in rule_results %}
+    &lt;tr&gt;
+      &lt;td&gt;{{ r.name }}&lt;/td&gt;
+      &lt;td class="{{ 'pass' if r.passed else 'fail' }}"&gt;
+        {{ '✅' if r.passed else '❌' }}&lt;/td&gt;
+      &lt;td&gt;{{ r.violations|length }}&lt;/td&gt;
+      &lt;td&gt;{{ r.severity }}&lt;/td&gt;
+      &lt;td&gt;{{ r.details|default("-") }}&lt;/td&gt;
+    &lt;/tr&gt;
+    {% endfor %}
+  &lt;/table&gt;
+&lt;/div&gt;
+
+&lt;!-- 第三部分：LLM异常详情 --&gt;
+{% if llm_anomalies %}
+&lt;div class="card"&gt;
+  &lt;h2&gt;LLM 语义检测异常&lt;/h2&gt;
+  {% for a in llm_anomalies %}
+  &lt;div style="margin:12px 0; padding:12px; background:#fffbeb; border-radius:8px;
+              border-left:3px solid #ea580c;"&gt;
+    &lt;strong&gt;{{ a.description }}&lt;/strong&gt;
+    &lt;br&gt;&lt;span style="color:#64748b"&gt;字段：{{ a.field }} | 根因：{{ a.root_cause }}&lt;/span&gt;
+    &lt;br&gt;&lt;span style="color:#dc2626"&gt;修复建议：{{ a.fix_suggestion }}&lt;/span&gt;
+  &lt;/div&gt;
+  {% endfor %}
+{% endif %}
+&lt;/body&gt;&lt;/html&gt;"""</span>
+</pre>
+
+  <h3>3.2 QualityReportBuilder 报告生成器</h3>
+
+<pre>
+<span class="comment"># report_builder.py</span>
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> datetime <span class="keyword">import</span> datetime
+<span class="keyword">from</span> pathlib <span class="keyword">import</span> Path
+<span class="keyword">from</span> <span class="class">jinja2</span> <span class="keyword">import</span> Template
+<span class="keyword">from</span> io <span class="keyword">import</span> BytesIO
+<span class="keyword">import</span> base64
+<span class="keyword">import</span> matplotlib
+matplotlib.<span class="func">use</span>(<span class="string">"Agg"</span>)
+<span class="keyword">import</span> matplotlib.pyplot <span class="keyword">as</span> plt
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="class">RuleResultItem</span>:
+    <span class="string">"""单条规则检测结果"""</span>
+    name: <span class="type">str</span>
+    passed: <span class="type">bool</span>
+    violations: <span class="type">list</span> = field(default_factory=<span class="type">list</span>)
+    severity: <span class="type">str</span> = <span class="string">"MEDIUM"</span>
+    details: <span class="type">str</span> = <span class="string">""</span>
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="class">LLMAnomalyItem</span>:
+    <span class="string">"""LLM检测到的异常项"""</span>
+    field: <span class="type">str</span>
+    description: <span class="type">str</span>
+    root_cause: <span class="type">str</span>
+    fix_suggestion: <span class="type">str</span>
+    priority: <span class="type">str</span> = <span class="string">"HIGH"</span>
+
+<span class="keyword">class</span> <span class="class">QualityReportBuilder</span>:
+    <span class="string">"""质检报告生成器：整合规则结果 + LLM异常 + 趋势图表 → HTML"""</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, output_dir: <span class="type">str</span> = <span class="string">"reports"</span>):
+        self.output_dir = Path(output_dir)
+        self.output_dir.<span class="func">mkdir</span>(parents=<span class="keyword">True</span>, exist_ok=<span class="keyword">True</span>)
+
+    <span class="keyword">def</span> <span class="func">build</span>(
+        self,
+        rule_results: <span class="type">list</span>[RuleResultItem],
+        llm_anomalies: <span class="type">list</span>[LLMAnomalyItem] | <span class="keyword">None</span> = <span class="keyword">None</span>,
+        overall_score: <span class="type">float</span> = <span class="number">100.0</span>,
+        duration: <span class="type">float</span> = <span class="number">0.0</span>,
+        trend_scores: <span class="type">dict</span> | <span class="keyword">None</span> = <span class="keyword">None</span>,
+    ) -> <span class="type">str</span>:
+        <span class="string">"生成完整HTML质检报告，返回文件路径"</span>
+        llm_anomalies = llm_anomalies <span class="keyword">or</span> []
+
+        <span class="comment"># 1. 统计指标</span>
+        total_checks = <span class="func">len</span>(rule_results)
+        anomaly_count = <span class="func">sum</span>(
+            <span class="func">len</span>(r.violations) <span class="keyword">for</span> r <span class="keyword">in</span> rule_results <span class="keyword">if not</span> r.passed
+        )
+
+        <span class="comment"># 2. 生成趋势图表（如果有历史数据）</span>
+        chart_image = <span class="string">""</span>
+        <span class="keyword">if</span> trend_scores <span class="keyword">and</span> <span class="func">len</span>(trend_scores) >= <span class="number">2</span>:
+            chart_image = self._<span class="func">render_trend_chart</span>(trend_scores)
+
+        <span class="comment"># 3. Jinja2 渲染</span>
+        template = <span class="func">Template</span>(REPORT_HTML)  <span class="comment"># 上面的模板</span>
+        html = template.<span class="func">render</span>(
+            report_date=datetime.<span class="func">now</span>().<span class="func">strftime</span>(<span class="string">"%Y-%m-%d %H:%M"</span>),
+            overall_score=overall_score,
+            total_checks=total_checks,
+            anomaly_count=anomaly_count,
+            duration=<span class="func">round</span>(duration, <span class="number">1</span>),
+            rule_results=rule_results,
+            llm_anomalies=llm_anomalies,
+            chart_image=chart_image,
+        )
+
+        <span class="comment"># 4. 写入文件</span>
+        filename = <span class="func">f</span><span class="string">"quality_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"</span>
+        filepath = self.output_dir / filename
+        filepath.<span class="func">write_text</span>(html, encoding=<span class="string">"utf-8"</span>)
+        <span class="keyword">return</span> <span class="func">str</span>(filepath)
+
+    <span class="keyword">def</span> <span class="func">_render_trend_chart</span>(self, scores: <span class="type">dict</span>) -> <span class="type">str</span>:
+        <span class="string">"生成质量趋势折线图，返回 base64"</span>
+        dates = <span class="func">list</span>(scores.<span class="func">keys</span>())
+        values = <span class="func">list</span>(scores.<span class="func">values</span>())
+        fig, ax = plt.<span class="func">subplots</span>(figsize=(<span class="number">7</span>, <span class="number">2.5</span>))
+        ax.<span class="func">plot</span>(dates, values, <span class="string">"o-"</span>, color=<span class="string">"#3b82f6"</span>, linewidth=<span class="number">2</span>)
+        ax.<span class="func">axhline</span>(y=<span class="number">80</span>, color=<span class="string">"#dc2626"</span>, linestyle=<span class="string">"--"</span>, alpha=<span class="number">.5</span>, label=<span class="string">"告警线"</span>)
+        ax.<span class="func">set_ylim</span>(<span class="number">0</span>, <span class="number">100</span>)
+        ax.<span class="func">legend</span>(fontsize=<span class="number">10</span>)
+        buf = <span class="func">BytesIO</span>()
+        fig.<span class="func">savefig</span>(buf, format=<span class="string">"png"</span>, dpi=<span class="number">120</span>, bbox_inches=<span class="string">"tight"</span>)
+        plt.<span class="func">close</span>(fig)
+        <span class="keyword">return</span> base64.<span class="func">b64encode</span>(buf.<span class="func">getvalue</span>()).<span class="func">decode</span>()
+</pre>
+</div>
+
+<!-- ==================== 四、告警分级通知 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔔</span> 告警分级通知
+    <span class="time-tag">⏱️ 12 分钟</span>
+  </div>
+
+  <h3>4.1 告警分级策略</h3>
+  <p>质检结果不能一锅端告警 —— 要像数仓的 ETL 监控一样，<strong>按严重程度分级</strong>处理。</p>
+
+<table>
+  <tr><th>级别</th><th>阈值条件</th><th>通知渠道</th><th>响应时间</th><th>类比数仓</th></tr>
+  <tr><td><span class="badge-tag badge-red">CRITICAL</span></td><td>得分 &lt; 60 或主键重复</td><td>电话 + 企业微信 + 邮件</td><td>30分钟内</td><td>ETL 全量失败</td></tr>
+  <tr><td><span class="badge-tag badge-orange">HIGH</span></td><td>得分 60-80 或空值率 &gt; 20%</td><td>企业微信 + 邮件</td><td>2小时内</td><td>增量同步延迟</td></tr>
+  <tr><td><span class="badge-tag badge-yellow">MEDIUM</span></td><td>得分 80-90 或个别规则失败</td><td>邮件汇总</td><td>当天处理</td><td>单表数据倾斜</td></tr>
+  <tr><td><span class="badge-tag badge-green">LOW</span></td><td>得分 ≥ 90</td><td>日志记录</td><td>下个迭代</td><td>常规监控</td></tr>
+</table>
+
+  <h3>4.2 AlertManager 告警管理器</h3>
+
+<pre>
+<span class="comment"># alert_manager.py</span>
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> enum <span class="keyword">import</span> Enum
+<span class="keyword">from</span> datetime <span class="keyword">import</span> datetime
+<span class="keyword">import</span> smtplib
+<span class="keyword">from</span> email.mime.text <span class="keyword">import</span> MIMEText
+<span class="keyword">from</span> email.mime.multipart <span class="keyword">import</span> MIMEMultipart
+
+<span class="keyword">class</span> <span class="class">AlertLevel</span>(Enum):
+    CRITICAL = <span class="string">"CRITICAL"</span>
+    HIGH = <span class="string">"HIGH"</span>
+    MEDIUM = <span class="string">"MEDIUM"</span>
+    LOW = <span class="string">"LOW"</span>
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="class">AlertRule</span>:
+    <span class="string">"""告警触发规则"""</span>
+    level: AlertLevel
+    condition: <span class="type">callable</span>  <span class="comment"># (score, anomalies) → bool</span>
+    channels: <span class="type">list</span>[<span class="type">str</span>]     <span class="comment"># ["email", "webhook", "sms"]</span>
+    cooldown_min: <span class="type">int</span> = <span class="number">60</span>  <span class="comment"># 同级别冷却时间（防刷屏）</span>
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="class">AlertRecord</span>:
+    <span class="string">"""告警记录（防重复发送）"""</span>
+    level: AlertLevel
+    triggered_at: datetime
+    score: <span class="type">float</span>
+    anomaly_count: <span class="type">int</span>
+
+<span class="keyword">class</span> <span class="class">AlertManager</span>:
+    <span class="string">"""告警管理器：分级触发 + 冷却防刷 + 多渠道通知"""</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self):
+        self._rules: <span class="type">list</span>[AlertRule] = []
+        self._history: <span class="type">list</span>[AlertRecord] = []
+        self._<span class="func">setup_default_rules</span>()
+
+    <span class="keyword">def</span> <span class="func">_setup_default_rules</span>(self):
+        <span class="string">"""预设四级告警规则"""</span>
+        self._rules = [
+            AlertRule(
+                level=AlertLevel.CRITICAL,
+                condition=<span class="keyword">lambda</span> s, a: s < <span class="number">60</span> <span class="keyword">or</span> a > <span class="number">10</span>,
+                channels=[<span class="string">"webhook"</span>, <span class="string">"email"</span>],
+                cooldown_min=<span class="number">30</span>,
+            ),
+            AlertRule(
+                level=AlertLevel.HIGH,
+                condition=<span class="keyword">lambda</span> s, a: <span class="number">60</span> <= s < <span class="number">80</span> <span class="keyword">or</span> a > <span class="number">5</span>,
+                channels=[<span class="string">"webhook"</span>, <span class="string">"email"</span>],
+                cooldown_min=<span class="number">60</span>,
+            ),
+            AlertRule(
+                level=AlertLevel.MEDIUM,
+                condition=<span class="keyword">lambda</span> s, a: <span class="number">80</span> <= s < <span class="number">90</span> <span class="keyword">or</span> a > <span class="number">0</span>,
+                channels=[<span class="string">"email"</span>],
+                cooldown_min=<span class="number">120</span>,
+            ),
+            AlertRule(
+                level=AlertLevel.LOW,
+                condition=<span class="keyword">lambda</span> s, a: s >= <span class="number">90</span>,
+                channels=[<span class="string">"log"</span>],
+                cooldown_min=<span class="number">0</span>,  <span class="comment"># LOW级别不限频</span>
+            ),
+        ]
+
+    <span class="keyword">def</span> <span class="func">check</span>(self, score: <span class="type">float</span>, anomaly_count: <span class="type">int</span>) -> <span class="type">list</span>[AlertRule]:
+        <span class="string">"检查是否需要告警，返回触发的规则列表（已过滤冷却）"</span>
+        now = datetime.<span class="func">now</span>()
+        triggered = []
+        <span class="keyword">for</span> rule <span class="keyword">in</span> self._rules:
+            <span class="keyword">if</span> rule.<span class="func">condition</span>(score, anomaly_count):
+                <span class="comment"># 冷却检查：同一级别在 cooldown_min 内是否已发过</span>
+                last = <span class="keyword">None</span>
+                <span class="keyword">for</span> rec <span class="keyword">in</span> self._history:
+                    <span class="keyword">if</span> rec.level == rule.level:
+                        last = rec
+                <span class="keyword">if</span> last <span class="keyword">is</span> <span class="keyword">None</span> <span class="keyword">or</span> \
+                   (now - last.triggered_at).total_seconds() > rule.cooldown_min * <span class="number">60</span>:
+                    triggered.<span class="func">append</span>(rule)
+                    self._history.<span class="func">append</span>(
+                        AlertRecord(rule.level, now, score, anomaly_count)
+                    )
+        <span class="keyword">return</span> triggered
+
+    <span class="keyword">def</span> <span class="func">send_webhook</span>(self, title: <span class="type">str</span>, content: <span class="type">str</span>, webhook_url: <span class="type">str</span>):
+        <span class="string">"""发送企业微信/飞书 Webhook 通知（兼容格式）"""</span>
+        <span class="keyword">import</span> requests, json
+        payload = {
+            <span class="string">"msgtype"</span>: <span class="string">"markdown"</span>,
+            <span class="string">"markdown"</span>: {
+                <span class="string">"title"</span>: title,
+                <span class="string">"text"</span>: <span class="func">f</span><span class="string">"## {title}\n{content}"</span>
+            }
+        }
+        resp = requests.<span class="func">post</span>(webhook_url, json=payload, timeout=<span class="number">10</span>)
+        resp.<span class="func">raise_for_status</span>()
+
+    <span class="keyword">def</span> <span class="func">send_email</span>(self, subject: <span class="type">str</span>, body: <span class="type">str</span>,
+                   to: <span class="type">str</span>, smtp_config: <span class="type">dict</span>):
+        <span class="string">"""发送邮件通知（Day58 学过，回顾）"""</span>
+        msg = <span class="func">MIMEMultipart</span>(<span class="string">"alternative"</span>)
+        msg[<span class="string">"Subject"</span>] = subject
+        msg[<span class="string">"From"</span>] = smtp_config[<span class="string">"sender"</span>]
+        msg[<span class="func">attach</span>(<span class="func">MIMEText</span>(body, <span class="string">"html"</span>, <span class="string">"utf-8"</span>))
+        <span class="keyword">with</span> smtplib.<span class="func">SMTP_SSL</span>(smtp_config[<span class="string">"host"</span>], smtp_config[<span class="string">"port"</span>]) <span class="keyword">as</span> server:
+            server.<span class="func">login</span>(smtp_config[<span class="string">"user"</span>], smtp_config[<span class="string">"password"</span>])
+            server.<span class="func">sendmail</span>(smtp_config[<span class="string">"sender"</span>], to, msg.<span class="func">as_string</span>())
+</pre>
+
+  <div class="concept-box">
+    <strong>数仓人秒懂：</strong>告警分级 ≈ ETL 监控的 <code>告警等级</code>。CRITICAL = 全量ETL挂了必须马上修；HIGH = 增量延迟；MEDIUM = 个别表异常；LOW = 日常巡检。冷却机制防止同一个问题反复告警刷屏（数仓里叫"告警抑制"）。
+  </div>
+</div>
+
+<!-- ==================== 五、LLM 自动修复建议 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔧</span> LLM 自动修复建议
+    <span class="time-tag">⏱️ 13 分钟</span>
+  </div>
+
+  <h3>3.1 修复建议生成策略</h3>
+  <p>质检发现异常后，让 LLM 根据异常类型 + 表结构 + 业务规则，<strong>直接生成可执行的修复 SQL</strong>。</p>
+
+  <div class="flow-steps">
+    <div class="flow-step">异常描述</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">+ 表Schema</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">+ 业务规则</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">LLM 生成 SQL</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">安全校验</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">人工确认</div>
+  </div>
+
+<pre>
+<span class="comment"># fix_suggester.py — LLM 自动修复建议生成器</span>
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass
+<span class="keyword">import</span> re, json
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="class">FixSuggestion</span>:
+    <span class="string">"""修复建议（Pydantic 结构化输出）"""</span>
+    fix_type: <span class="type">str</span>         <span class="comment"># "sql" / "manual" / "ignore"</span>
+    fix_sql: <span class="type">str</span> | <span class="keyword">None</span>    <span class="comment"># 修复SQL（fix_type=sql时有值）</span>
+    reason: <span class="type">str</span>           <span class="comment"># 为什么这么修</span>
+    risk: <span class="type">str</span>            <span class="comment"># 风险等级：LOW/MEDIUM/HIGH</span>
+    estimated_rows: <span class="type">int</span>   <span class="comment"># 预计影响行数</span>
+
+<span class="keyword">class</span> <span class="class">FixSuggester</span>:
+    <span class="string">"""基于 LLM 的修复建议生成器"""</span>
+
+    <span class="comment"># 禁止的 SQL 操作（安全红线）</span>
+    FORBIDDEN = [<span class="string">"DROP"</span>, <span class="string">"TRUNCATE"</span>, <span class="string">"ALTER"</span>, <span class="string">"DELETE FROM"</span>, <span class="string">"GRANT"</span>]
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, call_llm: <span class="type">callable</span>):
+        self._call_llm = call_llm  <span class="comment"># LLM 调用函数</span>
+
+    <span class="keyword">def</span> <span class="func">generate</span>(self, anomaly: <span class="class">LLMAnomalyItem</span>, table_schema: <span class="type">str</span>) -> FixSuggestion:
+        <span class="string">"为单条异常生成修复建议"</span>
+        prompt = <span class="func">f</span><span class="string">"""你是数据质量修复专家。根据以下信息生成修复方案。
+
+【异常信息】
+- 字段：{anomaly.field}
+- 问题描述：{anomaly.description}
+- 根因分析：{anomaly.root_cause}
+
+【表结构】
+{table_schema}
+
+【要求】
+1. 优先生成 UPDATE 修复 SQL（绝不能包含 DROP/TRUNCATE/DELETE FROM/ALTER）
+2. 如果无法自动修复，返回 fix_type="manual"
+3. 如果是误报，返回 fix_type="ignore"
+
+请严格按JSON格式返回：
+{{"fix_type": "sql", "fix_sql": "UPDATE ...", "reason": "...", "risk": "LOW", "estimated_rows": 5}}"""</span>
+
+        raw = self._call_llm(prompt)
+        <span class="keyword">return</span> self._<span class="func">parse_fix</span>(raw)
+
+    <span class="keyword">def</span> <span class="func">_parse_fix</span>(self, raw: <span class="type">str</span>) -> FixSuggestion:
+        <span class="string">"三层容错解析 LLM 返回的修复JSON"</span>
+        <span class="comment"># 尝试1：直接 json.loads</span>
+        <span class="keyword">try</span>:
+            data = json.<span class="func">loads</span>(raw)
+            <span class="keyword">return</span> self._<span class="func">to_fix</span>(data)
+        <span class="keyword">except</span> (json.JSONDecodeError, KeyError):
+            <span class="keyword">pass</span>
+
+        <span class="comment"># 尝试2：正则提取 JSON 块</span>
+        match = re.<span class="func">search</span>(<span class="string">r'\{[^{}]*\}'</span>, raw, re.DOTALL)
+        <span class="keyword">if</span> match:
+            <span class="keyword">try</span>:
+                data = json.<span class="func">loads</span>(match.<span class="func">group</span>())
+                <span class="keyword">return</span> self._<span class="func">to_fix</span>(data)
+            <span class="keyword">except</span> (json.JSONDecodeError, KeyError):
+                <span class="keyword">pass</span>
+
+        <span class="comment"># 尝试3：返回 fallback</span>
+        <span class="keyword">return</span> FixSuggestion(
+            fix_type=<span class="string">"manual"</span>, fix_sql=<span class="keyword">None</span>,
+            reason=<span class="string">"LLM返回格式异常，需要人工分析"</span>,
+            risk=<span class="string">"HIGH"</span>, estimated_rows=<span class="number">0</span>,
+        )
+
+    <span class="keyword">def</span> <span class="func">_to_fix</span>(self, data: <span class="type">dict</span>) -> FixSuggestion:
+        <span class="string">"安全校验 + 构建 FixSuggestion"</span>
+        fix_sql = data.<span class="func">get</span>(<span class="string">"fix_sql"</span>)
+
+        <span class="comment"># 安全检查：禁止危险操作</span>
+        <span class="keyword">if</span> fix_sql:
+            sql_upper = fix_sql.<span class="func">upper</span>()
+            <span class="keyword">for</span> forbidden <span class="keyword">in</span> self.FORBIDDEN:
+                <span class="keyword">if</span> forbidden <span class="keyword">in</span> sql_upper:
+                    <span class="keyword">return</span> FixSuggestion(
+                        fix_type=<span class="string">"manual"</span>, fix_sql=<span class="keyword">None</span>,
+                        reason=<span class="func">f</span><span class="string">"安全拦截：SQL包含禁止操作 {forbidden}"</span>,
+                        risk=<span class="string">"HIGH"</span>, estimated_rows=<span class="number">0</span>,
+                    )
+            <span class="comment"># 强制加上 WHERE 条件检查</span>
+            <span class="keyword">if</span> <span class="string">"UPDATE"</span> <span class="keyword">in</span> sql_upper <span class="keyword">and</span> <span class="string">"WHERE"</span> <span class="keyword">not in</span> sql_upper:
+                <span class="keyword">return</span> FixSuggestion(
+                    fix_type=<span class="string">"manual"</span>, fix_sql=<span class="keyword">None</span>,
+                    reason=<span class="string">"安全拦截：UPDATE语句缺少WHERE条件"</span>,
+                    risk=<span class="string">"HIGH"</span>, estimated_rows=<span class="number">0</span>,
+                )
+
+        <span class="keyword">return</span> FixSuggestion(
+            fix_type=data.<span class="func">get</span>(<span class="string">"fix_type"</span>, <span class="string">"manual"</span>),
+            fix_sql=fix_sql,
+            reason=data.<span class="func">get</span>(<span class="string">"reason"</span>, <span class="string">"无"</span>),
+            risk=data.<span class="func">get</span>(<span class="string">"risk"</span>, <span class="string">"MEDIUM"</span>),
+            estimated_rows=data.<span class="func">get</span>(<span class="string">"estimated_rows"</span>, <span class="number">0</span>),
+        )
+
+    <span class="keyword">def</span> <span class="func">batch_generate</span>(self, anomalies: <span class="type">list</span>, table_schema: <span class="type">str</span>) -> <span class="type">list</span>[FixSuggestion]:
+        <span class="string">"批量生成修复建议（过滤 ignore 类型）"</span>
+        fixes = []
+        <span class="keyword">for</span> a <span class="keyword">in</span> anomalies:
+            fix = self.<span class="func">generate</span>(a, table_schema)
+            <span class="keyword">if</span> fix.fix_type != <span class="string">"ignore"</span>:
+                fixes.<span class="func">append</span>(fix)
+        <span class="keyword">return</span> fixes
+</pre>
+
+  <div class="warn-box">
+    <strong>安全红线：</strong>自动修复 SQL 必须<strong>强制人工确认</strong>后才能执行！<code>FixSuggester</code> 只负责<strong>建议</strong>，不执行 SQL。安全检查三层：禁止 DDL/DROP → UPDATE 必须有 WHERE → 输出结构化 JSON。
+  </div>
+</div>
+
+<!-- ==================== 六、P4 全链路串联 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔗</span> P4 全链路串联
+    <span class="time-tag">⏱️ 10 分钟</span>
+  </div>
+
+  <h3>6.1 完整质检 Pipeline</h3>
+  <p>把 Day59 + Day60 + Day61 三天的模块串起来，形成完整的质检管线：</p>
+
+<pre>
+<span class="comment"># pipeline.py — P4 完整质检管线</span>
+<span class="keyword">import</span> time, json, logging
+<span class="keyword">from</span> pathlib <span class="keyword">import</span> Path
+<span class="keyword">from</span> datetime <span class="keyword">import</span> datetime
+
+logger = logging.<span class="func">getLogger</span>(<span class="string">"quality.pipeline"</span>)
+
+<span class="keyword">class</span> <span class="class">QualityPipeline</span>:
+    <span class="string">"""
+    P4 完整质检管线（5阶段）
+    Day59: 规则扫描
+    Day60: LLM 语义检测 + 归因
+    Day61: 报告渲染 + 告警 + 修复建议
+    """</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, rule_engine, llm_detector, attributor,
+                 report_builder, alert_mgr, fix_suggester):
+        self.rule_engine = rule_engine      <span class="comment"># Day59</span>
+        self.llm_detector = llm_detector   <span class="comment"># Day60</span>
+        self.attributor = attributor        <span class="comment"># Day60</span>
+        self.report_builder = report_builder  <span class="comment"># Day61</span>
+        self.alert_mgr = alert_mgr          <span class="comment"># Day61</span>
+        self.fix_suggester = fix_suggester  <span class="comment"># Day61</span>
+
+    <span class="keyword">def</span> <span class="func">run</span>(self, data: <span class="type">list</span>[<span class="type">dict</span>], table_name: <span class="type">str</span>,
+            table_schema: <span class="type">str</span> = <span class="string">""</span>,
+            trend_scores: <span class="type">dict</span> | <span class="keyword">None</span> = <span class="keyword">None</span>) -> <span class="type">dict</span>:
+        <span class="string">"执行完整质检管线，返回结果摘要"</span>
+        start = time.<span class="func">perf_counter</span>()
+        logger.<span class="func">info</span>(<span class="func">f</span><span class="string">"[Pipeline] 开始质检: {table_name}, {len(data)}行"</span>)
+
+        <span class="comment"># ===== 阶段1：规则扫描 (Day59) =====</span>
+        logger.<span class="func">info</span>(<span class="string">"[Stage 1] 规则引擎扫描..."</span>)
+        rule_report = self.rule_engine.<span class="func">check</span>(data)
+
+        <span class="comment"># ===== 阶段2：智能采样 (Day60) =====</span>
+        logger.<span class="func">info</span>(<span class="string">"[Stage 2] 智能采样..."</span>)
+        suspicious_rows = [r <span class="keyword">for</span> r <span class="keyword">in</span> data <span class="keyword">if</span> self._<span class="func">is_suspicious</span>(r, rule_report)]
+        normal_rows = [r <span class="keyword">for</span> r <span class="keyword">in</span> data <span class="keyword">if</span> r <span class="keyword">not in</span> suspicious_rows]
+        sample = suspicious_rows[:<span class="func">len</span>(normal_rows)] + normal_rows[:<span class="func">len</span>(suspicious_rows)]
+
+        <span class="comment"># ===== 阶段3：LLM 语义检测 (Day60) =====</span>
+        llm_anomalies = []
+        <span class="keyword">if</span> sample:
+            logger.<span class="func">info</span>(<span class="func">f</span><span class="string">"[Stage 3] LLM检测: {len(sample)}行采样"</span>)
+            llm_results = self.llm_detector.<span class="func">detect</span>(sample, table_schema)
+            llm_anomalies = [
+                LLMAnomalyItem(
+                    field=a[<span class="string">"field"</span>],
+                    description=a[<span class="string">"description"</span>],
+                    root_cause=a[<span class="string">"root_cause"</span>],
+                    fix_suggestion=<span class="string">"待生成"</span>,
+                )
+                <span class="keyword">for</span> a <span class="keyword">in</span> llm_results
+            ]
+
+        <span class="comment"># ===== 阶段4：修复建议生成 (Day61) =====</span>
+        fixes = []
+        <span class="keyword">if</span> llm_anomalies <span class="keyword">and</span> table_schema:
+            logger.<span class="func">info</span>(<span class="func">f</span><span class="string">"[Stage 4] 生成修复建议: {len(llm_anomalies)}条异常"</span>)
+            fixes = self.fix_suggester.<span class="func">batch_generate</span>(llm_anomalies, table_schema)
+            <span class="comment"># 把修复建议回填到异常项</span>
+            <span class="keyword">for</span> a, f <span class="keyword">in</span> <span class="func">zip</span>(llm_anomalies, fixes):
+                a.fix_suggestion = f.reason
+
+        <span class="comment"># ===== 阶段5：报告 + 告警 (Day61) =====</span>
+        duration = time.<span class="func">perf_counter</span>() - start
+        logger.<span class="func">info</span>(<span class="func">f</span><span class="string">"[Stage 5] 生成报告 + 告警, 耗时{duration:.1f}s"</span>)
+
+        report_path = self.report_builder.<span class="func">build</span>(
+            rule_results=rule_report.rule_results,
+            llm_anomalies=llm_anomalies,
+            overall_score=rule_report.overall_score,
+            duration=duration,
+            trend_scores=trend_scores,
+        )
+
+        <span class="comment"># 告警检查</span>
+        alerts = self.alert_mgr.<span class="func">check</span>(
+            report_report.overall_score,
+            <span class="func">len</span>(llm_anomalies) + <span class="func">len</span>(rule_report.failed_rules),
+        )
+        <span class="keyword">for</span> alert <span class="keyword">in</span> alerts:
+            logger.<span class="func">warning</span>(<span class="func">f</span><span class="string">"[Alert] {alert.level.value} 触发告警"</span>)
+            <span class="comment"># self.alert_mgr.send_webhook(...) 实际发送</span>
+
+        <span class="keyword">return</span> {
+            <span class="string">"table"</span>: table_name,
+            <span class="string">"score"</span>: report_report.overall_score,
+            <span class="string">"rule_issues"</span>: <span class="func">len</span>(report_report.failed_rules),
+            <span class="string">"llm_issues"</span>: <span class="func">len</span>(llm_anomalies),
+            <span class="string">"fixes"</span>: <span class="func">len</span>(fixes),
+            <span class="string">"report"</span>: report_path,
+            <span class="string">"alerts"</span>: <span class="func">len</span>(alerts),
+            <span class="string">"duration"</span>: <span class="func">round</span>(duration, <span class="number">2</span>),
+        }
+
+    <span class="keyword">def</span> <span class="func">_is_suspicious</span>(self, row, report) -> <span class="type">bool</span>:
+        <span class="string">"判断某行是否可疑（被规则命中）"</span>
+        <span class="keyword">for</span> result <span class="keyword">in</span> report.rule_results:
+            <span class="keyword">if not</span> result.passed <span class="keyword">and</span> row <span class="keyword">in</span> result.violations:
+                <span class="keyword">return</span> <span class="keyword">True</span>
+        <span class="keyword">return</span> <span class="keyword">False</span>
+</pre>
+
+  <h3>6.2 数据流全景</h3>
+  <div class="flow-steps">
+    <div class="flow-step">原始数据</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step" style="background:#dcfce7">规则引擎扫描</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">智能采样</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step" style="background:#fef9c3">LLM语义检测</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">归因分析</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step" style="background:#dbeafe">修复建议</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step" style="background:#f3e8ff">HTML报告</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step" style="background:#fee2e2">分级告警</div>
+  </div>
+</div>
+
+<!-- ==================== 七、P4 三天收官总结 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏆</span> P4 智能数据质检系统 — 三天收官总结
+  </div>
+
+  <table>
+    <tr><th>天数</th><th>主题</th><th>核心产出</th><th>关键 Python 知识</th></tr>
+    <tr>
+      <td><span class="badge-tag badge-blue">Day 59</span></td>
+      <td>架构设计 + 规则引擎</td>
+      <td>RuleEngine + 7种内置规则</td>
+      <td>ABC / dataclass / functools.reduce / Counter</td>
+    </tr>
+    <tr>
+      <td><span class="badge-tag badge-blue">Day 60</span></td>
+      <td>LLM 检测 + 异常归因</td>
+      <td>LLMDetector + AnomalyAttributor + HybridChecker</td>
+      <td>Pydantic结构化输出 / smart_sample / JSON fallback</td>
+    </tr>
+    <tr>
+      <td><span class="badge-tag badge-blue">Day 61</span></td>
+      <td>报告 + 告警 + 修复</td>
+      <td>ReportBuilder + AlertManager + FixSuggester + Pipeline</td>
+      <td>Jinja2 / matplotlib+base64 / smtplib / 安全SQL检查</td>
+    </tr>
+  </table>
+
+  <div class="summary-box">
+    <h3>P4 核心收获</h3>
+    <ul class="checklist">
+      <li><strong>规则引擎</strong>处理硬约束（空值率、唯一性、范围、格式）—— 确定性、可解释、毫秒级</li>
+      <li><strong>LLM 语义检测</strong>处理软异常（业务语义矛盾、上下文不一致）—— 需要智能采样降低成本</li>
+      <li><strong>归因分析</strong>把"出了什么问题"提升到"为什么出问题 + 怎么修"</li>
+      <li><strong>HTML报告</strong>让质检结果可视化可分享（Jinja2 + matplotlib base64内嵌）</li>
+      <li><strong>分级告警</strong>防止告警疲劳（冷却机制 + 渠道分级 + 严重度对应）</li>
+      <li><strong>修复建议</strong>安全红线：只建议不执行，禁止DDL，UPDATE必须WHERE</li>
+    </ul>
+  </div>
+
+  <h3>P4 完整项目结构</h3>
+<pre>
+<span class="comment">p4_quality_system/
+├── config.py              # pydantic-settings 配置中心
+├── rules/                 # Day59: 规则引擎
+│   ├── __init__.py
+│   ├── base.py            # BaseRule ABC
+│   ├── engine.py          # RuleEngine 规则引擎
+│   └── builtin_rules.py   # 7种内置规则
+├── detector/              # Day60: LLM 检测
+│   ├── __init__.py
+│   ├── sampler.py         # smart_sample 智能采样
+│   ├── llm_detector.py     # LLMDetector 语义检测
+│   └── attributor.py      # AnomalyAttributor 归因分析
+├── report/                # Day61: 报告 + 告警 + 修复
+│   ├── __init__.py
+│   ├── template.py         # Jinja2 HTML 模板
+│   ├── builder.py         # QualityReportBuilder
+│   ├── alert.py           # AlertManager 分级告警
+│   └── fixer.py           # FixSuggester 修复建议
+├── pipeline.py            # QualityPipeline 全链路编排
+├── models.py              # 公共数据模型
+└── main.py                # CLI 入口</pre>
+
+  <h3>总进度（Phase 4）</h3>
+  <table>
+    <tr><th>项目</th><th>天数</th><th>状态</th></tr>
+    <tr><td>P1 RAG 知识库问答</td><td>D50-D52</td><td><span class="badge-tag badge-green">已完成</span></td></tr>
+    <tr><td>P2 Agent 自动化系统</td><td>D53-D55</td><td><span class="badge-tag badge-green">已完成</span></td></tr>
+    <tr><td>P3 自动化报表生成</td><td>D56-D58</td><td><span class="badge-tag badge-green">已完成</span></td></tr>
+    <tr><td>P4 智能数据质检系统</td><td>D59-D61</td><td><span class="badge-tag badge-green">已完成</span></td></tr>
+    <tr><td>P5 智能客服/对话系统</td><td>D62-D64</td><td><span class="badge-tag badge-purple">下一个</span></td></tr>
+  </table>
+</div>
+
+<!-- ==================== 八、练习 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">✏️</span> 练习
+  </div>
+
+  <h3>练习1：增强趋势图表</h3>
+  <p>在 <code>plot_quality_trend</code> 中添加"异常数"折线（双Y轴），让报告同时展示质量得分和异常数量的变化趋势。</p>
+
+<pre>
+<span class="comment"># 提示：用 ax2 = ax.twinx() 创建右Y轴</span>
+fig, ax1 = plt.<span class="func">subplots</span>(figsize=(<span class="number">8</span>, <span class="number">3.5</span>))
+ax1.<span class="func">plot</span>(dates, scores, <span class="string">"o-"</span>, color=<span class="string">"#3b82f6"</span>, label=<span class="string">"质量得分"</span>)
+ax1.<span class="func">set_ylabel</span>(<span class="string">"质量得分"</span>, color=<span class="string">"#3b82f6"</span>)
+
+ax2 = ax1.<span class="func">twinx</span>()
+ax2.<span class="func">bar</span>(dates, anomalies, alpha=<span class="number">0.3</span>, color=<span class="string">"#dc2626"</span>, label=<span class="string">"异常数"</span>)
+ax2.<span class="func">set_ylabel</span>(<span class="string">"异常数"</span>, color=<span class="string">"#dc2626"</span>)
+</pre>
+
+  <h3>练习2：修复建议 Review 模式</h3>
+  <p>给 <code>FixSuggester</code> 增加一个 <code>review_mode</code>：当 <code>fix_sql</code> 的 <code>risk</code> 为 HIGH 时，自动在 SQL 前加 <code>-- ⚠️ HIGH RISK</code> 注释，方便人工 review。</p>
+
+<pre>
+<span class="comment"># 提示：在 _to_fix 方法中</span>
+<span class="keyword">if</span> data.<span class="func">get</span>(<span class="string">"risk"</span>) == <span class="string">"HIGH"</span> <span class="keyword">and</span> fix_sql:
+    fix_sql = <span class="string">"-- ⚠️ HIGH RISK: 请人工审核后再执行\n"</span> + fix_sql
+</pre>
+
+  <h3>练习3：LeetCode #54 螺旋矩阵</h3>
+  <p>二维数组按螺旋顺序输出（上→右→下→左循环缩小边界），训练<strong>边界控制</strong>思维 —— 和质检中的数据扫描逻辑同源。</p>
+</div>
+
+<!-- ==================== 九、常见陷阱 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚠️</span> 常见陷阱 Top 5
+  </div>
+
+  <ol>
+    <li><strong>matplotlib 不 close(fig)</strong> → 内存泄漏，每次生成图表吃几十MB。养成习惯：<code>fig.savefig(...) → plt.close(fig)</code></li>
+    <li><strong>base64 图片过大</strong> → HTML报告几MB。解决：降低 dpi（120足够）+ <code>bbox_inches="tight"</code> 裁白边</li>
+    <li><strong>Jinja2 模板 XSS</strong> → 用户数据直接渲染到 HTML。解决：用 <code>{{ var|e }}</code> 自动转义，或 <code>autoescape=True</code></li>
+    <li><strong>告警风暴</strong> → 同一问题反复告警。解决：冷却机制（<code>cooldown_min</code>）+ 告警聚合（多条合并为一条）</li>
+    <li><strong>自动修复 SQL 执行</strong> → 永远不要自动执行！<code>FixSuggester</code> 只生成建议，执行必须人工确认 + 审批流程</li>
+  </ol>
+</div>
+
+<!-- ==================== 十、下一步 ==================== -->
+<div class="next-box">
+  <h3>📍 下一步：Day 62 — P5 智能客服/对话系统</h3>
+  <p>P4 智能数据质检系统（Day 59-61）收官！下一个项目 P5 将构建<strong>智能客服对话系统</strong>，涵盖多轮对话管理、意图识别、知识库检索增强，把 RAG + Agent + Prompt Engineering 的能力综合应用到对话场景。</p>
+  <div class="flow-steps" style="margin-top:12px">
+    <div class="flow-step" style="background:#f3e8ff">D62 对话架构+意图识别</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step" style="background:#f3e8ff">D63 多轮对话+上下文</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step" style="background:#f3e8ff">D64 P5收官集成</div>
+  </div>
+</div>
+
+</body>
+</html>

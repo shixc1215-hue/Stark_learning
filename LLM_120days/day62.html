@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 62 - P5 智能客服/对话系统（架构设计 + 意图识别）</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--purple:#9333ea;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#ede9fe,#e0e7ff);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #c4b5fd; }
+  .header .badge { display:inline-block;background:#e0e7ff;color:#4338ca;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--purple));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--purple);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#faf5ff;border-left:3px solid var(--purple);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--purple); }
+  .tip-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--accent); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  pre { background:#1e293b;color:#e2e8f0;padding:16px 20px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.6;margin:14px 0; }
+  code { font-family:'Cascadia Code','Fira Code',Consolas,monospace; }
+  .inline-code { background:var(--surface2);color:var(--accent2);padding:2px 6px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace; }
+  .compare-table { width:100%;border-collapse:collapse;margin:14px 0;font-size:14px; }
+  .compare-table th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border); }
+  .compare-table td { padding:10px 14px;border:1px solid var(--border); }
+  .compare-table tr:hover { background:var(--surface2); }
+  ul,ol { padding-left:20px;margin:10px 0; }
+  li { margin:6px 0;font-size:14px; }
+  .sub-title { font-size:15px;font-weight:600;margin:18px 0 8px;color:var(--text); }
+  .sub-title .num { display:inline-block;background:var(--purple);color:#fff;width:22px;height:22px;line-height:22px;text-align:center;border-radius:50%;font-size:12px;margin-right:6px; }
+  .flow-diagram { background:var(--surface2);border-radius:8px;padding:20px;margin:14px 0;text-align:center;overflow-x:auto; }
+  .flow-diagram .flow-step { display:inline-block;background:var(--purple);color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;margin:4px; }
+  .flow-diagram .flow-arrow { display:inline-block;color:var(--text3);font-size:18px;margin:4px 2px;vertical-align:middle; }
+  .leetcode-box { background:linear-gradient(135deg,#fef3c7,#fff7ed);border-radius:var(--radius);padding:20px 24px;margin:14px 0;border:1px solid #fde68a; }
+  .leetcode-box .lc-title { font-size:15px;font-weight:700;margin-bottom:10px;color:#92400e; }
+  .day-nav { display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px; }
+  .day-nav a { background:var(--surface);border:1px solid var(--border);color:var(--text2);padding:4px 12px;border-radius:8px;text-decoration:none;font-size:12px; }
+  .day-nav a:hover { background:var(--surface2); }
+  .day-nav a.active { background:var(--purple);color:#fff;border-color:var(--purple); }
+</style>
+</head>
+<body>
+
+<div class="day-nav">
+  <a href="day50.html">P1-RAG</a>
+  <a href="day53.html">P2-Agent</a>
+  <a href="day56.html">P3-报表</a>
+  <a href="day59.html">P4-质检</a>
+  <a href="day62.html" class="active">P5-客服</a>
+</div>
+
+<div class="header">
+  <div class="badge">Phase 4 · 项目实战 · P5 智能客服/对话系统</div>
+  <h1>Day 62 — 架构设计 + 意图识别</h1>
+  <div class="subtitle">构建企业级智能客服系统 · 从用户输入到意图路由的完整链路</div>
+</div>
+
+<div class="progress-bar">
+  <div class="label">120天总进度</div>
+  <div class="track"><div class="fill" style="width:88.5%"></div></div>
+  <div class="percent">Day 62/120</div>
+</div>
+
+<!-- ========== 1. 项目总览 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏗️</span> P5 项目总览：智能客服/对话系统
+    <span class="time-tag">⏱ 5min</span>
+  </div>
+
+  <p style="font-size:14px;color:var(--text2);margin-bottom:14px;">
+    智能客服系统是 LLM 最核心的商业落地场景之一。它不是简单的"一问一答"，而是一套完整的多轮对话系统：
+    识别用户意图 → 路由到对应处理器 → 维护对话上下文 → 生成专业回复 → 记录与优化。
+  </p>
+
+  <div class="concept-box">
+    <strong>📊 数仓思维映射：</strong>智能客服架构 ≈ 数仓分层<br>
+    <code class="inline-code">意图识别</code> ≈ ODS层原始分类 → <code class="inline-code">实体提取</code> ≈ DIM维度加工 →
+    <code class="inline-code">对话管理</code> ≈ DWD明细汇总 → <code class="inline-code">回复生成</code> ≈ ADS对外服务<br>
+    每一层数据都在"提纯"，最终输出用户能直接使用的"报表"（回复）。
+  </div>
+
+  <div class="sub-title"><span class="num">1</span> 三天路线图</div>
+  <table class="compare-table">
+    <tr><th>Day</th><th>主题</th><th>核心产出</th></tr>
+    <tr><td><strong>Day 62</strong></td><td>架构设计 + 意图识别</td><td>系统骨架 + IntentClassifier 意图分类器 + EntityExtractor 实体提取器</td></tr>
+    <tr><td><strong>Day 63</strong></td><td>对话管理 + 回复生成</td><td>SessionManager 多轮管理 + ResponseGenerator 回复生成 + 人工接管</td></tr>
+    <tr><td><strong>Day 64</strong></td><td>P5 综合实战 + 收官</td><td>完整 AMC 智能客服系统 + FastAPI 接口 + 对话日志分析</td></tr>
+  </table>
+
+  <div class="sub-title"><span class="num">2</span> 系统架构全景</div>
+  <div class="flow-diagram">
+    <span class="flow-step">用户输入</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">预处理</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">意图识别</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">实体提取</span><br>
+    <span class="flow-arrow" style="visibility:hidden;">→</span>
+    <span class="flow-step" style="background:var(--accent);">对话管理</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">路由分发</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step" style="background:var(--green);">回复生成</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">用户</span><br>
+    <span class="flow-arrow" style="visibility:hidden;">→</span>
+    <span style="color:var(--text3);font-size:12px;margin:4px 0;display:block;">
+      日志记录 · 满意度收集 · 知识库学习 · 人机协同
+    </span>
+  </div>
+</div>
+
+<!-- ========== 2. Python 知识 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span> Python 知识点：数据类进阶 + 正则实体提取 + 距离算法
+    <span class="time-tag">⏱ 20min</span>
+  </div>
+
+  <div class="sub-title"><span class="num">1</span> dataclass + field 默认值工厂</div>
+  <p style="font-size:14px;color:var(--text2);">客服系统的数据模型频繁使用可变默认值。dataclass 的 <code class="inline-code">field(default_factory=...)</code> 解决了 Python 经典的"可变默认值陷阱"。</p>
+  <pre><code>from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Optional
+from enum import Enum
+
+class IntentType(Enum):
+    """用户意图分类枚举"""
+    QUERY_BALANCE = "query_balance"      # 查询余额
+    QUERY_RISK = "query_risk"            # 查询风险等级
+    REPORT_ANOMALY = "report_anomaly"    # 举报异常
+    POLICY_FAQ = "policy_faq"            # 政策问答
+    TRANSFER_HUMAN = "transfer_human"    # 转人工
+    UNKNOWN = "unknown"                 # 未知意图
+
+class SessionState(Enum):
+    """对话会话状态"""
+    ACTIVE = "active"
+    WAITING_HUMAN = "waiting_human"     # 等待人工
+    CLOSED = "closed"
+    TIMEOUT = "timeout"
+
+@dataclass
+class Message:
+    """单条消息"""
+    role: str              # "user" / "assistant" / "system"
+    content: str
+    timestamp: datetime = field(default_factory=datetime.now)
+    intent: Optional[IntentType] = None     # 仅 user 消息有意图
+    confidence: float = 0.0                  # 意图置信度
+
+@dataclass
+class ChatSession:
+    """对话会话"""
+    session_id: str
+    user_id: str
+    messages: list[Message] = field(default_factory=list)
+    state: SessionState = SessionState.ACTIVE
+    created_at: datetime = field(default_factory=datetime.now)
+    metadata: dict = field(default_factory=dict)
+
+    def add_message(self, role: str, content: str,
+                    intent: IntentType | None = None,
+                    confidence: float = 0.0) -> Message:
+        """添加消息到会话"""
+        msg = Message(role=role, content=content,
+                      intent=intent, confidence=confidence)
+        self.messages.append(msg)
+        return msg
+
+    @property
+    def message_count(self) -> int:
+        return len(self.messages)
+
+    def get_recent(self, n: int = 10) -> list[Message]:
+        """获取最近 n 条消息（滑动窗口）"""
+        return self.messages[-n:]
+
+# 测试：验证 default_factory 避免了可变默认值陷阱
+s1 = ChatSession(session_id="s001", user_id="user_a")
+s2 = ChatSession(session_id="s002", user_id="user_b")
+s1.add_message("user", "不良资产余额多少？")
+print(f"s1 消息数: {s1.message_count}")  # 1
+print(f"s2 消息数: {s2.message_count}")  # 0（不会共享 list！）</code></pre>
+
+  <div class="tip-box">
+    <strong>🔑 field(default_factory=...)</strong> 是 dataclass 的核心安全机制。
+    如果直接写 <code class="inline-code">messages: list = []</code>，所有实例会共享同一个 list（Python 经典坑）。
+    用 <code class="inline-code">field(default_factory=list)</code> 则每次实例化都创建新 list。
+  </div>
+
+  <div class="sub-title"><span class="num">2</span> 正则表达式提取实体</div>
+  <p style="font-size:14px;color:var(--text2);">意图分类确定了"用户想干什么"，实体提取确定"用户在说谁/什么"。正则是最直接的方式。</p>
+  <pre><code>import re
+from dataclasses import dataclass
+
+@dataclass
+class Entity:
+    """提取的实体"""
+    entity_type: str    # 实体类型： debtor_id, amount, date, asset_type ...
+    value: str          # 原始值
+    normalized: str | None = None  # 标准化后的值（如日期格式化）
+    start: int = 0      # 在原文中的起始位置
+    end: int = 0        # 结束位置
+
+class EntityExtractor:
+    """基于正则的实体提取器"""
+
+    def __init__(self):
+        # 定义 AMC 业务实体的正则规则
+        # 按优先级排序：更具体的规则放前面
+        self.rules = [
+            {
+                "name": "debtor_id",
+                # AMC 债务人编号：字母+数字组合，如 D2024001
+                "pattern": r'\b([A-Z]\d{7,10})\b',
+                "description": "债务人编号",
+            },
+            {
+                "name": "amount",
+                # 金额：支持小数、逗号分隔，如 1,234,567.89
+                "pattern": r'(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)\s*(?:万元|元|块钱)',
+                "description": "金额",
+            },
+            {
+                "name": "date",
+                # 日期：多种格式 YYYY-MM-DD / YYYY/MM/DD / YYYY年MM月DD日
+                "pattern": r'(\d{4})[年/\-](\d{1,2})[月/\-](\d{1,2})[日号]?',
+                "description": "日期",
+            },
+            {
+                "name": "risk_level",
+                # 风险等级：正常/关注/次级/可疑/损失
+                "pattern": r'(正常|关注|次级|可疑|损失)',
+                "description": "五级分类风险等级",
+            },
+            {
+                "name": "asset_type",
+                # 资产类型关键词
+                "pattern": r'(贷款|信用卡|票据|垫款|债券|股权)',
+                "description": "资产类型",
+            },
+        ]
+
+    def extract(self, text: str) -> list[Entity]:
+        """从文本中提取所有实体"""
+        entities = []
+        for rule in self.rules:
+            for match in re.finditer(rule["pattern"], text):
+                entity = Entity(
+                    entity_type=rule["name"],
+                    value=match.group(0),
+                    start=match.start(),
+                    end=match.end(),
+                )
+                # 日期标准化
+                if rule["name"] == "date":
+                    entity.normalized = (
+                        f"{match.group(1)}-{match.group(2).zfill(2)}"
+                        f"-{match.group(3).zfill(2)}"
+                    )
+                # 金额标准化（去掉逗号和单位）
+                elif rule["name"] == "amount":
+                    raw = match.group(1).replace(",", "")
+                    entity.normalized = raw
+                entities.append(entity)
+        # 按出现位置排序
+        return sorted(entities, key=lambda e: e.start)
+
+# 测试
+extractor = EntityExtractor()
+text = "请查D202400123号债务人，2024年3月15日的贷款余额，大约5,320.50万元"
+entities = extractor.extract(text)
+for e in entities:
+    print(f"  [{e.entity_type}] {e.value}"
+          f"{f' → {e.normalized}' if e.normalized else ''}")
+# 输出:
+#   [debtor_id] D202400123
+#   [date] 2024年3月15日 → 2024-03-15
+#   [asset_type] 贷款
+#   [amount] 5,320.50万元 → 5320.50</code></pre>
+
+  <div class="sub-title"><span class="num">3</span> 编辑距离 + 相似度匹配</div>
+  <p style="font-size:14px;color:var(--text2);">用户输入常与标准表述有偏差（错别字、口语化），编辑距离用于模糊匹配意图关键词。</p>
+  <pre><code>def levenshtein_distance(s1: str, s2: str) -> int:
+    """计算两个字符串的编辑距离（Levenshtein）
+    支持三种操作：插入、删除、替换
+    """
+    m, n = len(s1), len(s2)
+    # dp[i][j] = s1[:i] 和 s2[:j] 的最小编辑距离
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+
+    # 初始化：空串到另一个串的距离 = 长度
+    for i in range(m + 1):
+        dp[i][0] = i
+    for j in range(n + 1):
+        dp[0][j] = j
+
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            if s1[i-1] == s2[j-1]:
+                # 字符相同，不需要操作
+                dp[i][j] = dp[i-1][j-1]
+            else:
+                # 三种操作取最小值 + 1
+                dp[i][j] = 1 + min(
+                    dp[i-1][j],      # 删除 s1[i-1]
+                    dp[i][j-1],      # 插入 s2[j-1]
+                    dp[i-1][j-1],    # 替换
+                )
+    return dp[m][n]
+
+def similarity_ratio(s1: str, s2: str) -> float:
+    """相似度 = 1 - 编辑距离 / max(len1, len2)
+    返回 0~1 的浮点数，1 表示完全相同
+    """
+    if not s1 or not s2:
+        return 0.0
+    dist = levenshtein_distance(s1, s2)
+    max_len = max(len(s1), len(s2))
+    return 1.0 - dist / max_len
+
+# 测试：模糊匹配意图关键词
+keywords = ["余额查询", "风险等级", "不良率", "转让审批"]
+queries = ["余额查询", "余额茶询", "风险等级", "风显等级", "不良利率"]
+
+for q in queries:
+    best_kw, best_sim = "", 0.0
+    for kw in keywords:
+        sim = similarity_ratio(q, kw)
+        if sim > best_sim:
+            best_sim, best_kw = sim, kw
+    status = "✅ 精确" if best_sim >= 0.9 else "⚠️ 模糊" if best_sim >= 0.7 else "❌ 未匹配"
+    print(f"  '{q}' → '{best_kw}' (相似度: {best_sim:.2f}) {status}")</code></pre>
+
+  <div class="warn-box">
+    <strong>⚠️ 注意：</strong>编辑距离对长度敏感。短字符串（2-3字）"余额"和"余额茶"的相似度 = 1 - 1/3 = 0.67，看起来低但只差1个字。
+    实际项目建议配合 <strong>前缀匹配</strong> + <strong>关键词命中</strong> 组合判断，而非仅靠相似度阈值。
+  </div>
+</div>
+
+<!-- ========== 3. LLM 核心：意图识别 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🤖</span> LLM 实战：IntentClassifier 意图分类器
+    <span class="time-tag">⏱ 25min</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>🎯 意图识别 = 客服系统的"路由器"</strong><br>
+    用户说"余额多少"、"这个编号查一下"、"我要转人工"——系统需要先搞清楚用户想干什么（意图），
+    再决定交给哪个处理器处理。这是整个客服系统的第一步，也是最关键的一步。
+  </div>
+
+  <div class="sub-title"><span class="num">1</span> 三层意图识别策略</div>
+  <table class="compare-table">
+    <tr><th>策略</th><th>原理</th><th>优点</th><th>缺点</th><th>适用</th></tr>
+    <tr>
+      <td><strong>规则匹配</strong></td>
+      <td>关键词/正则/编辑距离</td>
+      <td>快、确定性强、可解释</td>
+      <td>覆盖面窄、维护成本高</td>
+      <td>高频标准意图（转人工/常见FAQ）</td>
+    </tr>
+    <tr>
+      <td><strong>LLM 分类</strong></td>
+      <td>Prompt + JSON输出</td>
+      <td>覆盖面广、理解语义</td>
+      <td>有延迟、偶尔误判</td>
+      <td>复杂语义、长句、模糊表达</td>
+    </tr>
+    <tr>
+      <td><strong>混合策略</strong></td>
+      <td>规则优先 → LLM兜底</td>
+      <td>兼顾速度与覆盖</td>
+      <td>复杂度稍高</td>
+      <td>生产环境推荐 ✅</td>
+    </tr>
+  </table>
+
+  <div class="sub-title"><span class="num">2</span> 混合意图分类器完整实现</div>
+  <pre><code>import json
+import re
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Optional
+from zhipuai import ZhipuAI  # 或 openai / 其他 LLM SDK
+
+class IntentType(Enum):
+    QUERY_BALANCE = "query_balance"
+    QUERY_RISK = "query_risk"
+    QUERY_NPL_RATIO = "query_npl_ratio"
+    REPORT_ANOMALY = "report_anomaly"
+    POLICY_FAQ = "policy_faq"
+    TRANSFER_HUMAN = "transfer_human"
+    GREETING = "greeting"
+    UNKNOWN = "unknown"
+
+@dataclass
+class IntentResult:
+    """意图识别结果"""
+    intent: IntentType
+    confidence: float
+    strategy: str       # "rule" / "llm" / "fallback"
+    raw_response: str = ""
+
+class IntentClassifier:
+    """混合意图分类器：规则优先 + LLM 兜底"""
+
+    # ── 规则层：关键词映射 ──
+    RULE_KEYWORDS: dict[IntentType, list[str]] = {
+        IntentType.TRANSFER_HUMAN: [
+            "转人工", "人工客服", "真人", "投诉",
+            "找人工", "人工服务", "不智能",
+        ],
+        IntentType.GREETING: [
+            "你好", "在吗", "hello", "hi",
+            "在不在", "帮我查", "请问",
+        ],
+        IntentType.QUERY_BALANCE: [
+            "余额", "多少钱", "剩余", "贷款余额",
+            "欠款", "还剩多少", "账面",
+        ],
+        IntentType.QUERY_RISK: [
+            "风险", "等级", "分类", "五级",
+            "正常吗", "次级", "可疑", "损失",
+        ],
+        IntentType.QUERY_NPL_RATIO: [
+            "不良率", "不良贷款率", "NPL",
+            "违约率", "逾期率",
+        ],
+        IntentType.REPORT_ANOMALY: [
+            "举报", "异常", "错误", "数据不对",
+            "有问题", "金额异常", "余额为负",
+        ],
+    }
+
+    def __init__(self, api_key: str = "", model: str = "glm-4-flash"):
+        self.model = model
+        # 实际使用: self.client = ZhipuAI(api_key=api_key)
+        self.client = None  # mock 模式
+        # 预编译正则：性能优化，避免每次调用都编译
+        self._compiled_rules = self._compile_rules()
+
+    def _compile_rules(self) -> list[tuple[IntentType, re.Pattern]]:
+        """预编译所有正则表达式"""
+        compiled = []
+        for intent, keywords in self.RULE_KEYWORDS.items():
+            # 用 | 连接同意图的关键词
+            pattern = "|".join(re.escape(kw) for kw in keywords)
+            compiled.append((intent, re.compile(pattern)))
+        return compiled
+
+    def classify_rule(self, text: str) -> Optional[IntentResult]:
+        """规则匹配层：遍历预编译正则，命中即返回"""
+        text_lower = text.lower().strip()
+        for intent, pattern in self._compiled_rules:
+            if pattern.search(text_lower):
+                # 计算置信度：关键词占文本长度的比例（简单启发式）
+                match = pattern.search(text_lower)
+                confidence = min(0.95, 0.7 + len(match.group()) / len(text_lower) * 0.3)
+                return IntentResult(
+                    intent=intent,
+                    confidence=round(confidence, 2),
+                    strategy="rule",
+                )
+        return None  # 规则未命中
+
+    def classify_llm(self, text: str) -> IntentResult:
+        """LLM 分类层：语义理解兜底"""
+        intent_descriptions = "\n".join(
+            f"- {item.value}: {item.name}"
+            for item in IntentType if item != IntentType.UNKNOWN
+        )
+        system_prompt = f"""你是一个金融客服系统的意图分类器。
+根据用户输入，判断意图类型。
+
+可选意图类型：
+{intent_descriptions}
+
+输出严格的JSON格式（不要有其他文字）：
+{{"intent": "意图value", "confidence": 0.0-1.0, "reason": "一句话理由"}}"""
+
+        # 实际调用 LLM
+        # response = self.client.chat.completions.create(
+        #     model=self.model,
+        #     messages=[
+        #         {"role": "system", "content": system_prompt},
+        #         {"role": "user", "content": text},
+        #     ],
+        #     temperature=0.1,  # 低温度减少随机性
+        # )
+        # raw = response.choices[0].message.content
+
+        # ── mock LLM 响应 ──
+        raw = self._mock_llm(text)
+
+        # 三层容错解析 JSON
+        result = self._parse_intent_json(raw, text)
+        return result
+
+    def classify(self, text: str) -> IntentResult:
+        """主入口：规则优先 → LLM 兜底"""
+        # 第一步：规则快速匹配
+        rule_result = self.classify_rule(text)
+        if rule_result and rule_result.confidence >= 0.8:
+            return rule_result
+
+        # 第二步：LLM 语义理解
+        try:
+            llm_result = self.classify_llm(text)
+            # 如果 LLM 和规则都命中，取置信度更高的
+            if rule_result and llm_result.confidence < rule_result.confidence:
+                return rule_result
+            return llm_result
+        except Exception as e:
+            # 第三步：异常兜底
+            if rule_result:
+                return rule_result
+            return IntentResult(
+                intent=IntentType.UNKNOWN,
+                confidence=0.3,
+                strategy="fallback",
+                raw_response=f"LLM异常: {e}",
+            )
+
+    def _parse_intent_json(self, raw: str, text: str) -> IntentResult:
+        """三层容错解析 LLM 返回的 JSON"""
+        # 尝试1：直接解析
+        try:
+            data = json.loads(raw)
+            intent = IntentType(data["intent"])
+            return IntentResult(
+                intent=intent,
+                confidence=float(data.get("confidence", 0.7)),
+                strategy="llm",
+                raw_response=data.get("reason", ""),
+            )
+        except (json.JSONDecodeError, KeyError, ValueError):
+            pass
+
+        # 尝试2：提取 JSON 块（LLM 可能包裹在 ```json 中）
+        json_match = re.search(r'\{[^}]+\}', raw)
+        if json_match:
+            try:
+                data = json.loads(json_match.group())
+                intent = IntentType(data["intent"])
+                return IntentResult(
+                    intent=intent, confidence=float(data.get("confidence", 0.7)),
+                    strategy="llm", raw_response=data.get("reason", ""),
+                )
+            except (json.JSONDecodeError, KeyError, ValueError):
+                pass
+
+        # 尝试3：关键词猜测兜底
+        return IntentResult(
+            intent=IntentType.UNKNOWN, confidence=0.3,
+            strategy="fallback", raw_response=raw[:100],
+        )
+
+    def _mock_llm(self, text: str) -> str:
+        """模拟 LLM 响应（实际项目替换为真 API 调用）"""
+        mock_map = {
+            "查一下": '{"intent":"query_balance","confidence":0.85,"reason":"用户想查询余额"}',
+            "这个编号D2024": '{"intent":"query_balance","confidence":0.9,"reason":"通过编号查询"}',
+            "最近不良率": '{"intent":"query_npl_ratio","confidence":0.88,"reason":"询问不良率指标"}',
+            "数据好像不对": '{"intent":"report_anomaly","confidence":0.82,"reason":"反馈数据异常"}',
+        }
+        for key, resp in mock_map.items():
+            if key in text:
+                return resp
+        return '{"intent":"policy_faq","confidence":0.7,"reason":"通用咨询"}'
+
+# ── 测试 ──
+classifier = IntentClassifier()
+test_queries = [
+    "转人工客服",
+    "你好，帮我查个东西",
+    "查一下D202400123这个债务人的余额",
+    "最近不良贷款率是多少？",
+    "这个编号的数据好像不对",
+    "我们那个资产的五级分类怎么样了",
+    "今天的天气怎么样",  # 超出范围
+]
+
+print("=" * 50)
+print("{'查询':&lt;30} {'意图':&lt;20} {'置信度':&lt;8} {'策略'}")
+print("=" * 50)
+for q in test_queries:
+    result = classifier.classify(q)
+    print(f"  {q:&lt;28} {result.intent.value:&lt;20} "
+          f"{result.confidence:&lt;8} {result.strategy}")</code></pre>
+
+  <div class="tip-box">
+    <strong>💡 为什么混合策略更好？</strong>
+    "转人工"、"你好"这类高频确定性意图用规则处理，延迟 <1ms；
+    复杂语义（如"数据好像不对"→ 可能是举报也可能是查询）交给 LLM 判断。
+    这和数仓里"简单走缓存 → 复杂查计算"的思路一模一样。
+  </div>
+</div>
+
+<!-- ========== 4. 完整集成 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔧</span> 完整集成：预处理 → 意图识别 → 实体提取
+    <span class="time-tag">⏱ 15min</span>
+  </div>
+
+  <div class="sub-title"><span class="num">1</span> 文本预处理</div>
+  <pre><code>import re
+import html
+
+class TextPreprocessor:
+    """文本预处理：清洗、标准化、分段"""
+
+    @staticmethod
+    def clean(text: str) -> str:
+        """清洗文本"""
+        # 1. HTML 解码（处理 &amp; &lt; 等转义）
+        text = html.unescape(text)
+        # 2. 去除多余空白
+        text = re.sub(r'\s+', ' ', text).strip()
+        # 3. 去除特殊控制字符（保留中文、英文、数字、标点）
+        text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
+        return text
+
+    @staticmethod
+    def normalize(text: str) -> str:
+        """标准化：全角→半角、繁简等"""
+        # 全角数字/字母 → 半角
+        fullwidth = "０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺ"
+        halfwidth = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        table = str.maketrans(fullwidth, halfwidth)
+        text = text.translate(table)
+        # 统一引号
+        text = text.replace('"', '"').replace('"', '"')
+        return text
+
+    def process(self, text: str) -> str:
+        """完整预处理流水线"""
+        text = self.clean(text)
+        text = self.normalize(text)
+        return text</code></pre>
+
+  <div class="sub-title"><span class="num">2</span> RequestProcessor 请求处理器</div>
+  <pre><code>from dataclasses import dataclass
+
+@dataclass
+class ProcessedRequest:
+    """处理后的用户请求"""
+    original_text: str         # 原始文本
+    cleaned_text: str          # 预处理后文本
+    intent: IntentResult      # 意图识别结果
+    entities: list[Entity]    # 提取的实体
+    session_id: str = ""
+
+class RequestProcessor:
+    """请求处理器：串联 预处理→意图→实体"""
+
+    def __init__(self, api_key: str = ""):
+        self.preprocessor = TextPreprocessor()
+        self.classifier = IntentClassifier(api_key=api_key)
+        self.entity_extractor = EntityExtractor()
+
+    def process(self, user_input: str,
+                session_id: str = "") -> ProcessedRequest:
+        """处理一条用户输入"""
+        # Step 1: 预处理
+        cleaned = self.preprocessor.process(user_input)
+
+        # Step 2: 意图识别
+        intent = self.classifier.classify(cleaned)
+
+        # Step 3: 实体提取（不是所有意图都需要）
+        entities = []
+        if intent.intent in (
+            IntentType.QUERY_BALANCE,
+            IntentType.QUERY_RISK,
+            IntentType.REPORT_ANOMALY,
+        ):
+            entities = self.entity_extractor.extract(cleaned)
+
+        return ProcessedRequest(
+            original_text=user_input,
+            cleaned_text=cleaned,
+            intent=intent,
+            entities=entities,
+            session_id=session_id,
+        )
+
+# ── 完整测试 ──
+processor = RequestProcessor()
+
+print("\n" + "=" * 60)
+print("  📋 智能客服请求处理器 - 完整测试")
+print("=" * 60)
+
+test_cases = [
+    ("转人工，我要投诉", "sess_001"),
+    ("你好，帮我查一下", "sess_001"),
+    ("查D202400123在2024年3月15日的贷款余额大概5,320.50万元", "sess_002"),
+    ("这个债务人最近的风险等级变成什么了？", "sess_003"),
+    ("我发现一个数据异常，金额为负值，编号D202400456", "sess_004"),
+    ("我们分行的不良贷款率是多少？", "sess_005"),
+]
+
+for text, sid in test_cases:
+    result = processor.process(text, session_id=sid)
+    print(f"\n📝 原始输入: {result.original_text}")
+    print(f"   清洗文本: {result.cleaned_text}")
+    print(f"   🎯 意图: {result.intent.intent.value} "
+          f"(置信度:{result.intent.confidence}, "
+          f"策略:{result.intent.strategy})")
+    if result.entities:
+        print(f"   📌 实体:")
+        for e in result.entities:
+            print(f"      - {e.entity_type}: {e.value}"
+                  f"{f' → {e.normalized}' if e.normalized else ''}")</code></pre>
+</div>
+
+<!-- ========== 5. 项目结构 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📁</span> P5 项目结构规范
+    <span class="time-tag">⏱ 5min</span>
+  </div>
+
+  <pre><code>amc_chatbot/
+├── config.py                 # pydantic-settings 配置
+├── main.py                   # FastAPI 入口
+│
+├── models/                   # 数据模型
+│   ├── __init__.py
+│   ├── messages.py          # Message, ChatSession
+│   └── intents.py           # IntentType, IntentResult, Entity
+│
+├── core/                     # 核心引擎
+│   ├── __init__.py
+│   ├── preprocessor.py      # TextPreprocessor 预处理
+│   ├── classifier.py         # IntentClassifier 意图识别
+│   ├── extractor.py          # EntityExtractor 实体提取
+│   ├── session_manager.py    # SessionManager 对话管理 (Day63)
+│   └── generator.py          # ResponseGenerator 回复生成 (Day63)
+│
+├── handlers/                 # 意图处理器（策略模式）
+│   ├── __init__.py
+│   ├── base.py              # BaseHandler 抽象基类
+│   ├── balance_handler.py  # 余额查询处理
+│   ├── risk_handler.py      # 风险查询处理
+│   ├── faq_handler.py        # 通用FAQ处理
+│   └── human_handler.py      # 转人工处理
+│
+├── api/                      # API 接口层
+│   ├── __init__.py
+│   └── routes.py            # /chat, /sessions, /health
+│
+└── tests/                    # 测试
+    ├── test_classifier.py
+    └── test_extractor.py</code></pre>
+
+  <div class="concept-box">
+    <strong>📊 数仓视角：</strong>这个结构和数仓项目一样是分层思维。<br>
+    <code class="inline-code">models/</code> = 元数据定义 → <code class="inline-code">core/</code> = ETL计算逻辑 →
+    <code class="inline-code">handlers/</code> = ADS各主题 ADS = 对外服务层
+  </div>
+</div>
+
+<!-- ========== 6. 常见陷阱 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🚨</span> 常见陷阱 Top 5
+    <span class="time-tag">⏱ 3min</span>
+  </div>
+
+  <div class="error-box">
+    <strong>陷阱1：意图粒度过细</strong> — 30个意图 → LLM 频繁误判。
+    建议：先用 5-8 个大意图，后期根据真实数据拆分。
+  </div>
+  <div class="error-box">
+    <strong>陷阱2：只依赖 LLM，没有规则兜底</strong> — "转人工" 这种简单请求不应该打 LLM。
+    建议：高频 + 确定性意图走规则，LLM 只处理语义模糊场景。
+  </div>
+  <div class="error-box">
+    <strong>陷阱3：正则实体提取没处理边界</strong> — "D2024001234" 被 "D202400123" 先匹配走了。
+    建议：按长度降序排列规则，或用负向前瞻 <code class="inline-code">(?!\d)</code>。
+  </div>
+  <div class="warn-box">
+    <strong>陷阱4：JSON 解析太脆弱</strong> — LLM 返回带 markdown 代码块、多余空格、BOM 头。
+    建议：三层容错（直接解析 → 正则提取 → 关键词兜底）。
+  </div>
+  <div class="warn-box">
+    <strong>陷阱5：可变默认值</strong> — dataclass 的 list/dict 默认值必须用 <code class="inline-code">field(default_factory=...)</code>。
+    否则所有实例共享同一个对象（经典 Python 坑）。
+  </div>
+</div>
+
+<!-- ========== 7. 最佳实践速查 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">✅</span> 最佳实践速查表
+  </div>
+
+  <table class="compare-table">
+    <tr><th>领域</th><th>最佳实践</th></tr>
+    <tr><td>意图分类</td><td>规则优先(高频确定) → LLM兜底(语义模糊) → UNKNOWN兜底</td></tr>
+    <tr><td>置信度阈值</td><td>规则 ≥ 0.8 直接采纳；LLM ≥ 0.7 采纳；否则走澄清追问</td></tr>
+    <tr><td>实体提取</td><td>正则快但脆 → 生产环境可加 NER 模型或 LLM 辅助</td></tr>
+    <tr><td>JSON解析</td><td>直接解析 → 正则提取 → fallback 三层容错</td></tr>
+    <tr><td>正则优化</td><td>启动时预编译(compile)，避免每次请求重复编译</td></tr>
+    <tr><td>dataclass</td><td>所有可变默认值用 field(default_factory=...)</td></tr>
+    <tr><td>测试策略</td><td>构造 20+ 测试用例，覆盖所有意图+边界+异常输入</td></tr>
+  </table>
+</div>
+
+<!-- ========== 8. 练习 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏋️</span> 今日练习
+    <span class="time-tag">⏱ 15min</span>
+  </div>
+
+  <div class="leetcode-box">
+    <div class="lc-title">练习1：增强 IntentClassifier — 添加模糊匹配层</div>
+    <p style="font-size:14px;color:var(--text2);">
+      在规则匹配和 LLM 之间加一层编辑距离模糊匹配：当用户输入和关键词相似度 ≥ 0.7 时，返回该意图。
+      这样"余额茶询"也能正确识别为 query_balance。
+      提示：用前面实现的 <code class="inline-code">similarity_ratio()</code> 函数。
+    </p>
+  </div>
+
+  <div class="leetcode-box">
+    <div class="lc-title">练习2：AMC 意图测试集</div>
+    <p style="font-size:14px;color:var(--text2);">
+      为 AMC 业务构造至少 15 条测试用例，覆盖全部 7 种意图类型。
+      每条包含输入文本 + 期望意图 + 期望实体（如有）。
+      用 <code class="inline-code">assert</code> 自动验证分类器准确率。
+    </p>
+  </div>
+
+  <div class="leetcode-box">
+    <div class="lc-title">练习3：LeetCode #49 — 字母异位词分组</div>
+    <p style="font-size:14px;color:var(--text2);">
+      给定字符串数组，将字母异位词组合在一起。<br>
+      <code class="inline-code">输入: strs = ["eat","tea","tan","ate","nat","bat"]</code><br>
+      <code class="inline-code">输出: [["bat"],["nat","tan"],["ate","eat","tea"]]</code><br>
+      提示：排序后的字符串作为 dict 的 key，用 <code class="inline-code">defaultdict(list)</code> 分组。
+      这题训练了 <strong>分组映射</strong> 思维，客服系统的意图路由也用到类似思路。
+    </p>
+  </div>
+</div>
+
+<!-- ========== 9. 预告 ========== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📅</span> 明日预告：Day 63 — 对话管理 + 回复生成
+  </div>
+  <p style="font-size:14px;color:var(--text2);">
+    今天搭好了"识别"和"提取"，明天进入对话的核心：<strong>多轮上下文管理</strong>和<strong>回复生成</strong>。
+  </p>
+  <ul>
+    <li><strong>SessionManager：</strong>会话生命周期管理（创建/活跃/超时/关闭）+ 多轮上下文窗口</li>
+    <li><strong>ContextBuilder：</strong>组装对话历史给 LLM（滑动窗口 + Token 预算控制）</li>
+    <li><strong>ResponseGenerator：</strong>基于意图 + 实体 + 上下文生成专业回复</li>
+    <li><strong>Handler 策略模式：</strong>每种意图对应一个处理器，统一接口</li>
+    <li><strong>人工接管：</strong>低置信度或复杂场景自动触发转人工流程</li>
+  </ul>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 59 - P4 智能数据质检系统（架构设计 + 规则引擎）</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--purple:#9333ea;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#fef3c7,#fff7ed);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #fde68a; }
+  .header .badge { display:inline-block;background:#fef9c3;color:#a16207;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--green);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--green); }
+  .tip-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--accent); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  pre { background:#1e293b;color:#e2e8f0;padding:18px 20px;border-radius:8px;overflow-x:auto;margin:14px 0;font-size:13px;line-height:1.6; }
+  code { font-family:'Cascadia Code','Fira Code',Consolas,monospace; }
+  .inline-code { background:var(--surface2);color:var(--accent2);padding:2px 7px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace; }
+  h3 { font-size:16px;font-weight:700;margin:18px 0 10px;color:var(--text); }
+  h3 .emoji { margin-right:6px; }
+  p { margin:10px 0;font-size:15px; }
+  ul,ol { margin:8px 0 8px 24px;font-size:14px; }
+  li { margin:4px 0; }
+  table { width:100%;border-collapse:collapse;margin:14px 0;font-size:13px; }
+  th { background:var(--surface2);font-weight:600;text-align:left;padding:10px 14px;border:1px solid var(--border); }
+  td { padding:10px 14px;border:1px solid var(--border); }
+  tr:hover td { background:var(--surface2); }
+  .quiz { background:var(--surface2);border-radius:8px;padding:18px 20px;margin:14px 0; }
+  .quiz h4 { color:var(--accent2);font-size:15px;margin-bottom:8px; }
+  .quiz ol { font-size:14px; }
+  .next-box { background:linear-gradient(135deg,#eff6ff,#f0fdf4);border-radius:var(--radius);padding:20px 24px;margin-top:20px;border:1px solid #bbf7d0; }
+  .next-box h3 { color:var(--green);margin:0 0 6px; }
+  .next-box p { color:var(--text2);font-size:14px; }
+  .footer { text-align:center;color:var(--text3);font-size:12px;margin-top:24px;padding:12px; }
+  .flow-diagram { display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;margin:14px 0;padding:14px;background:var(--surface2);border-radius:8px; }
+  .flow-step { background:var(--accent);color:#fff;padding:6px 14px;border-radius:6px;font-size:13px;font-weight:600; }
+  .flow-arrow { color:var(--text3);font-size:18px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Phase 4 · 项目实战 · P4 智能数据质检</div>
+  <h1>Day 59 — 智能数据质检系统（架构设计 + 规则引擎）</h1>
+  <div class="subtitle">从数仓 ETL 质检到 Python 规则引擎 — 让数据质量检查自动化</div>
+</div>
+
+<div class="progress-bar">
+  <span class="label">总进度</span>
+  <div class="track"><div class="fill" style="width:84.3%"></div></div>
+  <span class="percent">59/70</span>
+</div>
+
+<!-- ===================== Section 1 ===================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏗️</span> P4 项目总览：为什么需要智能数据质检？
+    <span class="time-tag">~8 分钟</span>
+  </div>
+
+  <p>作为数据开发工程师，你对数据质量一定不陌生 — 空值飙升、主键重复、金额负值、日期逻辑异常……这些问题在数仓 ETL 中每天都会出现。传统做法是写一堆 SQL 检查脚本，但这样维护成本高、复用性差。</p>
+
+  <div class="concept-box">
+    <strong>数仓思维映射：</strong>智能数据质检系统 = ETL 中的数据校验环节 × 规则引擎 × LLM 辅助分析。你已有的 SQL 质检经验是核心资产，Python 只是帮你把它自动化、智能化。
+  </div>
+
+  <h3><span class="emoji">📋</span>P4 三天路线图</h3>
+  <table>
+    <tr><th>天数</th><th>主题</th><th>核心产出</th></tr>
+    <tr><td><strong>Day 59</strong></td><td>架构设计 + 规则引擎</td><td>可扩展的规则引擎 + 10+ 内置质检规则</td></tr>
+    <tr><td><strong>Day 60</strong></td><td>LLM 驱动检测 + 异常归因</td><td>LLM 自动生成规则 + 智能异常根因分析</td></tr>
+    <tr><td><strong>Day 61</strong></td><td>可视化仪表盘 + 项目收官</td><td>质检报告 Dashboard + 全项目总结</td></tr>
+  </table>
+
+  <h3><span class="emoji">🏛️</span>系统四层架构</h3>
+  <div class="flow-diagram">
+    <div class="flow-step">数据源层</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">规则引擎层</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">分析归因层</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">报告展示层</div>
+  </div>
+
+  <table>
+    <tr><th>层</th><th>职责</th><th>数仓类比</th></tr>
+    <tr><td>数据源层</td><td>加载 CSV/数据库/API 数据</td><td>ODS 原始数据接入</td></tr>
+    <tr><td>规则引擎层</td><td>定义、注册、执行质检规则</td><td>DWD 数据清洗校验</td></tr>
+    <tr><td>分析归因层</td><td>LLM 分析异常根因 + 修复建议</td><td>数据治理异常分析</td></tr>
+    <tr><td>报告展示层</td><td>HTML 仪表盘 + 统计汇总</td><td>BI 报表展示</td></tr>
+  </table>
+</div>
+
+<!-- ===================== Section 2 ===================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span> Python 知识：ABC 抽象基类 + 规则引擎设计模式
+    <span class="time-tag">~15 分钟</span>
+  </div>
+
+  <p>规则引擎的核心设计思想：<strong>定义统一的规则接口，每种规则只需实现 <span class="inline-code">check()</span> 方法</strong>。这正好是面向对象编程中抽象基类（ABC）的经典场景。</p>
+
+  <h3><span class="emoji">🧩</span>1. ABC 抽象基类 — 规则引擎的骨架</h3>
+  <pre><code>from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import Any
+from enum import Enum
+
+class Severity(Enum):
+    """严重度分级 — 类似数仓中的告警级别"""
+    WARNING = "warning"     # 轻微异常，不影响流程
+    ERROR = "error"         # 数据质量问题，需要修复
+    CRITICAL = "critical"   # 严重错误，必须阻断
+
+@dataclass
+class RuleResult:
+    """单条规则的检测结果"""
+    rule_id: str            # 规则ID，如 "null_check_001"
+    rule_name: str          # 规则名称
+    severity: Severity      # 严重度
+    passed: bool            # 是否通过
+    column: str              # 检测的列名
+    detail: str = ""         # 详情描述
+    failed_count: int = 0    # 失败记录数
+    total_count: int = 0    # 总记录数
+    sample_values: list = field(default_factory=list)  # 异常样本
+
+    @property
+    def fail_rate(self) -> float:
+        """失败率"""
+        return self.failed_count / self.total_count if self.total_count > 0 else 0.0
+
+
+class BaseRule(ABC):
+    """质检规则抽象基类 — 所有规则必须继承它"""
+
+    def __init__(self, rule_id: str, rule_name: str, severity: Severity = Severity.ERROR):
+        self.rule_id = rule_id
+        self.rule_name = rule_name
+        self.severity = severity
+
+    @abstractmethod
+    def check(self, data: list[dict], column: str) -> RuleResult:
+        """
+        核心检测方法 — 子类必须实现
+        :param data: 数据行列表 [{"col1": val1, ...}, ...]
+        :param column: 要检测的列名
+        :return: RuleResult 检测结果
+        """
+        ...
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(id={self.rule_id}, name={self.rule_name})"</code></pre>
+
+  <div class="tip-box">
+    <strong>设计要点：</strong>ABC 的 <span class="inline-code">@abstractmethod</span> 强制子类实现 <span class="inline-code">check()</span>。如果忘了实现，实例化时就直接报错 — 编译期就能发现问题，而不是运行时。
+  </div>
+
+  <h3><span class="emoji">🔧</span>2. functools.reduce — 链式聚合结果</h3>
+  <p>当规则引擎执行完所有规则后，需要把多个 <span class="inline-code">RuleResult</span> 聚合成一份总报告。<span class="inline-code">reduce</span> 是函数式编程的利器：</p>
+
+  <pre><code>from functools import reduce
+
+# --- reduce 基础用法 ---
+# reduce(函数, 列表, 初始值)
+# 原理：初始值 与 列表第1个元素 → 新值，再与第2个 → 新值，依次折叠
+
+numbers = [1, 2, 3, 4, 5]
+total = reduce(lambda acc, x: acc + x, numbers, 0)
+print(total)  # 15
+
+# --- 等价于 ---
+acc = 0
+for x in numbers:
+    acc = acc + x  # 每次把累积值和当前元素"折叠"在一起
+
+# --- 实际场景：合并多个规则结果列表 ---
+results_list = [
+    [RuleResult("r1", "空值检查", Severity.ERROR, False, "col_a", failed_count=5, total_count=100)],
+    [RuleResult("r2", "范围检查", Severity.WARNING, True, "col_b", total_count=100)],
+    [RuleResult("r3", "格式检查", Severity.ERROR, False, "col_c", failed_count=2, total_count=100)],
+]
+
+# reduce 把多个列表"拍平"成一个
+all_results = reduce(lambda acc, x: acc + x, results_list, [])
+print(f"共 {len(all_results)} 条检测结果")  # 3
+
+# --- 统计：计算总失败数 ---
+total_failed = reduce(
+    lambda acc, r: acc + r.failed_count,
+    all_results,
+    0
+)
+print(f"总失败记录: {total_failed}")  # 7</code></pre>
+
+  <h3><span class="emoji">🔗</span>3. itertools.chain — 扁平化多数据源</h3>
+  <pre><code>from itertools import chain
+
+# 场景：质检多个数据表，每个表产生一组结果
+table_a_results = [RuleResult("r1", ...), RuleResult("r2", ...)]
+table_b_results = [RuleResult("r3", ...)]
+table_c_results = [RuleResult("r4", ...), RuleResult("r5", ...), RuleResult("r6", ...)]
+
+# chain: 比 reduce + 列表拼接更高效（惰性迭代器，不创建中间列表）
+all_results = list(chain(table_a_results, table_b_results, table_c_results))
+print(f"跨表共 {len(all_results)} 条结果")  # 6
+
+# 实际场景：遍历多个 CSV 文件，合并数据行
+import csv
+from pathlib import Path
+
+csv_files = Path("data").glob("amc_*.csv")
+all_rows = list(chain.from_iterable(  # chain.from_iterable 把"列表的列表"铺平
+    csv.DictReader(f.open(encoding="utf-8"))
+    for f in csv_files
+))
+print(f"合并 {len(csv_files)} 个文件，共 {len(all_rows)} 行")</code></pre>
+
+  <div class="concept-box">
+    <strong>reduce vs chain 选择指南：</strong>
+    <span class="inline-code">reduce</span> 适合需要"累积计算"的场景（求和/合并/分组）；<span class="inline-code">chain</span> 适合"拼接多个可迭代对象"的场景。简单拼接优先用 chain，更高效。
+  </div>
+
+  <h3><span class="emoji">🧮</span>4. 统计相关：Counter + statistics</h3>
+  <pre><code>from collections import Counter
+from statistics import mean, median, stdev
+
+# --- Counter: 频率统计 ---
+severity_counts = Counter(r.severity.value for r in all_results)
+print(severity_counts)
+# Counter({'error': 2, 'warning': 1})
+
+# --- statistics: 描述性统计 ---
+fail_rates = [r.fail_rate for r in all_results if not r.passed]
+print(f"平均失败率: {mean(fail_rates):.2%}")  # 均值
+print(f"中位失败率: {median(fail_rates):.2%}")  # 中位数
+if len(fail_rates) > 1:
+    print(f"标准差: {stdev(fail_rates):.2%}")  # 标准差 — 离散程度</code></pre>
+</div>
+
+<!-- ===================== Section 3 ===================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚙️</span> 规则引擎：10+ 内置质检规则
+    <span class="time-tag">~20 分钟</span>
+  </div>
+
+  <p>规则引擎是质检系统的核心。我们设计一个可扩展的 <span class="inline-code">RuleEngine</span> 类，预置 AMC 业务中常见的质检规则。</p>
+
+  <h3><span class="emoji">📊</span>1. 空值检查（Null Check）</h3>
+  <pre><code>class NullCheckRule(BaseRule):
+    """检查指定列的空值率是否超过阈值"""
+
+    def __init__(self, rule_id: str, column: str,
+                 max_null_rate: float = 0.05,
+                 severity: Severity = Severity.ERROR):
+        super().__init__(rule_id, f"{column} 空值检查", severity)
+        self.column = column
+        self.max_null_rate = max_null_rate  # 空值率上限，默认5%
+
+    def check(self, data: list[dict], column: str = None) -> RuleResult:
+        col = column or self.column
+        total = len(data)
+        if total == 0:
+            return RuleResult(self.rule_id, self.rule_name, self.severity,
+                             True, col, "无数据", 0, 0)
+
+        null_count = sum(1 for row in data
+                        if row.get(col) is None or str(row.get(col, "")).strip() == "")
+        null_rate = null_count / total
+        passed = null_rate <= self.max_null_rate
+
+        # 采集最多5个空值样本
+        samples = [row for row in data
+                   if row.get(col) is None or str(row.get(col, "")).strip() == ""][:5]
+
+        return RuleResult(
+            rule_id=self.rule_id, rule_name=self.rule_name,
+            severity=self.severity, passed=passed, column=col,
+            detail=f"空值率 {null_rate:.2%}（阈值 {self.max_null_rate:.2%}），"
+                   f"空值 {null_count}/{total} 条",
+            failed_count=null_count, total_count=total,
+            sample_values=samples
+        )</code></pre>
+
+  <h3><span class="emoji">📏</span>2. 范围检查（Range Check）</h3>
+  <pre><code>class RangeCheckRule(BaseRule):
+    """检查数值列是否在指定范围内"""
+
+    def __init__(self, rule_id: str, column: str,
+                 min_val: float = None, max_val: float = None,
+                 severity: Severity = Severity.ERROR):
+        super().__init__(rule_id, f"{column} 范围检查", severity)
+        self.column = column
+        self.min_val = min_val  # 最小值（None表示不检查下界）
+        self.max_val = max_val  # 最大值（None表示不检查上界）
+
+    def check(self, data: list[dict], column: str = None) -> RuleResult:
+        col = column or self.column
+        total = len(data)
+        out_of_range = []
+
+        for i, row in enumerate(data):
+            val = row.get(col)
+            if val is None:
+                continue  # 空值交给 NullCheckRule 处理
+            try:
+                num = float(val)
+                if (self.min_val is not None and num < self.min_val) or \
+                   (self.max_val is not None and num > self.max_val):
+                    out_of_range.append((i, val))
+            except (ValueError, TypeError):
+                out_of_range.append((i, val))  # 非数值也算异常
+
+        passed = len(out_of_range) == 0
+        samples = [f"行{i+1}: {v}" for i, v in out_of_range[:5]]
+
+        return RuleResult(
+            rule_id=self.rule_id, rule_name=self.rule_name,
+            severity=self.severity, passed=passed, column=col,
+            detail=f"范围 [{self.min_val}, {self.max_val}]，"
+                   f"越界 {len(out_of_range)}/{total} 条",
+            failed_count=len(out_of_range), total_count=total,
+            sample_values=samples
+        )</code></pre>
+
+  <h3><span class="emoji">🔑</span>3. 唯一性检查（Uniqueness Check）</h3>
+  <pre><code>class UniqueCheckRule(BaseRule):
+    """检查列值是否唯一 — 主键/业务键必备规则"""
+
+    def __init__(self, rule_id: str, column: str,
+                 severity: Severity = Severity.CRITICAL):
+        super().__init__(rule_id, f"{column} 唯一性检查", severity)
+        self.column = column
+
+    def check(self, data: list[dict], column: str = None) -> RuleResult:
+        col = column or self.column
+        total = len(data)
+        values = [row.get(col) for row in data if row.get(col) is not None]
+
+        # Counter 统计频率，找出重复值
+        freq = Counter(values)
+        duplicates = {v: c for v, c in freq.items() if c > 1}
+        dup_count = sum(c for c in duplicates.values()) - len(duplicates)
+        # 注意：dup_count 是"多余"的记录数，不是重复值个数
+
+        passed = len(duplicates) == 0
+        samples = [f"{v} 出现 {c} 次" for v, c in list(duplicates.items())[:5]]
+
+        return RuleResult(
+            rule_id=self.rule_id, rule_name=self.rule_name,
+            severity=self.severity, passed=passed, column=col,
+            detail=f"发现 {len(duplicates)} 个重复值，涉及 {dup_count} 条多余记录",
+            failed_count=dup_count, total_count=total,
+            sample_values=samples
+        )</code></pre>
+
+  <h3><span class="emoji">🔤</span>4. 正则格式检查（Pattern Check）</h3>
+  <pre><code>import re
+
+class PatternCheckRule(BaseRule):
+    """检查列值是否符合正则表达式 — 适用于身份证号、手机号、日期等"""
+
+    def __init__(self, rule_id: str, column: str,
+                 pattern: str, pattern_desc: str = "",
+                 severity: Severity = Severity.ERROR):
+        super().__init__(rule_id, f"{column} 格式检查", severity)
+        self.column = column
+        self.pattern = pattern        # 正则表达式
+        self.pattern_desc = pattern_desc  # 人类可读的格式描述
+        self._compiled = re.compile(pattern)
+
+    def check(self, data: list[dict], column: str = None) -> RuleResult:
+        col = column or self.column
+        total = len(data)
+        mismatch = []
+
+        for row in data:
+            val = row.get(col)
+            if val is None or str(val).strip() == "":
+                continue
+            if not self._compiled.match(str(val).strip()):
+                mismatch.append(str(val))
+
+        passed = len(mismatch) == 0
+
+        return RuleResult(
+            rule_id=self.rule_id, rule_name=self.rule_name,
+            severity=self.severity, passed=passed, column=col,
+            detail=f"格式要求: {self.pattern_desc or self.pattern}，"
+                   f"不匹配 {len(mismatch)}/{total} 条",
+            failed_count=len(mismatch), total_count=total,
+            sample_values=mismatch[:5]
+        )
+
+# --- 常用格式规则 ---
+date_rule = PatternCheckRule(
+    "pattern_date", "report_date",
+    r"\d{4}-\d{2}-\d{2}",
+    "YYYY-MM-DD 日期格式"
+)
+
+id_card_rule = PatternCheckRule(
+    "pattern_id_card", "debtor_id",
+    r"^\d{17}[\dXx]$",
+    "18位身份证号"
+)</code></pre>
+
+  <h3><span class="emoji">🔗</span>5. 引用完整性检查（Referential Check）</h3>
+  <pre><code>class ReferentialCheckRule(BaseRule):
+    """检查列值是否都在参照集合中 — 类似 SQL 的外键约束"""
+
+    def __init__(self, rule_id: str, column: str,
+                 ref_values: set | list,
+                 severity: Severity = Severity.ERROR):
+        super().__init__(rule_id, f"{column} 引用完整性", severity)
+        self.column = column
+        self.ref_values = set(ref_values)  # 转为 set，O(1) 查找
+
+    def check(self, data: list[dict], column: str = None) -> RuleResult:
+        col = column or self.column
+        total = len(data)
+        not_found = []
+
+        for row in data:
+            val = row.get(col)
+            if val is not None and val not in self.ref_values:
+                not_found.append(str(val))
+
+        passed = len(not_found) == 0
+        # 去重统计
+        unique_missing = set(not_found)
+
+        return RuleResult(
+            rule_id=self.rule_id, rule_name=self.rule_name,
+            severity=self.severity, passed=passed, column=col,
+            detail=f"参照集大小 {len(self.ref_values)}，"
+                   f"不在参照集中的值 {len(not_found)} 条（{len(unique_missing)} 个唯一值）",
+            failed_count=len(not_found), total_count=total,
+            sample_values=list(unique_missing)[:5]
+        )</code></pre>
+
+  <h3><span class="emoji">📈</span>6. 统计突变检查（Statistical Drift Check）</h3>
+  <pre><code>class StatDriftCheckRule(BaseRule):
+    """检查列的统计值是否与基线偏离过大 — 行数突变/均值漂移"""
+
+    def __init__(self, rule_id: str, column: str,
+                 baseline_mean: float = None,
+                 baseline_std: float = None,
+                 baseline_count: int = None,
+                 mean_threshold: float = 3.0,    # 均值偏离N倍标准差
+                 count_threshold: float = 0.5,    # 行数偏离基线50%即告警
+                 severity: Severity = Severity.WARNING):
+        super().__init__(rule_id, f"{column} 统计突变检查", severity)
+        self.column = column
+        self.baseline_mean = baseline_mean
+        self.baseline_std = baseline_std
+        self.baseline_count = baseline_count
+        self.mean_threshold = mean_threshold
+        self.count_threshold = count_threshold
+
+    def check(self, data: list[dict], column: str = None) -> RuleResult:
+        col = column or self.column
+        total = len(data)
+        issues = []
+
+        # 行数突变检测
+        if self.baseline_count and self.baseline_count > 0:
+            count_change = abs(total - self.baseline_count) / self.baseline_count
+            if count_change > self.count_threshold:
+                issues.append(
+                    f"行数 {total}，基线 {self.baseline_count}，"
+                    f"偏离 {count_change:.1%}"
+                )
+
+        # 均值漂移检测
+        if self.baseline_mean is not None and self.baseline_std is not None:
+            values = [float(row[col]) for row in data if row.get(col) is not None]
+            if values:
+                current_mean = mean(values)
+                if self.baseline_std > 0:
+                    z_score = abs(current_mean - self.baseline_mean) / self.baseline_std
+                    if z_score > self.mean_threshold:
+                        issues.append(
+                            f"均值 {current_mean:.2f}，基线 {self.baseline_mean:.2f}，"
+                            f"Z-score={z_score:.1f}（阈值 {self.mean_threshold}）"
+                        )
+
+        passed = len(issues) == 0
+
+        return RuleResult(
+            rule_id=self.rule_id, rule_name=self.rule_name,
+            severity=self.severity, passed=passed, column=col,
+            detail="; ".join(issues) if issues else "统计指标正常",
+            failed_count=0, total_count=total,
+            sample_values=issues
+        )</code></pre>
+
+  <h3><span class="emoji">⚖️</span>7. 业务规则：金额倒挂检查</h3>
+  <pre><code>class BusinessRuleCheck(BaseRule):
+    """通用业务规则检查 — 支持自定义判断函数"""
+
+    def __init__(self, rule_id: str, rule_name: str,
+                 check_fn,  # 判断函数: (row) -> (bool_is_ok, str_reason)
+                 severity: Severity = Severity.ERROR):
+        super().__init__(rule_id, rule_name, severity)
+        self.check_fn = check_fn
+
+    def check(self, data: list[dict], column: str = None) -> RuleResult:
+        total = len(data)
+        violations = []
+
+        for i, row in enumerate(data):
+            try:
+                is_ok, reason = self.check_fn(row)
+                if not is_ok:
+                    violations.append(f"行{i+1}: {reason}")
+            except Exception as e:
+                violations.append(f"行{i+1}: 规则执行异常 - {e}")
+
+        passed = len(violations) == 0
+
+        return RuleResult(
+            rule_id=self.rule_id, rule_name=self.rule_name,
+            severity=self.severity, passed=passed, column="多列",
+            detail=f"违反业务规则 {len(violations)}/{total} 条",
+            failed_count=len(violations), total_count=total,
+            sample_values=violations[:5]
+        )
+
+
+# --- AMC 业务场景：不良资产余额倒挂 ---
+def check_balance_inversion(row: dict) -> tuple[bool, str]:
+    """检查：逾期本金 + 逾期利息 不应超过 不良资产余额"""
+    principal = float(row.get("overdue_principal", 0) or 0)
+    interest = float(row.get("overdue_interest", 0) or 0)
+    balance = float(row.get("npl_balance", 0) or 0)
+
+    if principal + interest > balance and balance > 0:
+        return False, (f"逾期本息 {principal + interest:.2f} > 不良余额 {balance:.2f}")
+    return True, ""
+
+
+balance_rule = BusinessRuleCheck(
+    "biz_balance_inversion",
+    "不良资产余额倒挂检查",
+    check_balance_inversion,
+    severity=Severity.ERROR
+)</code></pre>
+</div>
+
+<!-- ===================== Section 4 ===================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🚀</span> RuleEngine 规则引擎 + 质检报告
+    <span class="time-tag">~12 分钟</span>
+  </div>
+
+  <h3><span class="emoji">🏗️</span>1. RuleEngine 完整实现</h3>
+  <pre><code>@dataclass
+class QualityReport:
+    """质检总报告"""
+    table_name: str
+    total_rows: int
+    total_rules: int
+    results: list[RuleResult] = field(default_factory=list)
+    timestamp: str = ""
+
+    @property
+    def passed_rules(self) -> int:
+        return sum(1 for r in self.results if r.passed)
+
+    @property
+    def failed_rules(self) -> int:
+        return sum(1 for r in self.results if not r.passed)
+
+    @property
+    def critical_count(self) -> int:
+        return sum(1 for r in self.results
+                   if not r.passed and r.severity == Severity.CRITICAL)
+
+    @property
+    def overall_score(self) -> float:
+        """总得分: 通过率 × 100"""
+        return (self.passed_rules / self.total_rules * 100) if self.total_rules > 0 else 100.0
+
+    @property
+    def is_healthy(self) -> bool:
+        """是否健康（无 CRITICAL 失败）"""
+        return self.critical_count == 0
+
+    def summary(self) -> str:
+        """文本摘要"""
+        status = "✅ 健康" if self.is_healthy else "❌ 需修复"
+        lines = [
+            f"📊 质检报告: {self.table_name} ({self.timestamp})",
+            f"   数据量: {self.total_rows} 行 | 规则数: {self.total_rules}",
+            f"   通过: {self.passed_rules} | 失败: {self.failed_rules} | CRITICAL: {self.critical_count}",
+            f"   得分: {self.overall_score:.1f}/100 | 状态: {status}",
+        ]
+        for r in self.results:
+            icon = "✅" if r.passed else {"WARNING": "⚠️", "ERROR": "❌", "CRITICAL": "🚨"}[r.severity.value]
+            lines.append(f"   {icon} [{r.severity.value}] {r.rule_name}: {r.detail}")
+        return "\n".join(lines)
+
+
+class RuleEngine:
+    """质检规则引擎 — 注册规则 → 执行 → 生成报告"""
+
+    def __init__(self):
+        self._rules: dict[str, BaseRule] = {}  # rule_id → rule
+
+    def register(self, rule: BaseRule) -> "RuleEngine":
+        """注册规则（支持链式调用）"""
+        self._rules[rule.rule_id] = rule
+        return self  # 返回 self，支持 engine.register(r1).register(r2)
+
+    def unregister(self, rule_id: str) -> None:
+        """移除规则"""
+        self._rules.pop(rule_id, None)
+
+    @property
+    def rule_count(self) -> int:
+        return len(self._rules)
+
+    def run(self, data: list[dict], table_name: str = "unknown",
+            column_override: dict = None) -> QualityReport:
+        """
+        执行所有规则并生成报告
+        :param data: 数据行列表
+        :param table_name: 表名（用于报告）
+        :param column_override: 列名映射 {"原规则column": "实际column"}
+        :return: QualityReport
+        """
+        from datetime import datetime
+        column_override = column_override or {}
+        results = []
+
+        for rule_id, rule in self._rules.items():
+            # 如果有列名映射，使用映射后的列名
+            col = column_override.get(rule.column, rule.column) if hasattr(rule, 'column') else None
+            try:
+                result = rule.check(data, col)
+                results.append(result)
+            except Exception as e:
+                # 规则执行异常，记录为失败
+                results.append(RuleResult(
+                    rule_id=rule_id, rule_name=rule.rule_name,
+                    severity=Severity.CRITICAL, passed=False,
+                    column=str(col), detail=f"规则执行异常: {e}"
+                ))
+
+        return QualityReport(
+            table_name=table_name,
+            total_rows=len(data),
+            total_rules=len(results),
+            results=results,
+            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+
+    def run_multi_table(self, tables: dict[str, list[dict]]) -> list[QualityReport]:
+        """批量质检多张表"""
+        reports = []
+        for table_name, data in tables.items():
+            report = self.run(data, table_name)
+            reports.append(report)
+        return reports</code></pre>
+
+  <h3><span class="emoji">🧪</span>2. AMC 业务全量质检实战</h3>
+  <pre><code># --- 模拟 AMC 不良资产数据 ---
+mock_amc_data = [
+    {"debtor_id": "D001", "debtor_name": "张三", "npl_balance": 500000,
+     "overdue_principal": 300000, "overdue_interest": 50000,
+     "risk_level": "高", "report_date": "2025-06-15", "status": "催收中"},
+    {"debtor_id": "D002", "debtor_name": "李四", "npl_balance": 200000,
+     "overdue_principal": 150000, "overdue_interest": 30000,
+     "risk_level": "中", "report_date": "2025-06-15", "status": "已核销"},
+    {"debtor_id": "D001", "debtor_name": "张三(重复)", "npl_balance": 500000,
+     "overdue_principal": 300000, "overdue_interest": 50000,
+     "risk_level": "高", "report_date": "2025-06-15", "status": "催收中"},
+    {"debtor_id": "D003", "debtor_name": "", "npl_balance": -10000,
+     "overdue_principal": 0, "overdue_interest": 0,
+     "risk_level": "低", "report_date": "2025-13-32", "status": "未知"},
+    {"debtor_id": "D004", "debtor_name": "王五", "npl_balance": 800000,
+     "overdue_principal": 500000, "overdue_interest": 350000,
+     "risk_level": "高", "report_date": "2025-06-15", "status": "催收中"},
+    {"debtor_id": "D005", "debtor_name": "赵六", "npl_balance": 350000,
+     "overdue_principal": 200000, "overdue_interest": 80000,
+     "risk_level": "高", "report_date": "2025-06-15", "status": "催收中"},
+    {"debtor_id": None, "debtor_name": "无名氏", "npl_balance": 0,
+     "overdue_principal": 0, "overdue_interest": 0,
+     "risk_level": "未知", "report_date": "2025-06-15", "status": ""},
+    {"debtor_id": "D006", "debtor_name": "钱七", "npl_balance": 100000,
+     "overdue_principal": 80000, "overdue_interest": 25000,
+     "risk_level": "中", "report_date": "2025-06-15", "status": "催收中"},
+    {"debtor_id": "D007", "debtor_name": "孙八", "npl_balance": 250000,
+     "overdue_principal": 180000, "overdue_interest": 100000,
+     "risk_level": "高", "report_date": "2025-06-15", "status": "催收中"},
+    {"debtor_id": "D008", "debtor_name": "周九", "npl_balance": 450000,
+     "overdue_principal": 200000, "overdue_interest": 300000,
+     "risk_level": "高", "report_date": "2025-06-15", "status": "催收中"},
+]
+
+# --- 构建规则引擎 ---
+engine = RuleEngine()
+
+# 注册规则（链式调用）
+engine.register(NullCheckRule("null_debtor_id", "debtor_id", max_null_rate=0.01,
+                               severity=Severity.CRITICAL)) \
+      .register(NullCheckRule("null_debtor_name", "debtor_name", max_null_rate=0.01)) \
+      .register(NullCheckRule("null_status", "status", max_null_rate=0.01)) \
+      .register(UniqueCheckRule("unique_debtor_id", "debtor_id")) \
+      .register(RangeCheckRule("range_balance", "npl_balance", min_val=0,
+                               severity=Severity.ERROR)) \
+      .register(RangeCheckRule("range_principal", "overdue_principal", min_val=0)) \
+      .register(RangeCheckRule("range_interest", "overdue_interest", min_val=0)) \
+      .register(PatternCheckRule("pattern_date", "report_date",
+                                  r"\d{4}-\d{2}-\d{2}", "YYYY-MM-DD")) \
+      .register(ReferentialCheckRule("ref_risk_level", "risk_level",
+                                     ["高", "中", "低"],
+                                     severity=Severity.WARNING)) \
+      .register(ReferentialCheckRule("ref_status", "status",
+                                     ["催收中", "已核销", "已处置", "诉讼中"],
+                                     severity=Severity.WARNING)) \
+      .register(BusinessRuleCheck("biz_balance_inversion",
+                                  "不良资产余额倒挂检查",
+                                  check_balance_inversion)) \
+      .register(StatDriftCheckRule("drift_count", "npl_balance",
+                                   baseline_count=10,
+                                   count_threshold=0.5))
+
+# --- 执行质检 ---
+report = engine.run(mock_amc_data, table_name="amc_npl_detail")
+print(report.summary())</code></pre>
+
+  <h3><span class="emoji">📄</span>3. 预期输出</h3>
+  <pre><code>📊 质检报告: amc_npl_detail (2025-08-08 09:51:xx)
+   数据量: 10 行 | 规则数: 12
+   通过: 4 | 失败: 8 | CRITICAL: 2
+   得分: 33.3/100 | 状态: ❌ 需修复
+   🚨 [critical] debtor_id 空值检查: 空值率 10.00%（阈值 1.00%），空值 1/10 条
+   ❌ [error] debtor_name 空值检查: 空值率 10.00%（阈值 1.00%），空值 1/10 条
+   ❌ [error] status 空值检查: 空值率 10.00%（阈值 1.00%），空值 1/10 条
+   🚨 [critical] debtor_id 唯一性检查: 发现 1 个重复值，涉及 1 条多余记录
+   ✅ [error] npl_balance 范围检查: 范围 [0, None]，越界 1/10 条
+   ✅ [error] overdue_principal 范围检查: 范围 [0, None]，越界 0/10 条
+   ✅ [error] overdue_interest 范围检查: 范围 [0, None]，越界 0/10 条
+   ❌ [error] report_date 格式检查: 格式要求: YYYY-MM-DD，不匹配 1/10 条
+   ⚠️ [warning] risk_level 引用完整性: 参照集大小 3，不在参照集中的值 1 条
+   ⚠️ [warning] status 引用完整性: 参照集大小 4，不在参照集中的值 1 条
+   ❌ [error] 不良资产余额倒挂检查: 违反业务规则 2/10 条
+   ✅ [warning] npl_balance 统计突变检查: 统计指标正常</code></pre>
+
+  <div class="warn-box">
+    <strong>注意：</strong>mock 数据中 D003 的日期 "2025-13-32" 和 D004/D010 的余额倒挂都会被精准捕获。这正是规则引擎的价值 — 一次性覆盖所有维度。
+  </div>
+</div>
+
+<!-- ===================== Section 5 ===================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📂</span> 项目结构规范
+    <span class="time-tag">~3 分钟</span>
+  </div>
+
+  <pre><code>data_quality_checker/
+├── config/
+│   └── settings.py          # pydantic-settings 配置
+├── rules/                    # 规则层 — 核心！
+│   ├── __init__.py
+│   ├── base.py               # BaseRule + RuleResult + Severity
+│   ├── basic_rules.py        # Null/Range/Unique/Pattern/Referential
+│   ├── stat_rules.py         # StatDriftCheckRule
+│   └── business_rules.py     # AMC 业务规则（余额倒挂等）
+├── engine.py                  # RuleEngine + QualityReport
+├── loader.py                  # 数据加载器（CSV/数据库）
+├── analyzer.py               # LLM 异常分析器（Day 60）
+├── report.py                 # HTML 报告生成器（Day 61）
+├── main.py                   # CLI 入口
+├── requirements.txt
+└── tests/
+    ├── test_rules.py
+    └── test_engine.py</code></pre>
+
+  <div class="tip-box">
+    <strong>分层思维：</strong>规则层（rules/）独立于引擎层（engine.py），新增规则只需继承 <span class="inline-code">BaseRule</span> 并注册 — 零侵入。这和数仓中"ETL 插件化"的思路一致。
+  </div>
+</div>
+
+<!-- ===================== Section 6 ===================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚡</span> 常见陷阱 Top 5
+    <span class="time-tag">~2 分钟</span>
+  </div>
+
+  <table>
+    <tr><th>#</th><th>陷阱</th><th>后果</th><th>避坑指南</th></tr>
+    <tr>
+      <td>1</td>
+      <td>规则执行异常未捕获</td>
+      <td>一个规则报错导致整个引擎中断</td>
+      <td><span class="inline-code">try/except</span> 包裹，异常记为 CRITICAL</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>样本值采集无上限</td>
+      <td>10万行异常数据撑爆内存</td>
+      <td><span class="inline-code">[:5]</span> 限制样本数，只存摘要</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>空值与 None 混淆</td>
+      <td>空字符串 "" 和 None 不同含义</td>
+      <td>统一处理：<span class="inline-code">row.get(col) is None or str(val).strip() == ""</span></td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>统计基线硬编码</td>
+      <td>数据增长后基线失效，误报率高</td>
+      <td>基线从历史数据自动计算或配置文件管理</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>规则粒度过细或过粗</td>
+      <td>细→规则爆炸维护难；粗→定位问题难</td>
+      <td>按"业务维度"分组：空值类/范围类/业务类</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ===================== Section 7 ===================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📚</span> 最佳实践速查表
+  </div>
+
+  <table>
+    <tr><th>场景</th><th>推荐做法</th></tr>
+    <tr><td>规则分类</td><td>按严重度(WARNING/ERROR/CRITICAL)分级，配合阻断策略</td></tr>
+    <tr><td>规则复用</td><td>通用规则放 rules/，业务规则放 business_rules.py</td></tr>
+    <tr><td>性能优化</td><td>大数据集用生成器 <span class="inline-code">(row for row in data)</span>，避免全量加载</td></tr>
+    <tr><td>报告格式</td><td>JSON 机器消费 + 文本人类可读双输出</td></tr>
+    <tr><td>规则管理</td><td>YAML/JSON 配置驱动规则列表，而非硬编码</td></tr>
+    <tr><td>测试覆盖</td><td>每个规则至少 2 个测试：通过 + 失败</td></tr>
+    <tr><td>告警集成</td><td>CRITICAL 规则触发后自动发送通知（邮件/飞书）</td></tr>
+  </table>
+</div>
+
+<!-- ===================== Section 8 ===================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">💡</span> 今日练习
+    <span class="time-tag">~15 分钟</span>
+  </div>
+
+  <div class="quiz">
+    <h4>练习 1：自定义规则 — 日期逻辑检查</h4>
+    <p>实现 <span class="inline-code">DateLogicRule</span>：检查"处置日期"不能早于"入账日期"，即 <span class="inline-code">dispose_date >= entry_date</span>。</p>
+    <pre><code>class DateLogicRule(BaseRule):
+    """检查两个日期列的逻辑关系"""
+
+    def __init__(self, rule_id: str, date_col_early: str, date_col_late: str,
+                 severity: Severity = Severity.ERROR):
+        super().__init__(rule_id,
+                        f"{date_col_late} >= {date_col_early} 日期逻辑",
+                        severity)
+        self.date_col_early = date_col_early  # 应较早的日期列
+        self.date_col_late = date_col_late    # 应较晚的日期列
+
+    def check(self, data: list[dict], column: str = None) -> RuleResult:
+        # TODO: 实现 — 提示：用 datetime.strptime 解析日期，逐一比较
+        ...
+
+# 测试数据
+test_data = [
+    {"entry_date": "2025-01-15", "dispose_date": "2025-06-20"},  # ✅ 正常
+    {"entry_date": "2025-03-01", "dispose_date": "2025-02-15"},  # ❌ 异常
+]
+# engine.register(DateLogicRule("date_logic", "entry_date", "dispose_date"))</code></pre>
+  </div>
+
+  <div class="quiz">
+    <h4>练习 2：规则配置化 — YAML 驱动</h4>
+    <p>将规则定义从代码迁移到 YAML 配置文件，实现"改配置不改代码"：</p>
+    <pre><code># rules_config.yaml 示例结构
+rules:
+  - type: null_check
+    id: null_debtor_id
+    column: debtor_id
+    max_null_rate: 0.01
+    severity: critical
+
+  - type: range_check
+    id: range_balance
+    column: npl_balance
+    min_val: 0
+    severity: error
+
+  - type: pattern_check
+    id: pattern_date
+    column: report_date
+    pattern: "\\d{4}-\\d{2}-\\d{2}"
+    pattern_desc: "YYYY-MM-DD"
+
+# TODO: 写一个 load_rules_from_yaml(path) → RuleEngine 函数
+# 提示：用 yaml.safe_load() 读取，根据 type 字段分发到对应的 Rule 类</code></pre>
+  </div>
+
+  <div class="quiz">
+    <h4>练习 3：LeetCode #692 — 前K个高频单词（用 Counter + heapq）</h4>
+    <p>给定单词列表和整数 k，返回前 k 个出现频率最高的单词。频率相同时按字典序升序。</p>
+    <pre><code># 提示：Counter.most_common(k) 返回 (word, count) 列表
+# 但频率相同时需要自定义排序 key：(-count, word)
+from collections import Counter
+
+def top_k_frequent(words: list[str], k: int) -> list[str]:
+    counts = Counter(words)
+    # 排序：频率降序 → 字典序升序
+    sorted_words = sorted(counts.keys(),
+                          key=lambda w: (-counts[w], w))
+    return sorted_words[:k]
+
+# 测试
+print(top_k_frequent(
+    ["i", "love", "leetcode", "i", "love", "coding"], 2
+))  # ["i", "love"]</code></pre>
+  </div>
+</div>
+
+<!-- ===================== Next Day ===================== -->
+<div class="next-box">
+  <h3>📌 明日预告 — Day 60</h3>
+  <p><strong>LLM 驱动的智能检测 + 异常归因分析</strong></p>
+  <p>当规则引擎发现异常后，如何用 LLM 自动分析根因并生成修复建议？明天我们将实现：LLM 自动生成质检规则（从数据描述→规则代码）、异常根因分析引擎、修复建议生成。</p>
+</div>
+
+<div class="footer">
+  LLM 120天转型计划 · Day 59 / 70 · 智能数据质检系统（架构设计 + 规则引擎）
+</div>
+
+</body>
+</html>
