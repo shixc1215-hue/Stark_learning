@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 70 - P8 LLM归因分析 + 报告生成 + 120天收官</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--purple:#9333ea;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #fbbf24; }
+  .header .badge { display:inline-block;background:#fef9c3;color:#854d0e;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:#78716c;font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--green),var(--purple));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--green);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#faf5ff;border-left:3px solid var(--purple);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--purple); }
+  .tip-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--accent); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  .success-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .success-box strong { color:var(--green); }
+  pre { background:#1e293b;color:#e2e8f0;padding:18px 20px;border-radius:8px;overflow-x:auto;font-size:13.5px;line-height:1.7;margin:12px 0;font-family:'Cascadia Code','Fira Code','Consolas',monospace; }
+  code { font-family:'Cascadia Code','Fira Code','Consolas',monospace; }
+  .inline-code { background:var(--surface2);color:var(--accent2);padding:2px 7px;border-radius:4px;font-size:13px; }
+  .hl-kw { color:#c084fc; } .hl-fn { color:#60a5fa; } .hl-str { color:#4ade80; } .hl-cm { color:#64748b;font-style:italic; } .hl-num { color:#fb923c; } .hl-cls { color:#f9a8d4; }
+  ul,ol { padding-left:20px;margin:8px 0; }
+  li { margin-bottom:4px;font-size:14px; }
+  table { width:100%;border-collapse:collapse;margin:12px 0;font-size:14px; }
+  th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border-bottom:2px solid var(--border); }
+  td { padding:10px 14px;border-bottom:1px solid var(--surface3); }
+  tr:hover { background:var(--surface2); }
+  .nav-box { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:20px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center; }
+  .nav-box a { color:var(--accent);text-decoration:none;font-size:14px;font-weight:600; }
+  .footer { text-align:center;padding:24px;color:var(--text3);font-size:13px; }
+  .step-num { display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:var(--accent);color:#fff;border-radius:50%;font-size:13px;font-weight:700;margin-right:8px; }
+  .file-tree { background:var(--surface2);padding:14px 18px;border-radius:8px;font-family:monospace;font-size:13px;line-height:1.8;color:var(--text2);margin:12px 0; }
+  .file-tree .dir { color:var(--accent);font-weight:600; }
+  .file-tree .file { color:var(--text); }
+  .tag { display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;margin-right:6px; }
+  .tag-blue { background:#dbeafe;color:#1e40af; }
+  .tag-green { background:#dcfce7;color:#166534; }
+  .tag-purple { background:#f3e8ff;color:#6b21a8; }
+  .tag-orange { background:#fff7ed;color:#9a3412; }
+  .tag-gold { background:#fef9c3;color:#854d0e; }
+  .milestone { background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;border-radius:var(--radius);padding:20px 24px;margin:16px 0; }
+  .milestone h3 { color:#166534;font-size:16px;margin-bottom:8px; }
+  .phase-card { border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin:8px 0;display:flex;align-items:center;gap:12px; }
+  .phase-card .phase-num { width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;flex-shrink:0; }
+  .phase-card .phase-content h4 { font-size:14px;margin-bottom:2px; }
+  .phase-card .phase-content p { font-size:12px;color:var(--text3); }
+  .graduation-banner { background:linear-gradient(135deg,#eff6ff,#c7d2fe,#f3e8ff);border-radius:var(--radius);padding:32px;margin:24px 0;text-align:center;border:2px solid #a78bfa; }
+  .graduation-banner h2 { font-size:24px;margin-bottom:8px; }
+  .graduation-banner p { color:var(--text2);font-size:15px; }
+  .skill-radar { display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0; }
+  .skill-item { background:var(--surface2);padding:10px 14px;border-radius:8px; }
+  .skill-item .label { font-size:12px;color:var(--text3);margin-bottom:4px; }
+  .skill-item .bar-bg { height:6px;background:var(--surface3);border-radius:3px;overflow:hidden; }
+  .skill-item .bar-fill { height:100%;border-radius:3px;transition:width 0.5s; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">GRADUATION · DAY 70/70</div>
+  <h1>P8 LLM归因分析 + 报告生成 + 120天收官</h1>
+  <p class="subtitle">Day 70 / 70 — 智能巡检系统完结 + 120天学习旅程回顾</p>
+</div>
+
+<div class="progress-bar">
+  <span class="label">总进度</span>
+  <div class="track"><div class="fill" style="width:100%"></div></div>
+  <span class="percent">70/70</span>
+</div>
+
+<div class="nav-box">
+  <a href="day69.html">← Day 69 P8 架构+规则+检测</a>
+  <span style="color:var(--green);font-size:13px;font-weight:700;">🎓 120天计划完成！</span>
+  <span style="color:var(--text3);font-size:13px;">终点站</span>
+</div>
+
+<!-- ==================== Section 1 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🧠</span> LLM 归因分析引擎
+    <span class="time-tag">20 min</span>
+  </div>
+
+  <p style="font-size:14px;color:var(--text2);margin-bottom:14px;">
+    昨天（Day 69）我们构建了规则引擎和统计异常检测。但检测出问题只是第一步——<strong>关键是要知道为什么出问题</strong>。这就是 LLM 归因分析的价值：把结构化的异常数据喂给大模型，让它用自然语言分析根因、给出修复建议。
+  </p>
+
+  <div class="concept-box">
+    <strong>核心设计思路：</strong>归因分析不能让 LLM 「自由发挥」，必须给它<strong>结构化的上下文</strong>——包括表元信息、历史基线、异常指标、关联规则结果。这样 LLM 的分析才靠谱，而不是瞎猜。
+  </div>
+
+  <pre><span class="hl-cm"># llm_analyzer.py — LLM 归因分析引擎</span>
+<span class="hl-kw">from</span> openai <span class="hl-kw">import</span> OpenAI
+<span class="hl-kw">from</span> models <span class="hl-kw">import</span> InspectionReport, CheckResult, AnomalyResult
+
+
+class LLMRootCauseAnalyzer:
+    <span class="hl-cm">"""
+    LLM 归因分析引擎
+    
+    职责:
+    1. 把巡检报告中的异常结果组织成结构化 Prompt
+    2. 调用 LLM 生成自然语言根因分析
+    3. 输出修复建议
+    
+    这就是你在数仓中「看到异常 → 查日志 → 排查ETL → 找到根因」
+    这个思维过程的自动化版本。
+    """</span>
+
+    <span class="hl-kw">def</span> <span class="hl-fn">__init__</span>(self, api_key: str, base_url: str = None, model: str = <span class="hl-str">"gpt-4o-mini"</span>):
+        <span class="hl-cm">"""初始化 LLM 客户端（兼容 OpenAI 协议的任意模型）"""</span>
+        self.client = OpenAI(api_key=api_key, base_url=base_url)
+        self.model = model
+
+    <span class="hl-kw">def</span> <span class="hl-fn">_build_context</span>(self, report: InspectionReport) -> str:
+        <span class="hl-cm">"""
+        从巡检报告中提取异常信息，构建 LLM 上下文
+        
+        关键：只传异常数据，不传全部结果（减少 Token 消耗）
+        同时附上表结构信息帮助 LLM 理解业务含义
+        """</span>
+        context_parts = []
+
+        <span class="hl-cm"># 1. 失败的规则</span>
+        failed_rules = [r <span class="hl-kw">for</span> r <span class="hl-kw">in</span> report.rule_results <span class="hl-kw">if not</span> r.passed]
+        <span class="hl-kw">if</span> failed_rules:
+            rules_text = <span class="hl-str">"\n"</span>.join([
+                f<span class="hl-str">"  - [{r.severity.value}] {r.rule_name}"
+                f<span class="hl-str">" | 表: {r.table_name}"</span>
+                f<span class="hl-str">" | {r.message}"</span>
+                <span class="hl-kw">for</span> r <span class="hl-kw">in</span> failed_rules
+            ])
+            context_parts.append(
+                f<span class="hl-str">"### 规则检查失败（{len(failed_rules)}项）\n{rules_text}"</span>
+            )
+
+        <span class="hl-cm"># 2. 统计异常</span>
+        anomalies = [a <span class="hl-kw">for</span> a <span class="hl-kw">in</span> report.anomaly_results <span class="hl-kw">if</span> a.is_anomaly]
+        <span class="hl-kw">if</span> anomalies:
+            anomaly_text = <span class="hl-str">"\n"</span>.join([
+                f<span class="hl-str">"  - {a.table_name}.{a.metric}: {a.description}"</span>
+                f<span class="hl-str">" | Z-Score={a.z_score:.2f}, 方向={a.direction}"</span>
+                <span class="hl-kw">for</span> a <span class="hl-kw">in</span> anomalies
+            ])
+            context_parts.append(
+                f<span class="hl-str">"### 统计异常（{len(anomalies)}项）\n{anomaly_text}"</span>
+            )
+
+        <span class="hl-cm"># 3. 汇总统计</span>
+        context_parts.append(
+            f<span class="hl-str">"### 巡检概览\n"
+            f<span class="hl-str">"  检查表数: {report.tables_checked}\n"
+            f<span class="hl-str">"  规则通过率: {report.passed_rules}/{report.total_rules}\n"
+            f<span class="hl-str">"  严重问题: {report.critical_count} | 警告: {report.warning_count}"</span>
+        )
+
+        <span class="hl-kw">return</span> <span class="hl-str">"\n\n"</span>.join(context_parts)
+
+    <span class="hl-kw">def</span> <span class="hl-fn">analyze</span>(self, report: InspectionReport) -> str:
+        <span class="hl-cm">"""
+        对巡检报告进行 LLM 归因分析
+        
+        返回: 结构化的根因分析文本（Markdown 格式）
+        """</span>
+        context = self._build_context(report)
+
+        <span class="hl-cm"># 如果没有异常，直接返回</span>
+        <span class="hl-kw">if not</span> context.strip().startswith(<span class="hl-str">"### 规则"</span>) \
+           <span class="hl-kw">and not</span> context.strip().startswith(<span class="hl-str">"### 统计"</span>):
+            <span class="hl-kw">return</span> <span class="hl-str">"## 归因分析结果\n\n"
+                   "✅ 本次巡检未发现异常，数据质量良好。"</span>
+
+        system_prompt = <span class="hl-str">"""你是一位资深的数据开发工程师，精通数据仓库、ETL和数
+据质量管理。你的任务是对数据质量巡检结果进行根因分析。
+
+请按以下结构输出分析报告：
+
+## 根因分析
+对每个异常/失败，分析可能的原因（优先考虑ETL链路问题、
+源系统变更、数据同步延迟等数据开发常见场景）。
+
+## 影响评估
+评估异常对下游表/报表/业务的影响范围和严重程度。
+
+## 修复建议
+给出具体可执行的修复步骤（包括SQL修复语句示例）。
+
+## 预防措施
+建议新增哪些质量规则或监控指标来防止类似问题。
+
+注意：
+- 分析要具体，不要泛泛而谈
+- 修复建议要可直接执行，给出具体SQL
+- 考虑数据仓库分层（ODS→DWD→DWS→ADS）的传导影响"""</span>
+
+        <span class="hl-cm"># 调用 LLM</span>
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {<span class="hl-str">"role"</span>: <span class="hl-str">"system"</span>, <span class="hl-str">"content"</span>: system_prompt},
+                {<span class="hl-str">"role"</span>: <span class="hl-str">"user"</span>, <span class="hl-str">"content"</span>: f<span class="hl-str">"请分析以下数据质量巡检结果：\n\n{context}"</span>},
+            ],
+            temperature=<span class="hl-num">0.3</span>,  <span class="hl-cm"># 低温度：分析报告需要稳定可靠</span>
+            max_tokens=<span class="hl-num">2000</span>,
+        )
+
+        analysis = response.choices[<span class="hl-num">0</span>].message.content
+
+        <span class="hl-cm"># 写入报告对象</span>
+        report.llm_analysis = analysis
+        <span class="hl-kw">return</span> analysis</pre>
+
+  <div class="tip-box">
+    <strong>Temperature = 0.3 的含义：</strong>生成任务（文案/对话）用高温度（0.7-1.0）增加创意；分析任务（归因/诊断）用低温度（0.1-0.3）保证稳定。这和你在数仓里「ETL跑批不能有随机性」是一个道理。
+  </div>
+</div>
+
+<!-- ==================== Section 2 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📄</span> 报告生成器（Markdown + HTML）
+    <span class="time-tag">15 min</span>
+  </div>
+
+  <p style="font-size:14px;color:var(--text2);margin-bottom:12px;">
+    巡检结果最终要呈现给人看。我们做两种输出：<strong>Markdown 文本报告</strong>（适合飞书/钉钉推送）和 <strong>HTML 可视化报告</strong>（适合浏览器查看/邮件附件）。
+  </p>
+
+  <pre><span class="hl-cm"># reporter.py — 报告生成器</span>
+<span class="hl-kw">from</span> datetime <span class="hl-kw">import</span> datetime
+<span class="hl-kw">from</span> models <span class="hl-kw">import</span> InspectionReport, Severity
+
+
+class QualityReportGenerator:
+    <span class="hl-cm">"""数据质量报告生成器"""</span>
+
+    <span class="hl-kw">def</span> <span class="hl-fn">generate_markdown</span>(self, report: InspectionReport) -> str:
+        <span class="hl-cm">"""
+        生成 Markdown 格式的巡检报告
+        适合：飞书文档、钉钉消息、邮件正文
+        """</span>
+        lines = []
+        lines.append(f<span class="hl-str">"# 数据质量巡检报告"</span>)
+        lines.append(f<span class="hl-str">"**巡检ID:** {report.inspection_id}"</span>)
+        lines.append(
+            f<span class="hl-str">"**时间:** {report.started_at.strftime('%Y-%m-%d %H:%M')} "</span>
+            f<span class="hl-str">"→ {report.finished_at.strftime('%H:%M') if report.finished_at else 'N/A'}"</span>
+        )
+
+        <span class="hl-cm"># 汇总</span>
+        status_emoji = <span class="hl-str">"✅"</span> <span class="hl-kw">if</span> report.failed_rules == <span class="hl-num">0</span> <span class="hl-kw">else</span> <span class="hl-str">"❌"</span>
+        lines.append(f<span class="hl-str">"\n## 汇总 {status_emoji}"</span>)
+        lines.append(f<span class="hl-str">"- 检查表: {report.tables_checked} 张"</span>)
+        lines.append(
+            f<span class="hl-str">"- 规则: {report.passed_rules}/{report.total_rules} 通过"</span>
+        )
+        lines.append(f<span class="hl-str">"- 严重: {report.critical_count} | 警告: {report.warning_count}"</span>)
+        lines.append(f<span class="hl-str">"- 统计异常: {len(report.anomaly_results)} 项"</span>)
+
+        <span class="hl-cm"># 失败规则详情</span>
+        failed = [r <span class="hl-kw">for</span> r <span class="hl-kw">in</span> report.rule_results <span class="hl-kw">if not</span> r.passed]
+        <span class="hl-kw">if</span> failed:
+            lines.append(f<span class="hl-str">"\n## 失败规则（{len(failed)}项）"</span>)
+            <span class="hl-kw">for</span> r <span class="hl-kw">in</span> failed:
+                icon = <span class="hl-str">"🔴"</span> <span class="hl-kw">if</span> r.severity == Severity.CRITICAL <span class="hl-kw">else</span> <span class="hl-str">"🟡"</span>
+                lines.append(f<span class="hl-str">"\n{icon} **{r.rule_name}**"</span>)
+                lines.append(f<span class="hl-str">"  - 表: `{r.table_name}`"</span>)
+                lines.append(f<span class="hl-str">"  - 级别: {r.severity.value}"</span>)
+                lines.append(f<span class="hl-str">"  - 详情: {r.message}"</span>)
+                <span class="hl-kw">if</span> r.detail_sql:
+                    lines.append(
+                        f<span class="hl-str">"  - 诊断SQL:\n```sql\n{r.detail_sql}\n```"</span>
+                    )
+
+        <span class="hl-cm"># 统计异常</span>
+        anomalies = [a <span class="hl-kw">for</span> a <span class="hl-kw">in</span> report.anomaly_results <span class="hl-kw">if</span> a.is_anomaly]
+        <span class="hl-kw">if</span> anomalies:
+            lines.append(f<span class="hl-str">"\n## 统计异常（{len(anomalies)}项）"</span>)
+            <span class="hl-kw">for</span> a <span class="hl-kw">in</span> anomalies:
+                dir_icon = <span class="hl-str">"📈"</span> <span class="hl-kw">if</span> a.direction == <span class="hl-str">"spike"</span> <span class="hl-kw">else</span> <span class="hl-str">"📉"</span>
+                lines.append(
+                    f<span class="hl-str">"- {dir_icon} `{a.table_name}` {a.metric}: "</span>
+                    f<span class="hl-str">"{a.description}"</span>
+                )
+
+        <span class="hl-cm"># LLM 分析</span>
+        <span class="hl-kw">if</span> report.llm_analysis:
+            lines.append(f<span class="hl-str">"\n## LLM 根因分析\n"</span>)
+            lines.append(report.llm_analysis)
+
+        <span class="hl-kw">return</span> <span class="hl-str">"\n"</span>.join(lines)
+
+    <span class="hl-kw">def</span> <span class="hl-fn">generate_html</span>(self, report: InspectionReport) -> str:
+        <span class="hl-cm">"""
+        生成 HTML 格式的可视化报告
+        适合：浏览器查看、邮件附件、归档存储
+        """</span>
+        <span class="hl-cm"># 计算通过率</span>
+        pass_rate = (
+            report.passed_rules / report.total_rules * <span class="hl-num">100</span>
+            <span class="hl-kw">if</span> report.total_rules > <span class="hl-num">0</span> <span class="hl-kw">else</span> <span class="hl-num">100</span>
+        )
+
+        <span class="hl-cm"># 颜色映射</span>
+        color = <span class="hl-str">"#16a34a"</span> <span class="hl-kw">if</span> report.failed_rules == <span class="hl-num">0</span> <span class="hl-kw">else</span> <span class="hl-str">"#dc2626"</span>
+
+        html = f<span class="hl-str">"""<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>巡检报告 {report.inspection_id}</title>
+<style>
+  body {{ font-family: sans-serif; max-width: 800px;
+         margin: 40px auto; padding: 20px; }}
+  .card {{ border: 1px solid #e2e8f0; border-radius: 12px;
+           padding: 24px; margin-bottom: 16px; }}
+  .metric {{ display: inline-block; text-align: center;
+            margin: 8px 16px; }}
+  .metric .num {{ font-size: 28px; font-weight: 700;
+                  color: {color}; }}
+  .metric .lbl {{ font-size: 12px; color: #64748b; }}
+  .rule-row {{ padding: 8px 0; border-bottom: 1px solid #f1f5f9;
+               display: flex; align-items: center; }}
+  .severity-badge {{ padding: 2px 8px; border-radius: 10px;
+                    font-size: 11px; font-weight: 600; }}
+  .critical {{ background: #fef2f2; color: #dc2626; }}
+  .warning {{ background: #fffbeb; color: #ca8a04; }}
+  pre {{ background: #1e293b; color: #e2e8f0; padding: 12px;
+       border-radius: 6px; overflow-x: auto; font-size: 12px; }}
+</style></head><body>
+<h1>数据质量巡检报告</h1>
+<p>ID: {report.inspection_id} | 
+   {report.started_at.strftime('%Y-%m-%d %H:%M')}</p>
+
+<div class="card">
+  <div class="metric">
+    <div class="num">{report.tables_checked}</div>
+    <div class="lbl">检查表</div>
+  </div>
+  <div class="metric">
+    <div class="num">{pass_rate:.0f}%</div>
+    <div class="lbl">通过率</div>
+  </div>
+  <div class="metric">
+    <div class="num">{report.critical_count}</div>
+    <div class="lbl">严重</div>
+  </div>
+  <div class="metric">
+    <div class="num">{len([a for a in report.anomaly_results if a.is_anomaly])}</div>
+    <div class="lbl">统计异常</div>
+  </div>
+</div>
+"""</span>
+
+        <span class="hl-cm"># 失败规则列表</span>
+        failed = [r <span class="hl-kw">for</span> r <span class="hl-kw">in</span> report.rule_results <span class="hl-kw">if not</span> r.passed]
+        <span class="hl-kw">if</span> failed:
+            html += <span class="hl-str">'<div class="card"><h3>异常规则</h3>'</span>
+            <span class="hl-kw">for</span> r <span class="hl-kw">in</span> failed:
+                cls = <span class="hl-str">"critical"</span> <span class="hl-kw">if</span> r.severity == Severity.CRITICAL \
+                    <span class="hl-kw">else</span> <span class="hl-str">"warning"</span>
+                html += (
+                    f<span class="hl-str">'<div class="rule-row">'</span>
+                    f<span class="hl-str">'<span class="severity-badge {cls}">'</span>
+                    f<span class="hl-str">'{r.severity.value}</span>'</span>
+                    f<span class="hl-str">'</span></span>'</span>
+                    f<span class="hl-str">'<span style="margin-left:12px">{r.rule_name}</span>'</span>
+                    f<span class="hl-str">'<span style="margin-left:auto;color:#64748b;font-size:12px">'</span>
+                    f<span class="hl-str">'{r.table_name}</span>'</span>
+                    f<span class="hl-str">'</span></span></div>'</span>
+                )
+            html += <span class="hl-str">'</div>'</span>
+
+        <span class="hl-cm"># LLM 分析</span>
+        <span class="hl-kw">if</span> report.llm_analysis:
+            <span class="hl-cm"># 简单的 Markdown → HTML 转换</span>
+            analysis_html = report.llm_analysis
+            analysis_html = analysis_html.replace(<span class="hl-str">"## "</span>, <span class="hl-str">"<h3>"</span>)
+            analysis_html = analysis_html.replace(<span class="hl-str">"\n\n"</span>, <span class="hl-str">"<br>"</span>)
+            html += (
+                f<span class="hl-str">'<div class="card"><h3>LLM 根因分析</h3>'</span>
+                f<span class="hl-str">'{analysis_html}</div>'</span>
+            )
+
+        html += <span class="hl-str">'</body></html>'</span>
+        <span class="hl-kw">return</span> html
+
+    <span class="hl-kw">def</span> <span class="hl-fn">save_report</span>(self, report: InspectionReport, output_dir: str = <span class="hl-str">"."</span>):
+        <span class="hl-cm">"""保存 Markdown 和 HTML 两种格式"""</span>
+        <span class="hl-cm"># Markdown</span>
+        md_content = self.generate_markdown(report)
+        md_path = f<span class="hl-str">"{output_dir}/report_{report.inspection_id}.md"</span>
+        <span class="hl-kw">with</span> open(md_path, <span class="hl-str">"w"</span>, encoding=<span class="hl-str">"utf-8"</span>) <span class="hl-kw">as</span> f:
+            f.write(md_content)
+
+        <span class="hl-cm"># HTML</span>
+        html_content = self.generate_html(report)
+        html_path = f<span class="hl-str">"{output_dir}/report_{report.inspection_id}.html"</span>
+        <span class="hl-kw">with</span> open(html_path, <span class="hl-str">"w"</span>, encoding=<span class="hl-str">"utf-8"</span>) <span class="hl-kw">as</span> f:
+            f.write(html_content)
+
+        <span class="hl-kw">return</span> md_path, html_path</pre>
+
+  <div class="tip-box">
+    <strong>双格式输出思路：</strong>Markdown 给机器人/人看（飞书 Webhook、钉钉机器人直接发），HTML 给浏览器/邮件看。这种「一次生成、多格式分发」的模式和你在数仓中「一张 ADS 表供给多个下游报表」是同一思路。
+  </div>
+</div>
+
+<!-- ==================== Section 3 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔧</span> 告警推送（飞书 Webhook 示例）
+    <span class="time-tag">10 min</span>
+  </div>
+
+  <p style="font-size:14px;color:var(--text2);margin-bottom:12px;">
+    巡检系统最终要「主动通知」人，而不是等人来看。下面展示如何把报告推送到飞书群。
+  </p>
+
+  <pre><span class="hl-cm"># alert.py — 告警推送（飞书 Webhook）</span>
+<span class="hl-kw">import</span> requests
+<span class="hl-kw">import</span> json
+<span class="hl-kw">from</span> models <span class="hl-kw">import</span> InspectionReport, Severity
+
+
+class FeishuAlerter:
+    <span class="hl-cm">"""
+    飞书群机器人告警推送
+    
+    通过 Webhook 把巡检结果推送到飞书群。
+    数据开发最熟悉的「报表异常@相关人」的自动化版。
+    """</span>
+
+    <span class="hl-kw">def</span> <span class="hl-fn">__init__</span>(self, webhook_url: str):
+        self.url = webhook_url
+
+    <span class="hl-kw">def</span> <span class="hl-fn">send_alert</span>(self, report: InspectionReport):
+        <span class="hl-cm">"""发送巡检告警到飞书群"""</span>
+        <span class="hl-cm"># 只在有异常时才推送（避免信息轰炸）</span>
+        <span class="hl-kw">if</span> report.failed_rules == <span class="hl-num">0</span> <span class="hl-kw">and</span> \
+           all(not a.is_anomaly <span class="hl-kw">for</span> a <span class="hl-kw">in</span> report.anomaly_results):
+            print(<span class="hl-str">"巡检全部通过，不发送告警"</span>)
+            <span class="hl-kw">return</span>
+
+        <span class="hl-cm"># 构建飞书卡片消息</span>
+        failed = [r <span class="hl-kw">for</span> r <span class="hl-kw">in</span> report.rule_results <span class="hl-kw">if not</span> r.passed]
+        anomalies = [a <span class="hl-kw">for</span> a <span class="hl-kw">in</span> report.anomaly_results <span class="hl-kw">if</span> a.is_anomaly]
+
+        <span class="hl-cm"># 构建异常列表文本</span>
+        content_lines = []
+        <span class="hl-kw">for</span> r <span class="hl-kw">in</span> failed:
+            icon = <span class="hl-str">"🔴"</span> <span class="hl-kw">if</span> r.severity == Severity.CRITICAL <span class="hl-kw">else</span> <span class="hl-str">"🟡"</span>
+            content_lines.append(
+                f<span class="hl-str">"{icon} {r.rule_name}（{r.table_name}）"</span>
+            )
+        <span class="hl-kw">for</span> a <span class="hl-kw">in</span> anomalies:
+            icon = <span class="hl-str">"📈"</span> <span class="hl-kw">if</span> a.direction == <span class="hl-str">"spike"</span> <span class="hl-kw">else</span> <span class="hl-str">"📉"</span>
+            content_lines.append(
+                f<span class="hl-str">"{icon} {a.table_name}.{a.metric}: {a.description[:50]}"</span>
+            )
+
+        card = {
+            <span class="hl-str">"msg_type"</span>: <span class="hl-str">"interactive"</span>,
+            <span class="hl-str">"card"</span>: {
+                <span class="hl-str">"header"</span>: {
+                    <span class="hl-str">"title"</span>: {<span class="hl-str">"tag"</span>: <span class="hl-str">"plain_text"</span>,
+                            <span class="hl-str">"content"</span>: <span class="hl-str">f"数据质量巡检告警"</span>},
+                    <span class="hl-str">"template"</span>: <span class="hl-str">"red"</span> <span class="hl-kw">if</span> report.critical_count > <span class="hl-num">0</span> \
+                               <span class="hl-kw">else</span> <span class="hl-str">"orange"</span>,
+                },
+                <span class="hl-str">"elements"</span>: [
+                    {
+                        <span class="hl-str">"tag"</span>: <span class="hl-str">"div"</span>,
+                        <span class="hl-str">"text"</span>: {
+                            <span class="hl-str">"tag"</span>: <span class="hl-str">"lark_md"</span>,
+                            <span class="hl-str">"content"</span>: (
+                                f<span class="hl-str">"**严重:** {report.critical_count} | "</span>
+                                f<span class="hl-str">"**警告:** {report.warning_count} | "</span>
+                                f<span class="hl-str">"**统计异常:** {len(anomalies)}\n\n"</span>
+                                + <span class="hl-str">"\n"</span>.join(content_lines)
+                            ),
+                        },
+                    },
+                    {
+                        <span class="hl-str">"tag"</span>: <span class="hl-str">"note"</span>,
+                        <span class="hl-str">"elements"</span>: [
+                            {<span class="hl-str">"tag"</span>: <span class="hl-str">"plain_text"</span>,
+                             <span class="hl-str">"content"</span>: f<span class="hl-str">"巡检ID: {report.inspection_id}"</span>}
+                        ],
+                    },
+                ],
+            },
+        }
+
+        <span class="hl-cm"># 发送请求</span>
+        resp = requests.post(
+            self.url,
+            headers={<span class="hl-str">"Content-Type"</span>: <span class="hl-str">"application/json"</span>},
+            data=json.dumps(card, ensure_ascii=<span class="hl-kw">False</span>).encode(<span class="hl-str">"utf-8"</span>),
+        )
+        result = resp.json()
+        <span class="hl-kw">if</span> result.get(<span class="hl-str">"code"</span>, -<span class="hl-num">1</span>) == <span class="hl-num">0</span>:
+            print(<span class="hl-str">"飞书告警推送成功"</span>)
+        <span class="hl-kw">else</span>:
+            print(f<span class="hl-str">"推送失败: {result}"</span>)</pre>
+</div>
+
+<!-- ==================== Section 4 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔗</span> 完整主流程：串联全部组件
+    <span class="time-tag">10 min</span>
+  </div>
+
+  <p style="font-size:14px;color:var(--text2);margin-bottom:12px;">
+    把所有组件串起来，形成完整的闭环系统。
+  </p>
+
+  <pre><span class="hl-cm"># main.py — 完整版主入口（串联全部组件）</span>
+<span class="hl-kw">import</span> os
+<span class="hl-kw">import</span> json
+<span class="hl-kw">from</span> detectors.inspector <span class="hl-kw">import</span> DataQualityInspector
+<span class="hl-cm"># 以下两个导入需要对应的 API Key/配置</span>
+<span class="hl-kw">from</span> llm_analyzer <span class="hl-kw">import</span> LLMRootCauseAnalyzer
+<span class="hl-kw">from</span> reporter <span class="hl-kw">import</span> QualityReportGenerator
+<span class="hl-kw">from</span> alert <span class="hl-kw">import</span> FeishuAlerter
+
+
+def run_full_inspection():
+    <span class="hl-cm">"""
+    完整的数据质量巡检流程
+    
+    流程：规则检查 → 统计检测 → LLM归因 → 生成报告 → 推送告警
+    
+    这就是你每天早上到公司做的第一件事的自动化版本：
+    查同步日志 → 跑质量SQL → 看结果 → 分析原因 → 写日报 → 通知相关人
+    """</span>
+    <span class="hl-cm"># 1. 初始化数据库连接</span>
+    <span class="hl-kw">import</span> pymysql
+    db = pymysql.connect(
+        host=<span class="hl-str">"localhost"</span>, port=<span class="hl-num">3306</span>,
+        user=<span class="hl-str">"root"</span>, password=os.getenv(<span class="hl-str">"DB_PASSWORD"</span>, <span class="hl-str">""</span>),
+        database=<span class="hl-str">"ybt_dw"</span>, charset=<span class="hl-str">"utf8mb4"</span>,
+        cursorclass=pymysql.cursors.DictCursor,
+    )
+
+    <span class="hl-kw">try</span>:
+        <span class="hl-cm"># 2. 执行巡检（规则 + 统计）</span>
+        print(<span class="hl-str">"='\n📋 Step 1: 执行巡检检测..."</span>)
+        inspector = DataQualityInspector(db, <span class="hl-str">"rules_config.yaml"</span>)
+        report = inspector.run_inspection(
+            tables=[<span class="hl-str">"dwd_bid_detail"</span>, <span class="hl-str">"ods_bid_info"</span>, <span class="hl-str">"dws_npa_summary"</span>]
+        )
+        print(f<span class="hl-str">"\n{report.summary()}"</span>)
+
+        <span class="hl-cm"># 3. LLM 归因分析（仅在有异常时）</span>
+        <span class="hl-kw">if</span> report.failed_rules > <span class="hl-num">0</span> <span class="hl-kw">or</span> any(
+            a.is_anomaly <span class="hl-kw">for</span> a <span class="hl-kw">in</span> report.anomaly_results
+        ):
+            print(<span class="hl-str">"\n🧠 Step 2: LLM 归因分析..."</span>)
+            analyzer = LLMRootCauseAnalyzer(
+                api_key=os.getenv(<span class="hl-str">"LLM_API_KEY"</span>),
+                base_url=os.getenv(<span class="hl-str">"LLM_BASE_URL"</span>),
+                model=<span class="hl-str">"gpt-4o-mini"</span>,
+            )
+            analysis = analyzer.analyze(report)
+            print(analysis[:<span class="hl-num">200</span>] + <span class="hl-str">"..."</span>)
+
+        <span class="hl-cm"># 4. 生成报告</span>
+        print(<span class="hl-str">"\n📄 Step 3: 生成报告..."</span>)
+        gen = QualityReportGenerator()
+        md_path, html_path = gen.save_report(report, <span class="hl-str">"./reports"</span>)
+        print(f<span class="hl-str">"  Markdown: {md_path}"</span>)
+        print(f<span class="hl-str">"  HTML: {html_path}"</span>)
+
+        <span class="hl-cm"># 5. 推送告警</span>
+        webhook = os.getenv(<span class="hl-str">"FEISHU_WEBHOOK_URL"</span>)
+        <span class="hl-kw">if</span> webhook:
+            print(<span class="hl-str">"\n🔔 Step 4: 推送飞书告警..."</span>)
+            alerter = FeishuAlerter(webhook)
+            alerter.send_alert(report)
+
+        <span class="hl-cm"># 6. 输出 JSON（供后续审计/展示）</span>
+        output_json = report.model_dump_json(indent=<span class="hl-num">2</span>)
+        <span class="hl-kw">with</span> open(<span class="hl-str">"./reports/latest_inspection.json"</span>, <span class="hl-str">"w"</span>,
+                  encoding=<span class="hl-str">"utf-8"</span>) <span class="hl-kw">as</span> f:
+            f.write(output_json)
+
+        print(f<span class="hl-str">"\n\n{'='*50}"</span>)
+        print(<span class="hl-str">"巡检完成！报告已保存到 ./reports/"</span>)
+
+    <span class="hl-kw">finally</span>:
+        db.close()
+
+
+<span class="hl-kw">if</span> __name__ == <span class="hl-str">"__main__"</span>:
+    run_full_inspection()</pre>
+
+  <div class="concept-box">
+    <strong>系统完整链路回顾：</strong><br>
+    <span class="inline-code">YAML配置</span> → <span class="inline-code">规则引擎(RuleEngine)</span> → <span class="inline-code">统计检测(StatDetector)</span> → <span class="inline-code">结果聚合(Inspector)</span> → <span class="inline-code">LLM归因(Analyzer)</span> → <span class="inline-code">报告生成(Reporter)</span> → <span class="inline-code">飞书告警(Alerter)</span><br>
+    每个组件职责单一、可独立测试、通过 Pydantic 模型传递数据——这就是你在 120 天中学到的<strong>工程化思维</strong>的完整体现。
+  </div>
+</div>
+
+<!-- ==================== Section 5 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🎓</span> 120天学习旅程回顾
+    <span class="time-tag">15 min</span>
+  </div>
+
+  <div class="graduation-banner">
+    <h2>恭喜完成 120 天 LLM 转型计划</h2>
+    <p>从 Python 变量到 8 个完整项目，你已经完成了一次系统性的能力跃迁</p>
+  </div>
+
+  <h3 style="font-size:16px;margin:20px 0 12px;">五大阶段回顾</h3>
+
+  <div class="phase-card">
+    <div class="phase-num" style="background:linear-gradient(135deg,#3b82f6,#6366f1);">1</div>
+    <div class="phase-content">
+      <h4>Phase 1A：Python 核心 + LLM API（D1-D18）</h4>
+      <p>变量类型、列表字典、函数模块、pandas、requests、正则——从零搭建了 Python 编程基础，并第一次调用了 LLM API</p>
+    </div>
+  </div>
+
+  <div class="phase-card">
+    <div class="phase-num" style="background:linear-gradient(135deg,#6366f1,#9333ea);">2</div>
+    <div class="phase-content">
+      <h4>Phase 1B：工程进阶（D19-D28）</h4>
+      <p>面向对象、异步编程、设计模式、FastAPI、项目工程化——从「会写脚本」进化到「能做工程」</p>
+    </div>
+  </div>
+
+  <div class="phase-card">
+    <div class="phase-num" style="background:linear-gradient(135deg,#9333ea,#ec4899);">3</div>
+    <div class="phase-content">
+      <h4>Phase 2：RAG 全链路 + Agent + Prompt（D29-D42）</h4>
+      <p>文本分块、Embedding、向量库、检索增强、Reranker、Agent 基础与进阶——掌握了 LLM 应用的两大核心范式</p>
+    </div>
+  </div>
+
+  <div class="phase-card">
+    <div class="phase-num" style="background:linear-gradient(135deg,#ec4899,#f43f5e);">4</div>
+    <div class="phase-content">
+      <h4>Phase 3：微调部署（D43-D49）</h4>
+      <p>LoRA/PEFT、数据集构建、Ollama 本地推理、vLLM 高性能部署、Docker 容器化——懂得了模型从训练到上线的全流程</p>
+    </div>
+  </div>
+
+  <div class="phase-card">
+    <div class="phase-num" style="background:linear-gradient(135deg,#f43f5e,#ea580c);">5</div>
+    <div class="phase-content">
+      <h4>Phase 4：8 个项目实战（D50-D70）</h4>
+      <p>RAG知识库、Agent自动化、NL2SQL报表、数据质检、智能客服、数据血缘、元数据管理、智能巡检——每个项目都是数据开发+LLM的真实融合</p>
+    </div>
+  </div>
+
+  <h3 style="font-size:16px;margin:20px 0 12px;">你的能力雷达</h3>
+  <div class="skill-radar">
+    <div class="skill-item">
+      <div class="label">Python 编程</div>
+      <div class="bar-bg"><div class="bar-fill" style="width:85%;background:linear-gradient(90deg,#3b82f6,#6366f1);"></div></div>
+    </div>
+    <div class="skill-item">
+      <div class="label">LLM API 应用</div>
+      <div class="bar-bg"><div class="bar-fill" style="width:90%;background:linear-gradient(90deg,#6366f1,#9333ea);"></div></div>
+    </div>
+    <div class="skill-item">
+      <div class="label">RAG 系统</div>
+      <div class="bar-bg"><div class="bar-fill" style="width:85%;background:linear-gradient(90deg,#9333ea,#ec4899);"></div></div>
+    </div>
+    <div class="skill-item">
+      <div class="label">Agent 开发</div>
+      <div class="bar-bg"><div class="bar-fill" style="width:80%;background:linear-gradient(90deg,#ec4899,#f43f5e);"></div></div>
+    </div>
+    <div class="skill-item">
+      <div class="label">微调 & 部署</div>
+      <div class="bar-bg"><div class="bar-fill" style="width:70%;background:linear-gradient(90deg,#f43f5e,#ea580c);"></div></div>
+    </div>
+    <div class="skill-item">
+      <div class="label">工程化 & 架构</div>
+      <div class="bar-bg"><div class="bar-fill" style="width:80%;background:linear-gradient(90deg,#ea580c,#ca8a04);"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== Section 6 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🚀</span> 8 个项目实战回顾
+    <span class="time-tag">—</span>
+  </div>
+
+  <table>
+    <tr><th>项目</th><th>天数</th><th>核心技能</th><th>数仓关联</th></tr>
+    <tr>
+      <td><strong>P1 RAG知识库问答</strong></td>
+      <td>D50-52</td>
+      <td>文档解析、向量检索、LLM生成</td>
+      <td>知识库 = 数仓文档的智能查询版</td>
+    </tr>
+    <tr>
+      <td><strong>P2 Agent自动化系统</strong></td>
+      <td>D53-55</td>
+      <td>工具调用、多步推理、日志审计</td>
+      <td>Agent = ETL调度器的智能化升级</td>
+    </tr>
+    <tr>
+      <td><strong>P3 自动化报表</strong></td>
+      <td>D56-58</td>
+      <td>NL2SQL、报表渲染、调度分发</td>
+      <td>把你的 SQL 报表需求变成自然语言</td>
+    </tr>
+    <tr>
+      <td><strong>P4 数据质检系统</strong></td>
+      <td>D59-61</td>
+      <td>规则引擎、LLM检测、报告可视化</td>
+      <td>你每天都在做的质量检查，自动化了</td>
+    </tr>
+    <tr>
+      <td><strong>P5 智能客服系统</strong></td>
+      <td>D62-64</td>
+      <td>意图识别、对话管理、槽位填充</td>
+      <td>Agent的对话形态——理解→推理→执行→回复</td>
+    </tr>
+    <tr>
+      <td><strong>P6 数据血缘分析</strong></td>
+      <td>D65-66</td>
+      <td>SQL解析、LLM补全、影响分析</td>
+      <td>数仓血缘的自动化版本</td>
+    </tr>
+    <tr>
+      <td><strong>P7 元数据管理</strong></td>
+      <td>D67-68</td>
+      <td>元数据采集、LLM注释、Schema Diff</td>
+      <td>数据字典的智能化升级</td>
+    </tr>
+    <tr>
+      <td><strong>P8 智能巡检系统</strong></td>
+      <td>D69-70</td>
+      <td>规则+统计+LLM归因+报告+告警</td>
+      <td>数据质量全链路自动化</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ==================== Section 7 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🎯</span> 下一步建议
+    <span class="time-tag">—</span>
+  </div>
+
+  <p style="font-size:14px;color:var(--text2);margin-bottom:14px;">
+    120天计划完成了，但学习没有终点。作为数据开发转型的 AI 工程师，以下是最值得深入的方向：
+  </p>
+
+  <ol>
+    <li style="margin-bottom:12px;">
+      <strong>深化现有项目：</strong>把 8 个项目中的 1-2 个做到生产级——加入完善的错误处理、日志、监控、配置管理。选择和你日常工作最相关的那个（比如 P8 数据质检 → 部署到你的 ybt_dw 上真正用起来）。
+    </li>
+    <li style="margin-bottom:12px;">
+      <strong>学习 Multi-Agent 框架：</strong>LangGraph、CrewAI、AutoGen——多 Agent 协作是当前最前沿的方向，你已经在 P2 打了基础。
+    </li>
+    <li style="margin-bottom:12px;">
+      <strong>深入模型微调：</strong>用你自己的业务数据（招标数据）做领域微调，让模型真正理解你的业务术语和数仓逻辑。
+    </li>
+    <li style="margin-bottom:12px;">
+      <strong>Kubernetes + MLOps：</strong>学会用 K8s 部署你的 LLM 应用，配合 MLflow 做模型版本管理——这是从「能跑」到「能上生产」的关键一步。
+    </li>
+    <li style="margin-bottom:12px;">
+      <strong>保持实践：</strong>在 ybt_dw 项目中逐步引入 LLM 能力——先用 NL2SQL 替代手动取数，再用 Agent 自动化 ETL 调度，最后用智能巡检替代手动质量检查。渐进式落地，不追求一步到位。
+    </li>
+  </ol>
+
+  <div class="success-box">
+    <strong>最重要的建议：</strong>不要止步于「学完」。把这 120 天的成果变成你工作中的实际产出——哪怕每周只用到一个知识点，一年下来就是 52 次实战。学习计划的价值不在于完成，而在于改变了你解决问题的思维方式。
+  </div>
+</div>
+
+<!-- ==================== Section 8 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📌</span> 今日知识点回顾
+    <span class="time-tag">—</span>
+  </div>
+
+  <table>
+    <tr><th>知识点</th><th>说明</th><th>数仓关联</th></tr>
+    <tr>
+      <td><span class="inline-code">LLM 归因分析</span></td>
+      <td>结构化上下文 + System Prompt + 低温度生成</td>
+      <td>把你「排查根因」的经验编码为 Prompt 工程规范</td>
+    </tr>
+    <tr>
+      <td><span class="inline-code">多格式报告生成</span></td>
+      <td>同一份数据生成 Markdown + HTML 两种格式</td>
+      <td>一张 ADS 表供给多个下游 = 一次生成多格式分发</td>
+    </tr>
+    <tr>
+      <td><span class="inline-code">飞书 Webhook 推送</span></td>
+      <td>通过 HTTP POST 发送卡片消息</td>
+      <td>替代「手动发群消息通知异常」</td>
+    </tr>
+    <tr>
+      <td><span class="inline-code">系统闭环设计</span></td>
+      <td>检测→分析→报告→告警 完整闭环</td>
+      <td>像 ETL 调度一样，每个环节有输入输出、可独立运行</td>
+    </tr>
+    <tr>
+      <td><span class="inline-code">Temperature 参数</span></td>
+      <td>控制生成随机性：分析用低温度，创意用高温度</td>
+      <td>类似 SQL 中 DETERMINISTIC vs 非确定性函数的选择</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ==================== Section 9 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏆</span> 课后练习（收官挑战）
+    <span class="time-tag">—</span>
+  </div>
+
+  <ol>
+    <li style="margin-bottom:10px;">
+      <strong>部署到真实环境：</strong>把 P8 智能巡检系统接入你的 ybt_dw 数据库，配置 5 条以上真实规则，跑一次完整巡检并查看报告。
+    </li>
+    <li style="margin-bottom:10px;">
+      <strong>增强 LLM 分析：</strong>在 <span class="inline-code">LLMRootCauseAnalyzer</span> 的上下文中加入表的 CREATE TABLE DDL（从 information_schema 读取），让 LLM 理解字段类型和约束，分析更精准。
+    </li>
+    <li style="margin-bottom:10px;">
+      <strong>定时巡检：</strong>用 <span class="inline-code">schedule</span> 库或系统 crontab 设置每天早上 8:00 自动执行巡检，飞书推送结果——真正实现「早上到公司，巡检报告已经在群里了」。
+    </li>
+    <li style="margin-bottom:10px;">
+      <strong>回顾全部 70 天：</strong>浏览 day1.html ~ day70.html，列出你觉得自己掌握最好的 3 个知识点和还需要加强的 3 个知识点，制定下一步学习计划。
+    </li>
+  </ol>
+</div>
+
+<div class="footer">
+  LLM 120天转型计划 · Day 70 / 70 · 全部完成<br>
+  P8 LLM归因分析 + 报告生成 + 120天收官<br>
+  <br>
+  <em>从 Python 变量到智能巡检系统，70 天，8 个项目，一次完整的能力跃迁。</em>
+</div>
+
+</body>
+</html>

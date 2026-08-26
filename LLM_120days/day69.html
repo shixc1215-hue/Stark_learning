@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 69 - P8 LLM驱动数据质量智能巡检系统（架构设计 + 规则引擎 + 异常检测）</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--purple:#9333ea;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#eff6ff,#c7d2fe);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #93c5fd; }
+  .header .badge { display:inline-block;background:#dbeafe;color:#1e40af;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--purple));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--purple);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#faf5ff;border-left:3px solid var(--purple);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--purple); }
+  .tip-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--accent); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  pre { background:#1e293b;color:#e2e8f0;padding:18px 20px;border-radius:8px;overflow-x:auto;font-size:13.5px;line-height:1.7;margin:12px 0;font-family:'Cascadia Code','Fira Code','Consolas',monospace; }
+  code { font-family:'Cascadia Code','Fira Code','Consolas',monospace; }
+  .inline-code { background:var(--surface2);color:var(--accent2);padding:2px 7px;border-radius:4px;font-size:13px; }
+  .hl-kw { color:#c084fc; } .hl-fn { color:#60a5fa; } .hl-str { color:#4ade80; } .hl-cm { color:#64748b;font-style:italic; } .hl-num { color:#fb923c; } .hl-cls { color:#f9a8d4; }
+  ul,ol { padding-left:20px;margin:8px 0; }
+  li { margin-bottom:4px;font-size:14px; }
+  table { width:100%;border-collapse:collapse;margin:12px 0;font-size:14px; }
+  th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border-bottom:2px solid var(--border); }
+  td { padding:10px 14px;border-bottom:1px solid var(--surface3); }
+  tr:hover { background:var(--surface2); }
+  .nav-box { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:20px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center; }
+  .nav-box a { color:var(--accent);text-decoration:none;font-size:14px;font-weight:600; }
+  .footer { text-align:center;padding:24px;color:var(--text3);font-size:13px; }
+  .step-num { display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:var(--accent);color:#fff;border-radius:50%;font-size:13px;font-weight:700;margin-right:8px; }
+  .file-tree { background:var(--surface2);padding:14px 18px;border-radius:8px;font-family:monospace;font-size:13px;line-height:1.8;color:var(--text2);margin:12px 0; }
+  .file-tree .dir { color:var(--accent);font-weight:600; }
+  .file-tree .file { color:var(--text); }
+  .tag { display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;margin-right:6px; }
+  .tag-blue { background:#dbeafe;color:#1e40af; }
+  .tag-green { background:#dcfce7;color:#166534; }
+  .tag-purple { background:#f3e8ff;color:#6b21a8; }
+  .tag-orange { background:#fff7ed;color:#9a3412; }
+  .diff-add { background:#dcfce7;color:#166534;padding:2px 8px;border-radius:4px;font-size:13px;font-family:monospace; }
+  .diff-del { background:#fef2f2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:13px;font-family:monospace; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">PRACTICE · PROJECT 8</div>
+  <h1>P8 LLM驱动数据质量智能巡检系统</h1>
+  <p class="subtitle">Day 69 / 70 — 架构设计 + 规则引擎 + 统计异常检测</p>
+</div>
+
+<div class="progress-bar">
+  <span class="label">总进度</span>
+  <div class="track"><div class="fill" style="width:98.5%"></div></div>
+  <span class="percent">69/70</span>
+</div>
+
+<div class="nav-box">
+  <a href="day68.html">← Day 68 P7 元数据管理</a>
+  <span style="color:var(--text3);font-size:13px;">最后阶段 · 综合实战收官</span>
+  <a href="day70.html">Day 70 LLM归因 + 报告 →</a>
+</div>
+
+<!-- ==================== Section 1 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏗️</span> 项目背景与架构设计
+    <span class="time-tag">15 min</span>
+  </div>
+
+  <p style="font-size:14px;color:var(--text2);margin-bottom:14px;">
+    作为数据开发工程师，你每天面对的核心挑战之一就是<strong>数据质量</strong>。传统方式靠写 SQL 手动巡检——<span class="inline-code">SELECT COUNT(*) WHERE amount < 0</span>——费时且覆盖面有限。今天我们用 Python + LLM 构建一个<strong>智能巡检系统</strong>，能自动执行规则检测、统计异常发现，并让 LLM 进行根因分析。
+  </p>
+
+  <div class="concept-box">
+    <strong>核心思路：</strong>把你的数仓质量检查经验「编码」为规则引擎，再用统计学方法（Z-Score/IQR）自动发现异常模式，最后调用 LLM 对异常进行自然语言归因分析。三层互补：规则兜底已知问题，统计发现未知异常，LLM 提供可读性报告。
+  </div>
+
+  <h3 style="font-size:15px;margin:16px 0 10px;">系统架构</h3>
+  <pre><span class="hl-cm">┌─────────────────────────────────────────────┐</span>
+<span class="hl-cm">│            数据质量智能巡检系统              │</span>
+<span class="hl-cm">├─────────────────────────────────────────────┤</span>
+<span class="hl-cm">│                                             │</span>
+<span class="hl-cm">│  ┌─────────┐  ┌──────────┐  ┌────────────┐ │</span>
+<span class="hl-cm">│  │ 配置中心 │→│ 规则引擎  │→│ 检测执行器 │ │</span>
+<span class="hl-cm">│  │(YAML)   │  │(RuleEngine)│  │(Inspector)  │ │</span>
+<span class="hl-cm">│  └─────────┘  └──────────┘  └─────┬──────┘ │</span>
+<span class="hl-cm">│                                   │         │</span>
+<span class="hl-cm">│  ┌──────────────┐  ┌──────────────▼──────┐  │</span>
+<span class="hl-cm">│  │ 统计异常检测   │  │     结果聚合器      │  │</span>
+<span class="hl-cm">│  │(StatDetector)  │→│  (ResultAggregator) │  │</span>
+<span class="hl-cm">│  └──────────────┘  └──────────────┬──────┘  │</span>
+<span class="hl-cm">│                                   │         │</span>
+<span class="hl-cm">│                    ┌──────────────▼──────┐  │</span>
+<span class="hl-cm">│                    │   LLM 归因分析引擎   │  │</span>
+<span class="hl-cm">│                    │  (LLMAnalyzer)       │  │</span>
+<span class="hl-cm">│                    └──────────────┬──────┘  │</span>
+<span class="hl-cm">│                                   │         │</span>
+<span class="hl-cm">│                    ┌──────────────▼──────┐  │</span>
+<span class="hl-cm">│                    │   报告生成 + 告警     │  │</span>
+<span class="hl-cm">│                    │  (Reporter/Alert)    │  │</span>
+<span class="hl-cm">│                    └─────────────────────┘  │</span>
+<span class="hl-cm">└─────────────────────────────────────────────┘</span></pre>
+
+  <h3 style="font-size:15px;margin:16px 0 10px;">项目文件结构</h3>
+  <div class="file-tree">
+<span class="dir">dq_inspector/</span>
+├── <span class="file">config.py</span>          <span class="hl-cm"># 数据库连接与全局配置</span>
+├── <span class="file">models.py</span>          <span class="hl-cm"># 数据模型（Pydantic）</span>
+├── <span class="file">rules/</span>
+│   ├── <span class="file">__init__.py</span>
+│   ├── <span class="file">engine.py</span>      <span class="hl-cm"># 规则引擎核心</span>
+│   └── <span class="file">builtin_rules.py</span> <span class="hl-cm"># 内置规则集</span>
+├── <span class="file">detectors/</span>
+│   ├── <span class="file">__init__.py</span>
+│   ├── <span class="file">stat_anomaly.py</span> <span class="hl-cm"># 统计异常检测</span>
+│   └── <span class="file">inspector.py</span>   <span class="hl-cm"># 巡检执行器</span>
+├── <span class="file">llm_analyzer.py</span>    <span class="hl-cm"># LLM 归因分析</span>
+├── <span class="file">reporter.py</span>        <span class="hl-cm"># 报告生成</span>
+├── <span class="file">rules_config.yaml</span>  <span class="hl-cm"># 规则配置文件</span>
+└── <span class="file">main.py</span>            <span class="hl-cm"># 入口</span>
+  </div>
+</div>
+
+<!-- ==================== Section 2 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📋</span> 数据模型设计（Pydantic）
+    <span class="time-tag">10 min</span>
+  </div>
+
+  <p style="font-size:14px;color:var(--text2);margin-bottom:12px;">
+    用 Pydantic 定义清晰的数据模型，让整个系统的数据流类型安全、可序列化。
+  </p>
+
+  <pre><span class="hl-cm"># models.py — 数据质量巡检系统的核心数据模型</span>
+<span class="hl-kw">from</span> pydantic <span class="hl-kw">import</span> BaseModel, Field
+<span class="hl-kw">from</span> enum <span class="hl-kw">import</span> Enum
+<span class="hl-kw">from</span> datetime <span class="hl-kw">import</span> datetime
+<span class="hl-kw">from</span> typing <span class="hl-kw">import</span> Optional, Any
+
+
+<span class="hl-kw">class</span> <span class="hl-cls">Severity</span>(str, Enum):
+    <span class="hl-cm">"""问题严重级别"""</span>
+    CRITICAL = <span class="hl-str">"critical"</span>   <span class="hl-cm"># 严重：数据不可用，阻塞下游</span>
+    WARNING = <span class="hl-str">"warning"</span>     <span class="hl-cm"># 警告：存在质量问题需关注</span>
+    INFO = <span class="hl-str">"info"</span>         <span class="hl-cm"># 提示：统计偏差，建议人工确认</span>
+
+
+<span class="hl-kw">class</span> <span class="hl-cls">RuleType</span>(str, Enum):
+    <span class="hl-cm">"""规则类型"""</span>
+    NULL_CHECK = <span class="hl-str">"null_check"</span>         <span class="hl-cm"># 空值检查</span>
+    RANGE_CHECK = <span class="hl-str">"range_check"</span>       <span class="hl-cm"># 范围检查</span>
+    UNIQUE_CHECK = <span class="hl-str">"unique_check"</span>     <span class="hl-cm"># 唯一性检查</span>
+    FRESHNESS = <span class="hl-str">"freshness"</span>           <span class="hl-cm"># 新鲜度检查</span>
+    VOLUME_CHANGE = <span class="hl-str">"volume_change"</span>   <span class="hl-cm"># 数据量波动</span>
+    CUSTOM_SQL = <span class="hl-str">"custom_sql"</span>         <span class="hl-cm"># 自定义SQL</span>
+
+
+<span class="hl-kw">class</span> <span class="hl-cls">QualityRule</span>(BaseModel):
+    <span class="hl-cm">"""单条质量规则定义"""</span>
+    rule_id: str = Field(..., description=<span class="hl-str">"规则唯一标识"</span>)
+    rule_name: str = Field(..., description=<span class="hl-str">"规则名称"</span>)
+    rule_type: RuleType
+    table_name: str
+    column_name: Optional[str] = None
+    <span class="hl-cm"># 规则参数（灵活字典）</span>
+    params: dict[str, Any] = Field(default_factory=dict)
+    severity: Severity = Severity.WARNING
+    enabled: bool = True
+
+
+<span class="hl-kw">class</span> <span class="hl-cls">CheckResult</span>(BaseModel):
+    <span class="hl-cm">"""单条规则检测结果"""</span>
+    rule_id: str
+    rule_name: str
+    table_name: str
+    passed: bool
+    severity: Severity
+    message: str
+    <span class="hl-cm"># 检测详情</span>
+    actual_value: Optional[Any] = None   <span class="hl-cm"># 实际值</span>
+    expected_value: Optional[Any] = None <span class="hl-cm"># 期望值</span>
+    affected_rows: int = 0               <span class="hl-cm"># 影响行数</span>
+    detail_sql: Optional[str] = None     <span class="hl-cm"># 诊断SQL</span>
+    checked_at: datetime = Field(default_factory=datetime.now)
+
+
+<span class="hl-kw">class</span> <span class="hl-cls">AnomalyResult</span>(BaseModel):
+    <span class="hl-cm">"""统计异常检测结果"""</span>
+    table_name: str
+    column_name: str
+    metric: str           <span class="hl-cm"># 检测指标：mean/std/count/null_ratio</span>
+    current_value: float
+    historical_mean: float
+    historical_std: float
+    z_score: float        <span class="hl-cm"># Z-Score</span>
+    is_anomaly: bool
+    direction: str        <span class="hl-cm"># "spike" 突增 / "drop" 突降</span>
+    description: str
+
+
+<span class="hl-kw">class</span> <span class="hl-cls">InspectionReport</span>(BaseModel):
+    <span class="hl-cm">"""巡检报告（聚合所有结果）"""</span>
+    inspection_id: str
+    started_at: datetime
+    finished_at: Optional[datetime] = None
+    tables_checked: int
+    rule_results: list[CheckResult] = []
+    anomaly_results: list[AnomalyResult] = []
+    llm_analysis: Optional[str] = None
+    <span class="hl-cm"># 汇总统计</span>
+    total_rules: int = 0
+    passed_rules: int = 0
+    failed_rules: int = 0
+    critical_count: int = 0
+    warning_count: int = 0
+
+    <span class="hl-kw">def</span> <span class="hl-fn">summary</span>(self) -> str:
+        <span class="hl-cm">"""生成汇总文本"""</span>
+        status = <span class="hl-str">"✅ 全部通过"</span> <span class="hl-kw">if</span> self.failed_rules == 0 <span class="hl-kw">else</span> <span class="hl-str">f"❌ {self.failed_rules} 项异常"</span>
+        <span class="hl-kw">return</span> (
+            f<span class="hl-str">"巡检 {self.inspection_id} | {status}\n"</span>
+            f<span class="hl-str">"检查表: {self.tables_checked} | 规则: {self.passed_rules}/{self.total_rules} 通过\n"</span>
+            f<span class="hl-str">"严重: {self.critical_count} | 警告: {self.warning_count} | 异常: {len(self.anomaly_results)}"</span>
+        )</pre>
+
+  <div class="tip-box">
+    <strong>为什么用 Pydantic？</strong>数据模型就是系统的「契约」。Pydantic 的 <span class="inline-code">BaseModel</span> 自动做类型校验、JSON 序列化，和 FastAPI 天然配合。这在项目 P2 的 Agent 系统中已经用过，现在你应该很熟悉了。
+  </div>
+</div>
+
+<!-- ==================== Section 3 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚙️</span> 规则引擎：YAML 配置 + 引擎核心
+    <span class="time-tag">20 min</span>
+  </div>
+
+  <p style="font-size:14px;color:var(--text2);margin-bottom:12px;">
+    数据开发最熟悉的就是写规则。我们把规则从代码中解耦到 YAML 配置文件，方便非开发人员维护。
+  </p>
+
+  <h3 style="font-size:15px;margin:14px 0 8px;">3.1 YAML 规则配置</h3>
+  <pre><span class="hl-cm"># rules_config.yaml — 数据质量规则配置</span>
+<span class="hl-cm"># 类似数仓中你在帆软/自定义脚本里写的那种检查规则</span>
+
+<span class="hl-str">global</span>:
+  <span class="hl-str">database</span>: <span class="hl-str">"ybt_dw"</span>
+  <span class="hl-str">thresholds</span>:
+    <span class="hl-str">null_ratio_max</span>: <span class="hl-num">0.05</span>       <span class="hl-cm"># 空值率上限 5%</span>
+    <span class="hl-str">volume_change_pct</span>: <span class="hl-num">30</span>   <span class="hl-cm"># 数据量波动阈值 30%</span>
+    <span class="hl-str">z_score_threshold</span>: <span class="hl-num">2.5</span>  <span class="hl-cm"># Z-Score 异常阈值</span>
+
+<span class="hl-str">rules</span>:
+  <span class="hl-cm"># === DWD 层核心检查 ===</span>
+  - <span class="hl-str">rule_id</span>: <span class="hl-str">"R001"</span>
+    <span class="hl-str">rule_name</span>: <span class="hl-str">"DWD投标明细-金额非负"</span>
+    <span class="hl-str">rule_type</span>: <span class="hl-str">"range_check"</span>
+    <span class="hl-str">table_name</span>: <span class="hl-str">"dwd_bid_detail"</span>
+    <span class="hl-str">column_name</span>: <span class="hl-str">"bid_price_amt"</span>
+    <span class="hl-str">params</span>:
+      <span class="hl-str">min_value</span>: <span class="hl-num">0</span>
+    <span class="hl-str">severity</span>: <span class="hl-str">"critical"</span>
+
+  - <span class="hl-str">rule_id</span>: <span class="hl-str">"R002"</span>
+    <span class="hl-str">rule_name</span>: <span class="hl-str">"DWD投标明细-主键唯一"</span>
+    <span class="hl-str">rule_type</span>: <span class="hl-str">"unique_check"</span>
+    <span class="hl-str">table_name</span>: <span class="hl-str">"dwd_bid_detail"</span>
+    <span class="hl-str">column_name</span>: <span class="hl-str">"bid_detail_id"</span>
+    <span class="hl-str">severity</span>: <span class="hl-str">"critical"</span>
+
+  - <span class="hl-str">rule_id</span>: <span class="hl-str">"R003"</span>
+    <span class="hl-str">rule_name</span>: <span class="hl-str">"DWD投标明细-项目名称非空"</span>
+    <span class="hl-str">rule_type</span>: <span class="hl-str">"null_check"</span>
+    <span class="hl-str">table_name</span>: <span class="hl-str">"dwd_bid_detail"</span>
+    <span class="hl-str">column_name</span>: <span class="hl-str">"project_name"</span>
+    <span class="hl-str">params</span>:
+      <span class="hl-str">max_null_ratio</span>: <span class="hl-num">0.01</span>  <span class="hl-cm"># 允许最多1%空值</span>
+    <span class="hl-str">severity</span>: <span class="hl-str">"warning"</span>
+
+  <span class="hl-cm"># === 新鲜度检查 ===</span>
+  - <span class="hl-str">rule_id</span>: <span class="hl-str">"R004"</span>
+    <span class="hl-str">rule_name</span>: <span class="hl-str">"ODS源表-数据新鲜度"</span>
+    <span class="hl-str">rule_type</span>: <span class="hl-str">"freshness"</span>
+    <span class="hl-str">table_name</span>: <span class="hl-str">"ods_bid_info"</span>
+    <span class="hl-str">column_name</span>: <span class="hl-str">"_etl_update_time"</span>
+    <span class="hl-str">params</span>:
+      <span class="hl-str">max_hours</span>: <span class="hl-num">48</span>          <span class="hl-cm"># 超过48小时未更新则告警</span>
+    <span class="hl-str">severity</span>: <span class="hl-str">"warning"</span>
+
+  <span class="hl-cm"># === 自定义SQL检查 ===</span>
+  - <span class="hl-str">rule_id</span>: <span class="hl-str">"R005"</span>
+    <span class="hl-str">rule_name</span>: <span class="hl-str">"DWS-不良资产余额不为负"</span>
+    <span class="hl-str">rule_type</span>: <span class="hl-str">"custom_sql"</span>
+    <span class="hl-str">table_name</span>: <span class="hl-str">"dws_npa_summary"</span>
+    <span class="hl-str">params</span>:
+      <span class="hl-str">check_sql</span>: <span class="hl-str">"SELECT COUNT(*) FROM dws_npa_summary WHERE npa_balance < 0"</span>
+      <span class="hl-str">expected_max</span>: <span class="hl-num">0</span>
+    <span class="hl-str">severity</span>: <span class="hl-str">"critical"</span></pre>
+
+  <h3 style="font-size:15px;margin:14px 0 8px;">3.2 规则引擎核心</h3>
+  <pre><span class="hl-cm"># rules/engine.py — 规则引擎：把 YAML 规则翻译成 SQL 并执行</span>
+<span class="hl-kw">import</span> yaml
+<span class="hl-kw">from</span> datetime <span class="hl-kw">import</span> datetime, timedelta
+<span class="hl-kw">from</span> models <span class="hl-kw">import</span> QualityRule, CheckResult, RuleType, Severity
+
+
+class RuleEngine:
+    <span class="hl-cm">"""规则引擎：将规则定义翻译为 SQL 并执行"""</span>
+
+    <span class="hl-kw">def</span> <span class="hl-fn">__init__</span>(self, db_conn, config_path: str = <span class="hl-str">"rules_config.yaml"</span>):
+        <span class="hl-cm">"""
+        db_conn: pymysql/aiomysql 连接对象
+        config_path: YAML 规则配置文件路径
+        """</span>
+        self.db = db_conn
+        self.rules: list[QualityRule] = []
+        self.config = {}
+        self._load_config(config_path)
+
+    <span class="hl-kw">def</span> <span class="hl-fn">_load_config</span>(self, path: str):
+        <span class="hl-cm">"""加载 YAML 配置"""</span>
+        <span class="hl-kw">with</span> open(path, <span class="hl-str">"r"</span>, encoding=<span class="hl-str">"utf-8"</span>) <span class="hl-kw">as</span> f:
+            data = yaml.safe_load(f)
+        self.config = data.get(<span class="hl-str">"global"</span>, {})
+        <span class="hl-cm"># 解析规则列表</span>
+        <span class="hl-kw">for</span> r <span class="hl-kw">in</span> data.get(<span class="hl-str">"rules"</span>, []):
+            <span class="hl-kw">if</span> r.get(<span class="hl-str">"enabled"</span>, True):
+                self.rules.append(QualityRule(**r))
+
+    <span class="hl-kw">def</span> <span class="hl-fn">_execute_sql</span>(self, sql: str) -> any:
+        <span class="hl-cm">"""执行 SQL 并返回结果"""</span>
+        <span class="hl-kw">with</span> self.db.cursor() <span class="hl-kw">as</span> cur:
+            cur.execute(sql)
+            <span class="hl-kw">return</span> cur.fetchone()[0]
+
+    <span class="hl-kw">def</span> <span class="hl-fn">_build_check_sql</span>(self, rule: QualityRule) -> tuple[str, str]:
+        <span class="hl-cm">"""
+        根据规则类型生成检测 SQL 和诊断 SQL
+        返回: (check_sql, detail_sql)
+        """</span>
+        t = rule.table_name
+        c = rule.column_name
+        p = rule.params
+
+        <span class="hl-kw">if</span> rule.rule_type == RuleType.NULL_CHECK:
+            <span class="hl-cm"># 空值率检查</span>
+            max_ratio = p.get(<span class="hl-str">"max_null_ratio"</span>,
+                             self.config[<span class="hl-str">"thresholds"</span>][<span class="hl-str">"null_ratio_max"</span>])
+            check_sql = f<span class="hl-str">"""
+                SELECT CASE 
+                    WHEN (SELECT COUNT(*) FROM {t} WHERE {c} IS NULL) 
+                         * 1.0 / NULLIF((SELECT COUNT(*) FROM {t}), 0) 
+                    <= {max_ratio} THEN 1 ELSE 0 END AS passed
+            """</span>
+            detail_sql = f<span class="hl-str">"SELECT COUNT(*) AS null_count, 
+                COUNT(*) * 1.0 / NULLIF((SELECT COUNT(*) FROM {t}), 0) AS null_ratio 
+                FROM {t} WHERE {c} IS NULL"</span>
+            <span class="hl-kw">return</span> check_sql, detail_sql
+
+        <span class="hl-kw">elif</span> rule.rule_type == RuleType.RANGE_CHECK:
+            <span class="hl-cm"># 范围检查</span>
+            min_v = p.get(<span class="hl-str">"min_value"</span>)
+            max_v = p.get(<span class="hl-str">"max_value"</span>)
+            condition = []
+            <span class="hl-kw">if</span> min_v <span class="hl-kw">is not</span> None:
+                condition.append(f<span class="hl-str">"{c} >= {min_v}"</span>)
+            <span class="hl-kw">if</span> max_v <span class="hl-kw">is not</span> None:
+                condition.append(f<span class="hl-str">"{c} <= {max_v}"</span>)
+            cond_str = <span class="hl-str">" AND "</span>.join(condition)
+            check_sql = f<span class="hl-str">"SELECT CASE 
+                WHEN (SELECT COUNT(*) FROM {t} WHERE NOT ({cond_str})) = 0 
+                THEN 1 ELSE 0 END"</span>
+            detail_sql = f<span class="hl-str">"SELECT {c}, COUNT(*) AS cnt 
+                FROM {t} WHERE NOT ({cond_str}) GROUP BY {c} LIMIT 10"</span>
+            <span class="hl-kw">return</span> check_sql, detail_sql
+
+        <span class="hl-kw">elif</span> rule.rule_type == RuleType.UNIQUE_CHECK:
+            <span class="hl-cm"># 唯一性检查：比较 COUNT(DISTINCT) 和 COUNT(*)</span>
+            check_sql = f<span class="hl-str">"SELECT CASE 
+                WHEN (SELECT COUNT(DISTINCT {c}) FROM {t}) 
+                   = (SELECT COUNT(*) FROM {t}) THEN 1 ELSE 0 END"</span>
+            detail_sql = f<span class="hl-str">"SELECT {c}, COUNT(*) AS dup_count 
+                FROM {t} GROUP BY {c} HAVING COUNT(*) > 1 LIMIT 10"</span>
+            <span class="hl-kw">return</span> check_sql, detail_sql
+
+        <span class="hl-kw">elif</span> rule.rule_type == RuleType.FRESHNESS:
+            <span class="hl-cm"># 新鲜度检查：最新更新时间是否在阈值内</span>
+            max_hours = p.get(<span class="hl-str">"max_hours"</span>, <span class="hl-num">48</span>)
+            check_sql = f<span class="hl-str">"SELECT CASE 
+                WHEN (SELECT MAX({c}) FROM {t}) 
+                   >= DATE_SUB(NOW(), INTERVAL {max_hours} HOUR) 
+                THEN 1 ELSE 0 END"</span>
+            detail_sql = f<span class="hl-str">"SELECT MAX({c}) AS last_update, 
+                TIMESTAMPDIFF(HOUR, MAX({c}), NOW()) AS hours_ago 
+                FROM {t}"</span>
+            <span class="hl-kw">return</span> check_sql, detail_sql
+
+        <span class="hl-kw">elif</span> rule.rule_type == RuleType.CUSTOM_SQL:
+            <span class="hl-cm"># 自定义 SQL 检查</span>
+            sql = p[<span class="hl-str">"check_sql"</span>]
+            expected_max = p.get(<span class="hl-str">"expected_max"</span>, <span class="hl-num">0</span>)
+            check_sql = f<span class="hl-str">"SELECT CASE WHEN ({sql}) <= {expected_max} 
+                THEN 1 ELSE 0 END"</span>
+            detail_sql = sql
+            <span class="hl-kw">return</span> check_sql, detail_sql
+
+    <span class="hl-kw">def</span> <span class="hl-fn">check_rule</span>(self, rule: QualityRule) -> CheckResult:
+        <span class="hl-cm">"""执行单条规则检测"""</span>
+        <span class="hl-kw">try</span>:
+            check_sql, detail_sql = self._build_check_sql(rule)
+            passed = bool(self._execute_sql(check_sql))
+
+            result = CheckResult(
+                rule_id=rule.rule_id,
+                rule_name=rule.rule_name,
+                table_name=rule.table_name,
+                passed=passed,
+                severity=rule.severity,
+                message=f<span class="hl-str">"{'通过' if passed else '失败'}: {rule.rule_name}"</span>,
+                detail_sql=detail_sql,
+            )
+            <span class="hl-kw">return</span> result
+        <span class="hl-kw">except</span> Exception <span class="hl-kw">as</span> e:
+            <span class="hl-kw">return</span> CheckResult(
+                rule_id=rule.rule_id,
+                rule_name=rule.rule_name,
+                table_name=rule.table_name,
+                passed=False,
+                severity=Severity.CRITICAL,
+                message=f<span class="hl-str">"规则执行异常: {e}"</span>,
+            )
+
+    <span class="hl-kw">def</span> <span class="hl-fn">run_all_rules</span>(self) -> list[CheckResult]:
+        <span class="hl-cm">"""执行所有启用的规则"""</span>
+        results = []
+        <span class="hl-kw">for</span> rule <span class="hl-kw">in</span> self.rules:
+            result = self.check_rule(rule)
+            results.append(result)
+            <span class="hl-cm"># 打印即时反馈</span>
+            icon = <span class="hl-str">"✅"</span> <span class="hl-kw">if</span> result.passed <span class="hl-kw">else</span> <span class="hl-str">"❌"</span>
+            print(f<span class="hl-str">"  {icon} [{rule.rule_id}] {rule.rule_name}"</span>)
+        <span class="hl-kw">return</span> results</pre>
+
+  <div class="warn-box">
+    <strong>SQL 注入风险：</strong>这里直接拼接了表名和列名到 SQL 中。生产环境应使用白名单校验（表名/列名是否在 information_schema 中存在），防止配置文件被篡改后造成注入。当前作为学习项目简化处理，但要记住这个安全意识。
+  </div>
+</div>
+
+<!-- ==================== Section 4 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📊</span> 统计异常检测（Z-Score + IQR）
+    <span class="time-tag">20 min</span>
+  </div>
+
+  <p style="font-size:14px;color:var(--text2);margin-bottom:12px;">
+    规则引擎只能发现你<strong>已经知道</strong>的问题。但数据异常往往是你没想到的——比如今天的数据量突然比平时多了 3 倍。统计异常检测用历史基线自动发现这类问题。
+  </p>
+
+  <div class="concept-box">
+    <strong>两种统计方法：</strong><br>
+    <strong>Z-Score：</strong>衡量当前值偏离历史均值多少个标准差。适合近似正态分布的数据（如日数据量）。<br>
+    <strong>IQR（四分位距）：</strong>用 Q1 和 Q3 定义正常范围，对极端值更鲁棒，不要求正态分布。
+  </div>
+
+  <pre><span class="hl-cm"># detectors/stat_anomaly.py — 统计异常检测器</span>
+<span class="hl-kw">import</span> statistics
+<span class="hl-kw">from</span> models <span class="hl-kw">import</span> AnomalyResult
+
+
+class StatAnomalyDetector:
+    <span class="hl-cm">"""
+    基于历史统计数据的异常检测器
+    
+    核心思路（用数仓的语言说）：
+    - 把每张表的每日「行数、空值率、均值」当成时间序列指标
+    - 用历史 N 天的数据算基线（均值+标准差）
+    - 当今天的值偏离基线超过阈值时，标记为异常
+    """</span>
+
+    <span class="hl-kw">def</span> <span class="hl-fn">__init__</span>(self, z_threshold: float = <span class="hl-num">2.5</span>, iqr_factor: float = <span class="hl-num">1.5</span>):
+        self.z_threshold = z_threshold
+        self.iqr_factor = iqr_factor
+
+    <span class="hl-kw">def</span> <span class="hl-fn">z_score_check</span>(
+        self,
+        table_name: str,
+        column_name: str,
+        metric: str,
+        current_value: float,
+        historical_values: list[float],
+    ) -> AnomalyResult:
+        <span class="hl-cm">"""
+        Z-Score 异常检测
+        
+        Z = (当前值 - 历史均值) / 历史标准差
+        |Z| > 2.5 → 异常
+        
+        参数:
+            historical_values: 历史N天的指标值列表
+            current_value: 今天的指标值
+        """</span>
+        <span class="hl-kw">if</span> len(historical_values) < <span class="hl-num">7</span>:
+            <span class="hl-cm"># 历史数据太少，跳过检测</span>
+            <span class="hl-kw">return</span> AnomalyResult(
+                table_name=table_name, column_name=column_name,
+                metric=metric, current_value=current_value,
+                historical_mean=<span class="hl-num">0</span>, historical_std=<span class="hl-num">0</span>,
+                z_score=<span class="hl-num">0</span>, is_anomaly=False, direction=<span class="hl-str">"N/A"</span>,
+                description=<span class="hl-str">"历史数据不足，跳过检测（需至少7天）"</span>,
+            )
+
+        mean = statistics.mean(historical_values)
+        std = statistics.stdev(historical_values)
+
+        <span class="hl-cm"># 标准差为0说明历史值全部相同，无法计算Z-Score</span>
+        <span class="hl-kw">if</span> std == <span class="hl-num">0</span>:
+            <span class="hl-kw">return</span> AnomalyResult(
+                table_name=table_name, column_name=column_name,
+                metric=metric, current_value=current_value,
+                historical_mean=mean, historical_std=std,
+                z_score=<span class="hl-num">0</span>, is_anomaly=False, direction=<span class="hl-str">"stable"</span>,
+                description=<span class="hl-str">f"历史值稳定在 {mean:.2f}，无波动"</span>,
+            )
+
+        z = (current_value - mean) / std
+        is_anomaly = abs(z) > self.z_threshold
+        direction = <span class="hl-str">"spike"</span> <span class="hl-kw">if</span> z > <span class="hl-num">0</span> <span class="hl-kw">else</span> <span class="hl-str">"drop"</span>
+
+        <span class="hl-kw">if</span> is_anomaly:
+            desc = (f<span class="hl-str">"{metric} 异常{'突增' if direction=='spike' else '突降'}: "</span>
+                   f<span class="hl-str">"当前 {current_value:.2f}, 基线 {mean:.2f}±{std:.2f}, "</span>
+                   f<span class="hl-str">"Z-Score={z:.2f}"</span>)
+        <span class="hl-kw">else</span>:
+            desc = f<span class="hl-str">"{metric} 正常: 当前 {current_value:.2f}, 基线 {mean:.2f}±{std:.2f}"</span>
+
+        <span class="hl-kw">return</span> AnomalyResult(
+            table_name=table_name, column_name=column_name,
+            metric=metric, current_value=current_value,
+            historical_mean=mean, historical_std=std,
+            z_score=round(z, <span class="hl-num">4</span>),
+            is_anomaly=is_anomaly, direction=direction,
+            description=desc,
+        )
+
+    <span class="hl-kw">def</span> <span class="hl-fn">iqr_check</span>(
+        self,
+        table_name: str, column_name: str, metric: str,
+        current_value: float,
+        historical_values: list[float],
+    ) -> AnomalyResult:
+        <span class="hl-cm">"""
+        IQR 异常检测（对极端值更鲁棒）
+        
+        Q1 = 25分位数, Q3 = 75分位数
+        IQR = Q3 - Q1
+        正常范围: [Q1 - 1.5*IQR, Q3 + 1.5*IQR]
+        """</span>
+        sorted_vals = sorted(historical_values)
+        n = len(sorted_vals)
+        <span class="hl-kw">if</span> n < <span class="hl-num">7</span>:
+            <span class="hl-kw">return</span> AnomalyResult(
+                table_name=table_name, column_name=column_name,
+                metric=metric, current_value=current_value,
+                historical_mean=<span class="hl-num">0</span>, historical_std=<span class="hl-num">0</span>,
+                z_score=<span class="hl-num">0</span>, is_anomaly=False, direction=<span class="hl-str">"N/A"</span>,
+                description=<span class="hl-str">"历史数据不足"</span>,
+            )
+
+        <span class="hl-cm"># 计算四分位数</span>
+        q1 = sorted_vals[n // <span class="hl-num">4</span>]
+        q3 = sorted_vals[<span class="hl-num">3</span> * n // <span class="hl-num">4</span>]
+        iqr = q3 - q1
+        lower = q1 - self.iqr_factor * iqr
+        upper = q3 + self.iqr_factor * iqr
+
+        is_anomaly = current_value < lower <span class="hl-kw">or</span> current_value > upper
+        direction = <span class="hl-str">"spike"</span> <span class="hl-kw">if</span> current_value > upper <span class="hl-kw">else</span> <span class="hl-str">"drop"</span>
+
+        <span class="hl-kw">return</span> AnomalyResult(
+            table_name=table_name, column_name=column_name,
+            metric=metric, current_value=current_value,
+            historical_mean=statistics.mean(historical_values),
+            historical_std=statistics.stdev(historical_values)
+                <span class="hl-kw">if</span> len(historical_values) > <span class="hl-num">1</span> <span class="hl-kw">else</span> <span class="hl-num">0</span>,
+            z_score=<span class="hl-num">0</span>,  <span class="hl-cm"># IQR 不使用 Z-Score</span>
+            is_anomaly=is_anomaly, direction=direction,
+            description=(f<span class="hl-str">"IQR检测: 当前{current_value:.2f}, "</span>
+                       f<span class="hl-str">"正常范围[{lower:.2f}, {upper:.2f}]"</span>),
+        )</pre>
+
+  <h3 style="font-size:15px;margin:14px 0 8px;">4.2 巡检执行器（整合规则+统计）</h3>
+  <pre><span class="hl-cm"># detectors/inspector.py — 巡检执行器：串联规则引擎和统计检测</span>
+<span class="hl-kw">import</span> uuid
+<span class="hl-kw">from</span> datetime <span class="hl-kw">import</span> datetime
+<span class="hl-kw">from</span> rules.engine <span class="hl-kw">import</span> RuleEngine
+<span class="hl-kw">from</span> detectors.stat_anomaly <span class="hl-kw">import</span> StatAnomalyDetector
+<span class="hl-kw">from</span> models <span class="hl-kw">import</span> InspectionReport, CheckResult, Severity
+
+
+class DataQualityInspector:
+    <span class="hl-cm">"""数据质量巡检执行器 — 系统的总调度"""</span>
+
+    <span class="hl-kw">def</span> <span class="hl-fn">__init__</span>(self, db_conn, config_path: str = <span class="hl-str">"rules_config.yaml"</span>):
+        self.engine = RuleEngine(db_conn, config_path)
+        self.detector = StatAnomalyDetector()
+
+    <span class="hl-kw">def</span> <span class="hl-fn">collect_table_metrics</span>(self, table: str) -> dict:
+        <span class="hl-cm">"""
+        采集单表的统计指标
+        返回: {"row_count": int, "null_ratios": {col: float}, ...}
+        """</span>
+        db = self.engine.db
+        metrics = {}
+
+        <span class="hl-cm"># 1. 行数</span>
+        <span class="hl-kw">with</span> db.cursor() <span class="hl-kw">as</span> cur:
+            cur.execute(f<span class="hl-str">"SELECT COUNT(*) FROM {table}"</span>)
+            metrics[<span class="hl-str">"row_count"</span>] = cur.fetchone()[0]
+
+        <span class="hl-cm"># 2. 各列空值率</span>
+        <span class="hl-kw">with</span> db.cursor() <span class="hl-kw">as</span> cur:
+            cur.execute(f<span class="hl-str">"""
+                SELECT COLUMN_NAME, 
+                       SUM(CASE WHEN IS_NULLABLE='NO' THEN 0 
+                                ELSE 1 END) AS nullable_count
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='{table}'
+            """</span>)
+            metrics[<span class="hl-str">"null_ratios"</span>] = {}
+            <span class="hl-kw">for</span> row <span class="hl-kw">in</span> cur.fetchall():
+                col = row[0]
+                cur2 = db.cursor()
+                cur2.execute(
+                    f<span class="hl-str">"SELECT COUNT(*) FROM {table} WHERE {col} IS NULL"</span>)
+                null_count = cur2.fetchone()[0]
+                total = metrics[<span class="hl-str">"row_count"</span>]
+                <span class="hl-kw">if</span> total > <span class="hl-num">0</span>:
+                    metrics[<span class="hl-str">"null_ratios"</span>][col] = null_count / total
+                cur2.close()
+
+        <span class="hl-kw">return</span> metrics
+
+    <span class="hl-kw">def</span> <span class="hl-fn">run_inspection</span>(self, tables: list[str] = None) -> InspectionReport:
+        <span class="hl-cm">"""
+        执行完整巡检
+        
+        流程:
+        1. 规则引擎逐条检查
+        2. 统计检测器扫描各表指标
+        3. 聚合结果生成报告
+        """</span>
+        report = InspectionReport(
+            inspection_id=str(uuid.uuid4())[:<span class="hl-num">8</span>],
+            started_at=datetime.now(),
+            tables_checked=len(tables) <span class="hl-kw">if</span> tables <span class="hl-kw">else</span> <span class="hl-num">0</span>,
+        )
+
+        <span class="hl-cm"># 第一步：执行所有规则</span>
+        print(<span class="hl-str">f"\n{'='*50}"</span>)
+        print(<span class="hl-str">f"📋 执行规则检查（{len(self.engine.rules)} 条规则）"</span>)
+        print(<span class="hl-str">f"{'='*50}"</span>)
+        report.rule_results = self.engine.run_all_rules()
+
+        <span class="hl-cm"># 第二步：统计异常检测</span>
+        <span class="hl-cm"># （实际生产中从历史记录表读取历史值，这里用模拟数据演示）</span>
+        print(<span class="hl-str">f"\n📊 统计异常检测..."</span>)
+        <span class="hl-cm"># 模拟历史数据 + 当前值做演示</span>
+        mock_history = {
+            (<span class="hl-str">"dwd_bid_detail"</span>, <span class="hl-str">"row_count"</span>): {
+                <span class="hl-str">"history"</span>: [<span class="hl-num">15200</span>, <span class="hl-num">15800</span>, <span class="hl-num">16100</span>, <span class="hl-num">15900</span>, <span class="hl-num">15500</span>, <span class="hl-num">16000</span>, <span class="hl-num">16200</span>],
+                <span class="hl-str">"current"</span>: <span class="hl-num">45000</span>,  <span class="hl-cm"># 模拟一个突增异常</span>
+            },
+            (<span class="hl-str">"dwd_bid_detail"</span>, <span class="hl-str">"null_ratio_project_name"</span>): {
+                <span class="hl-str">"history"</span>: [<span class="hl-num">0.002</span>, <span class="hl-num">0.003</span>, <span class="hl-num">0.001</span>, <span class="hl-num">0.002</span>, <span class="hl-num">0.002</span>, <span class="hl-num">0.001</span>, <span class="hl-num">0.003</span>],
+                <span class="hl-str">"current"</span>: <span class="hl-num">0.15</span>,  <span class="hl-cm"># 模拟空值率飙升</span>
+            },
+        }
+
+        <span class="hl-kw">for</span> (tbl, metric_name), data <span class="hl-kw">in</span> mock_history.items():
+            col = <span class="hl-str">"*"</span> <span class="hl-kw">if</span> metric_name == <span class="hl-str">"row_count"</span> <span class="hl-kw">else</span> metric_name.replace(<span class="hl-str">"null_ratio_"</span>, <span class="hl-str">""</span>)
+            result = self.detector.z_score_check(
+                table_name=tbl, column_name=col, metric=metric_name,
+                current_value=data[<span class="hl-str">"current"</span>],
+                historical_values=data[<span class="hl-str">"history"</span>],
+            )
+            report.anomaly_results.append(result)
+            icon = <span class="hl-str">"🔴"</span> <span class="hl-kw">if</span> result.is_anomaly <span class="hl-kw">else</span> <span class="hl-str">"🟢"</span>
+            print(f<span class="hl-str">"  {icon} {tbl}.{metric_name}: {result.description}"</span>)
+
+        <span class="hl-cm"># 第三步：汇总统计</span>
+        report.total_rules = len(report.rule_results)
+        report.passed_rules = sum(<span class="hl-num">1</span> <span class="hl-kw">for</span> r <span class="hl-kw">in</span> report.rule_results <span class="hl-kw">if</span> r.passed)
+        report.failed_rules = report.total_rules - report.passed_rules
+        report.critical_count = sum(
+            <span class="hl-num">1</span> <span class="hl-kw">for</span> r <span class="hl-kw">in</span> report.rule_results
+            <span class="hl-kw">if</span> <span class="hl-kw">not</span> r.passed <span class="hl-kw">and</span> r.severity == Severity.CRITICAL
+        )
+        report.warning_count = sum(
+            <span class="hl-kw">1</span> <span class="hl-kw">for</span> r <span class="hl-kw">in</span> report.rule_results
+            <span class="hl-kw">if</span> <span class="hl-kw">not</span> r.passed <span class="hl-kw">and</span> r.severity == Severity.WARNING
+        )
+        report.finished_at = datetime.now()
+
+        <span class="hl-kw">return</span> report</pre>
+
+  <div class="tip-box">
+    <strong>数据开发视角：</strong>Z-Score 检测本质上就是在做「日环比/周环比」的高级版。你平时用 SQL 写 <span class="inline-code">WHERE cnt > AVG(cnt)*1.3</span> 就是手动版 Z-Score。这里只是把它工程化、自动化了。
+  </div>
+</div>
+
+<!-- ==================== Section 5 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🚀</span> 主入口：运行完整巡检流程
+    <span class="time-tag">15 min</span>
+  </div>
+
+  <pre><span class="hl-cm"># main.py — 巡检系统入口</span>
+<span class="hl-kw">import</span> pymysql
+<span class="hl-kw">from</span> detectors.inspector <span class="hl-kw">import</span> DataQualityInspector
+
+
+def main():
+    <span class="hl-cm">"""数据质量智能巡检主流程"""</span>
+    <span class="hl-cm"># 1. 建立数据库连接</span>
+    db = pymysql.connect(
+        host=<span class="hl-str">"localhost"</span>,
+        port=<span class="hl-num">3306</span>,
+        user=<span class="hl-str">"root"</span>,
+        password=<span class="hl-str">"your_password"</span>,
+        database=<span class="hl-str">"ybt_dw"</span>,
+        charset=<span class="hl-str">"utf8mb4"</span>,
+        cursorclass=pymysql.cursors.DictCursor,
+    )
+
+    <span class="hl-kw">try</span>:
+        <span class="hl-cm"># 2. 初始化巡检器</span>
+        inspector = DataQualityInspector(db, <span class="hl-str">"rules_config.yaml"</span>)
+
+        <span class="hl-cm"># 3. 执行巡检</span>
+        report = inspector.run_inspection(
+            tables=[<span class="hl-str">"dwd_bid_detail"</span>, <span class="hl-str">"ods_bid_info"</span>, <span class="hl-str">"dws_npa_summary"</span>]
+        )
+
+        <span class="hl-cm"># 4. 输出汇总</span>
+        print(<span class="hl-str">f"\n{'='*50}"</span>)
+        print(report.summary())
+        print(<span class="hl-str">f"{'='*50}"</span>)
+
+        <span class="hl-cm"># 5. 展示失败的规则详情</span>
+        failed = [r <span class="hl-kw">for</span> r <span class="hl-kw">in</span> report.rule_results <span class="hl-kw">if</span> <span class="hl-kw">not</span> r.passed]
+        <span class="hl-kw">if</span> failed:
+            print(<span class="hl-str">"\n❌ 失败规则详情:"</span>)
+            <span class="hl-kw">for</span> r <span class="hl-kw">in</span> failed:
+                print(f<span class="hl-str">"  [{r.severity.value.upper()}] {r.rule_name}"</span>)
+                print(f<span class="hl-str">"    {r.message}"</span>)
+                <span class="hl-kw">if</span> r.detail_sql:
+                    print(f<span class="hl-str">"    诊断SQL: {r.detail_sql[:80]}..."</span>)
+
+        <span class="hl-cm"># 6. 展示统计异常</span>
+        anomalies = [a <span class="hl-kw">for</span> a <span class="hl-kw">in</span> report.anomaly_results <span class="hl-kw">if</span> a.is_anomaly]
+        <span class="hl-kw">if</span> anomalies:
+            print(<span class="hl-str">"\n🔴 统计异常:"</span>)
+            <span class="hl-kw">for</span> a <span class="hl-kw">in</span> anomalies:
+                print(f<span class="hl-str">"  {a.description}"</span>)
+
+        <span class="hl-cm"># 7. 导出 JSON（供后续 LLM 分析或前端展示）</span>
+        <span class="hl-kw">import</span> json
+        output = report.model_dump_json(indent=<span class="hl-num">2</span>)
+        <span class="hl-kw">with</span> open(<span class="hl-str">"inspection_result.json"</span>, <span class="hl-str">"w"</span>, encoding=<span class="hl-str">"utf-8"</span>) <span class="hl-kw">as</span> f:
+            f.write(output)
+        print(<span class="hl-str">f"\n💾 报告已导出: inspection_result.json"</span>)
+
+    <span class="hl-kw">finally</span>:
+        db.close()
+
+
+<span class="hl-kw">if</span> __name__ == <span class="hl-str">"__main__"</span>:
+    main()</pre>
+
+  <div class="tip-box">
+    <strong>快速测试：</strong>没有数据库也能跑。把 <span class="inline-code">db</span> 替换为 Mock 对象，或直接对 <span class="inline-code">StatAnomalyDetector</span> 做单元测试。明天 Day 70 会加入 LLM 分析，那个部分只需要 JSON 输入，不依赖数据库。
+  </div>
+</div>
+
+<!-- ==================== Section 6 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🧠</span> 今日知识点回顾
+    <span class="time-tag">—</span>
+  </div>
+
+  <table>
+    <tr><th>知识点</th><th>说明</th><th>数仓关联</th></tr>
+    <tr>
+      <td><span class="inline-code">Pydantic BaseModel</span></td>
+      <td>类型安全的数据模型，自动校验+序列化</td>
+      <td>像 DDL 定义表结构一样定义 Python 数据结构</td>
+    </tr>
+    <tr>
+      <td><span class="inline-code">YAML 配置驱动</span></td>
+      <td>规则从代码解耦到配置文件</td>
+      <td>类似数仓中把 ETL 规则配置化，避免硬编码</td>
+    </tr>
+    <tr>
+      <td><span class="inline-code">策略模式</span></td>
+      <td>不同规则类型对应不同的 SQL 生成策略</td>
+      <td>每个 DWD 表的清洗规则不同，但流程一样</td>
+    </tr>
+    <tr>
+      <td><span class="inline-code">Z-Score / IQR</span></td>
+      <td>统计异常检测的两种方法</td>
+      <td>比手动写「环比 > 30%」更科学、自适应</td>
+    </tr>
+    <tr>
+      <td><span class="inline-code">statistics 模块</span></td>
+      <td>Python 内置统计函数（mean/stdev）</td>
+      <td>替代 SQL 的 AVG/STDDEV，适合内存计算</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ==================== Section 7 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📌</span> 课后练习
+    <span class="time-tag">—</span>
+  </div>
+
+  <ol>
+    <li style="margin-bottom:10px;">
+      <strong>扩展规则类型：</strong>在 <span class="inline-code">RuleEngine._build_check_sql</span> 中添加 <span class="inline-code">VOLUME_CHANGE</span> 类型——对比今天和昨天的行数，波动超过阈值则告警。
+    </li>
+    <li style="margin-bottom:10px;">
+      <strong>增强统计检测：</strong>为 <span class="inline-code">StatAnomalyDetector</span> 添加一个 <span class="hl-fn">batch_check</span> 方法，一次传入多张表的历史+当前值，批量返回异常结果。
+    </li>
+    <li style="margin-bottom:10px;">
+      <strong>YAML 扩展：</strong>在 <span class="inline-code">rules_config.yaml</span> 中添加 3 条针对你自己 ybt_dw 数仓的规则（ODS/DWD/DWS 各一条），思考哪些字段最值得检查。
+    </li>
+  </ol>
+</div>
+
+<div class="footer">
+  LLM 120天转型计划 · Day 69 / 70<br>
+  数据质量智能巡检系统 — 架构设计 + 规则引擎 + 统计异常检测
+</div>
+
+</body>
+</html>

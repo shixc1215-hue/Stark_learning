@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 66 - P6 数据血缘分析系统（LLM 辅助血缘补全 + 影响分析 + 异常检测）</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--purple:#9333ea;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#ecfdf5,#a7f3d0);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #34d399; }
+  .header .badge { display:inline-block;background:#d1fae5;color:#065f46;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--purple));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--purple);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#faf5ff;border-left:3px solid var(--purple);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--purple); }
+  .tip-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--accent); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  pre { background:#1e293b;color:#e2e8f0;padding:18px 20px;border-radius:10px;overflow-x:auto;font-size:13.5px;line-height:1.7;margin:14px 0;tab-size:4; }
+  pre .comment { color:#6b7280;font-style:italic; }
+  pre .keyword { color:#c084fc; }
+  pre .string { color:#34d399; }
+  pre .func { color:#60a5fa; }
+  pre .decorator { color:#f472b6; }
+  pre .number { color:#fb923c; }
+  pre .type { color:#fbbf24; }
+  pre .op { color:#f87171; }
+  code { background:var(--surface2);padding:2px 7px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--accent2); }
+  pre code { background:none;padding:0;color:inherit;font-size:inherit; }
+  .compare-table { width:100%;border-collapse:collapse;margin:14px 0;font-size:14px; }
+  .compare-table th,.compare-table td { padding:10px 14px;text-align:left;border:1px solid var(--border); }
+  .compare-table th { background:var(--surface2);font-weight:600;color:var(--text2);font-size:13px; }
+  .compare-table tr:hover td { background:#fafbfc; }
+  ul,ol { padding-left:22px;margin:10px 0; }
+  li { margin:5px 0;font-size:14.5px; }
+  h3 { font-size:16px;font-weight:700;margin:18px 0 10px;color:var(--text); }
+  p { font-size:14.5px;margin:8px 0; }
+  .inline-code { background:var(--surface2);padding:2px 7px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--accent2); }
+  .flow-diagram { background:var(--surface2);border:1px dashed var(--border);border-radius:10px;padding:18px 22px;margin:14px 0;font-family:monospace;font-size:13.5px;line-height:1.8;white-space:pre;overflow-x:auto; }
+  .tag { display:inline-block;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600; }
+  .tag-green { background:#dcfce7;color:#166534; }
+  .tag-orange { background:#fff7ed;color:#9a3412; }
+  .tag-red { background:#fef2f2;color:#991b1b; }
+  .tag-purple { background:#faf5ff;color:#6b21a8; }
+  .tag-blue { background:#eff6ff;color:#1e40af; }
+  .summary-box { background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #7dd3fc;border-radius:var(--radius);padding:20px 24px;margin:20px 0; }
+  .summary-box h3 { color:var(--accent);margin-bottom:10px; }
+  .exercise-box { background:#fefce8;border:1px solid #fde68a;border-radius:var(--radius);padding:20px 24px;margin:20px 0; }
+  .exercise-box h3 { color:var(--yellow);margin-bottom:10px; }
+</style>
+</head>
+<body>
+
+<!-- ======== 头部 ======== -->
+<div class="header">
+  <div class="badge">Phase 4 · P6 数据血缘分析系统 · Day 2/3</div>
+  <h1>Day 66 — LLM 辅助血缘补全 + 影响分析 + 异常检测</h1>
+  <div class="subtitle">让 LLM 帮你补全 SQL 解析遗漏的语义血缘，追溯字段变更的下游影响，自动检测血缘断裂与环路</div>
+</div>
+
+<!-- 进度条 -->
+<div class="progress-bar">
+  <span class="label">总进度 66/70</span>
+  <div class="track"><div class="fill" style="width:94.3%"></div></div>
+  <span class="percent">94.3%</span>
+</div>
+
+<!-- ============================== -->
+<!-- Section 1: 今日路线 -->
+<!-- ============================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🗺️</span> 今日路线
+    <span class="time-tag">约 60 分钟</span>
+  </div>
+  <div class="flow-diagram">Day65 元数据模型+SQL解析（已完成）
+         ↓
+  ① Python 图算法 (BFS/DFS/拓扑排序)        ← 25 min
+         ↓
+  ② LLM 血缘补全 (语义推断缺失关系)          ← 15 min
+         ↓
+  ③ 影响分析 (变更追溯+波及面评估)            ← 10 min
+         ↓
+  ④ 异常检测 (断裂/环路/孤儿)                 ← 10 min</div>
+</div>
+
+<!-- ============================== -->
+<!-- Section 2: Python 图算法 -->
+<!-- ============================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span> 一、Python 图算法 — 血缘图上的遍历
+    <span class="time-tag">25 min</span>
+  </div>
+
+  <p>数据血缘本质上是一张<strong>有向无环图（DAG）</strong>：表/字段是节点，依赖关系是边。Day 65 我们已经用 <code>defaultdict(list)</code> 构建了血缘图，今天先学怎么在图上做遍历。</p>
+
+  <div class="concept-box">
+    <strong>数仓类比：</strong>SQL 解析器就像 ETL 中的 Extract — 从 SQL 文本中提取原始依赖。图算法是 Transform — 把原始边加工成可查询的拓扑结构。影响分析是 Load — 把结果交付给业务方。
+  </div>
+
+  <h3>1.1 血缘图的两种表示</h3>
+  <pre><code><span class="keyword">from</span> collections <span class="keyword">import</span> defaultdict, deque
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> typing <span class="keyword">import</span> Optional
+<span class="keyword">import</span> json
+
+<span class="comment"># ── 数据模型 ──</span>
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="type">LineageEdge</span>:
+    <span class="string">"""血缘关系边"""</span>
+    source_table: <span class="type">str</span>           <span class="comment"># 上游表</span>
+    source_column: <span class="type">str</span>         <span class="comment"># 上游字段</span>
+    target_table: <span class="type">str</span>           <span class="comment"># 下游表</span>
+    target_column: <span class="type">str</span>         <span class="comment"># 下游字段</span>
+    transform_type: <span class="type">str</span> = <span class="string">"direct"</span>  <span class="comment"># direct / agg / derive / constant</span>
+    confidence: <span class="type">float</span> = <span class="number">1.0</span>     <span class="comment"># 解析置信度 (0~1)</span>
+    source: <span class="type">str</span> = <span class="string">"sql_parser"</span>  <span class="comment"># sql_parser / llm / manual</span>
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="type">LineageGraph</span>:
+    <span class="string">"""血缘图 — 同时维护正向和反向邻接表"""</span>
+    edges: <span class="type">list</span>[LineageEdge] = field(default_factory=<span class="type">list</span>)
+    _downstream: <span class="type">dict</span> = field(default_factory=<span class="keyword">lambda</span>: defaultdict(set))  <span class="comment"># 表A → {表B, 表C}</span>
+    _upstream: <span class="type">dict</span> = field(default_factory=<span class="keyword">lambda</span>: defaultdict(set))    <span class="comment"># 表B → {表A}</span>
+    _col_down: <span class="type">dict</span> = field(default_factory=<span class="keyword">lambda</span>: defaultdict(set)) <span class="comment"># (表,字段) → {(表,字段)}</span>
+    _col_up: <span class="type">dict</span> = field(default_factory=<span class="keyword">lambda</span>: defaultdict(set))   <span class="comment"># 反向</span>
+
+    <span class="keyword">def</span> <span class="func">add_edge</span>(self, edge: LineageEdge):
+        <span class="string">"""添加一条血缘边，同时更新四种索引"""</span>
+        self.edges.append(edge)
+        <span class="comment"># 表级索引</span>
+        self._downstream[edge.source_table].add(edge.target_table)
+        self._upstream[edge.target_table].add(edge.source_table)
+        <span class="comment"># 字段级索引（用元组做 key）</span>
+        src_key = (edge.source_table, edge.source_column)
+        tgt_key = (edge.target_table, edge.target_column)
+        self._col_down[src_key].add(tgt_key)
+        self._col_up[tgt_key].add(src_key)
+
+    <span class="keyword">def</span> <span class="func">get_all_tables</span>(self) -> <span class="type">set</span>[<span class="type">str</span>]:
+        <span class="string">"""获取所有表（并集）"""</span>
+        <span class="keyword">return</span> self._downstream.keys() | self._upstream.keys()
+
+    <span class="comment"># ── BFS 广度优先：找「直接下游」 ──</span>
+    <span class="keyword">def</span> <span class="func">bfs_downstream</span>(self, start_table: <span class="type">str</span>, max_depth: <span class="type">int</span> = <span class="number">10</span>) -> <span class="type">dict</span>[<span class="type">str</span>, <span class="type">int</span>]:
+        <span class="string">"""
+        BFS 沿血缘方向（上游→下游）遍历
+        返回: {表名: 层级深度}
+        """</span>
+        visited: <span class="type">dict</span>[<span class="type">str</span>, <span class="type">int</span>] = {start_table: <span class="number">0</span>}
+        queue = deque([start_table])
+
+        <span class="keyword">while</span> queue:
+            current = queue.popleft()
+            current_depth = visited[current]
+            <span class="keyword">if</span> current_depth >= max_depth:
+                <span class="keyword">continue</span>
+            <span class="comment"># 遍历所有直接下游</span>
+            <span class="keyword">for</span> child <span class="keyword">in</span> self._downstream.get(current, set()):
+                <span class="keyword">if</span> child <span class="keyword">not in</span> visited:
+                    visited[child] = current_depth + <span class="number">1</span>
+                    queue.append(child)
+
+        <span class="keyword">return</span> visited
+
+    <span class="comment"># ── DFS 深度优先：找「完整链路」 ──</span>
+    <span class="keyword">def</span> <span class="func">dfs_all_paths</span>(
+        self, start: <span class="type">str</span>, end: <span class="type">str</span>,
+        max_depth: <span class="type">int</span> = <span class="number">10</span>, path: <span class="keyword">Optional</span>[<span class="type">list</span>] = <span class="keyword">None</span>
+    ) -> <span class="type">list</span>[<span class="type">list</span>[<span class="type">str</span>]]:
+        <span class="string">"""
+        DFS 找从 start 到 end 的所有路径
+        用于回答「A 表的数据经过哪些中间表到达 B 表」
+        """</span>
+        <span class="keyword">if</span> path <span class="keyword">is None</span>:
+            path = [start]
+
+        <span class="keyword">if</span> len(path) - <span class="number">1</span> >= max_depth:  <span class="comment"># 深度限制防死循环</span>
+            <span class="keyword">return</span> []
+
+        paths = []
+        <span class="keyword">if</span> start == end:
+            <span class="keyword">return</span> [path]
+
+        <span class="keyword">for</span> next_table <span class="keyword">in</span> self._downstream.get(start, set()):
+            <span class="keyword">if</span> next_table <span class="keyword">in</span> path:  <span class="comment"># 跳过已访问（防环）</span>
+                <span class="keyword">continue</span>
+            sub_paths = self.dfs_all_paths(
+                next_table, end, max_depth, path + [next_table]
+            )
+            paths.extend(sub_paths)
+
+        <span class="keyword">return</span> paths
+
+    <span class="comment"># ── 拓扑排序：验证 DAG + 执行顺序 ──</span>
+    <span class="keyword">def</span> <span class="func">topological_sort</span>(self) -> <span class="type">tuple</span>[<span class="type">list</span>[<span class="type">str</span>], <span class="type">bool</span>]:
+        <span class="string">"""
+        Kahn 算法拓扑排序
+        返回: (排序列表, 是否存在环)
+        """</span>
+        all_tables = self.get_all_tables()
+        in_degree = {t: <span class="number">0</span> <span class="keyword">for</span> t <span class="keyword">in</span> all_tables}
+
+        <span class="comment"># 计算每个表的入度（有多少上游表指向它）</span>
+        <span class="keyword">for</span> src, targets <span class="keyword">in</span> self._downstream.items():
+            <span class="keyword">for</span> tgt <span class="keyword">in</span> targets:
+                <span class="keyword">if</span> tgt <span class="keyword">in</span> in_degree:
+                    in_degree[tgt] += <span class="number">1</span>
+
+        <span class="comment"># 入度为 0 的表先入队（没有依赖的源表）</span>
+        queue = deque([t <span class="keyword">for</span> t, d <span class="keyword">in</span> in_degree.items() <span class="keyword">if</span> d == <span class="number">0</span>])
+        result = []
+
+        <span class="keyword">while</span> queue:
+            table = queue.popleft()
+            result.append(table)
+            <span class="keyword">for</span> child <span class="keyword">in</span> self._downstream.get(table, set()):
+                <span class="keyword">if</span> child <span class="keyword">in</span> in_degree:
+                    in_degree[child] -= <span class="number">1</span>
+                    <span class="keyword">if</span> in_degree[child] == <span class="number">0</span>:
+                        queue.append(child)
+
+        has_cycle = len(result) != len(all_tables)
+        <span class="keyword">return</span> result, has_cycle
+
+    <span class="comment"># ── 字段级血缘追溯 ──</span>
+    <span class="keyword">def</span> <span class="func">trace_column</span>(self, table: <span class="type">str</span>, column: <span class="type">str</span>,
+                         direction: <span class="type">str</span> = <span class="string">"upstream"</span>) -> <span class="type">list</span>[<span class="type">tuple</span>]:
+        <span class="string">"""
+        追溯某字段的上游/下游血缘链
+        direction: "upstream" 或 "downstream"
+        """</span>
+        graph = self._col_up <span class="keyword">if</span> direction == <span class="string">"upstream"</span> <span class="keyword">else</span> self._col_down
+        start = (table, column)
+        visited = {start}
+        result = []
+        queue = deque([start])
+
+        <span class="keyword">while</span> queue:
+            current = queue.popleft()
+            <span class="keyword">for</span> neighbor <span class="keyword">in</span> graph.get(current, set()):
+                <span class="keyword">if</span> neighbor <span class="keyword">not in</span> visited:
+                    visited.add(neighbor)
+                    result.append(neighbor)
+                    queue.append(neighbor)
+
+        <span class="keyword">return</span> result</code></pre>
+
+  <div class="tip-box">
+    <strong>BFS vs DFS 选择原则：</strong>BFS 适合找「最近/最直接」的关系（影响范围），DFS 适合找「所有可能路径」（完整链路）。拓扑排序验证 DAG — 有环说明存在循环依赖，这在数仓中是严重问题。
+  </div>
+
+  <h3>1.2 快速验证图算法</h3>
+  <pre><code><span class="comment"># 构建一个 AMC 数仓的 mini 血缘图</span>
+graph = LineageGraph()
+
+<span class="comment"># ODS → DWD → DWS → ADS</span>
+sample_edges = [
+    LineageEdge(<span class="string">"ods_bid_info"</span>, <span class="string">"bid_id"</span>,      <span class="string">"dwd_bid_detail"</span>, <span class="string">"bid_id"span>, <span class="string">"direct"</span>),
+    LineageEdge(<span class="string">"ods_bid_info"</span>, <span class="string">"bid_amount"</span>,  <span class="string">"dwd_bid_detail"</span>, <span class="string">"bid_amount"</span>, <span class="string">"direct"</span>),
+    LineageEdge(<span class="string">"dwd_bid_detail"</span>, <span class="string">"bid_amount"</span>, <span class="string">"dws_bid_daily"</span>, <span class="string">"total_amount"</span>, <span class="string">"agg"</span>),
+    LineageEdge(<span class="string">"dws_bid_daily"</span>, <span class="string">"total_amount"</span>, <span class="string">"ads_bid_rank"</span>, <span class="string">"rank_amount"</span>, <span class="string">"direct"</span>),
+]
+<span class="keyword">for</span> e <span class="keyword">in</span> sample_edges:
+    graph.add_edge(e)
+
+<span class="comment"># BFS：ods_bid_info 能影响哪些表？</span>
+print(graph.bfs_downstream(<span class="string">"ods_bid_info"</span>))
+<span class="comment"># {'ods_bid_info': 0, 'dwd_bid_detail': 1, 'dws_bid_daily': 2, 'ads_bid_rank': 3}</span>
+
+<span class="comment"># DFS：从 ODS 到 ADS 有几条路径？</span>
+print(graph.dfs_all_paths(<span class="string">"ods_bid_info"</span>, <span class="string">"ads_bid_rank"</span>))
+<span class="comment"># [['ods_bid_info', 'dwd_bid_detail', 'dws_bid_daily', 'ads_bid_rank']]</span>
+
+<span class="comment"># 拓扑排序</span>
+order, has_cycle = graph.topological_sort()
+print(f<span class="string">"执行顺序: {order}, 有环: {has_cycle}"</span>)
+<span class="comment"># 执行顺序: ['ods_bid_info', 'dwd_bid_detail', 'dws_bid_daily', 'ads_bid_rank'], 有环: False</span></code></pre>
+</div>
+
+<!-- ============================== -->
+<!-- Section 3: LLM 血缘补全 -->
+<!-- ============================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🤖</span> 二、LLM 辅助血缘补全 — 补 SQL 解析的盲区
+    <span class="time-tag">15 min</span>
+  </div>
+
+  <p>SQL 解析器只能抓到<strong>显式引用</strong>（SELECT / FROM 中写的表名），但数仓里还有大量<strong>隐式血缘</strong>：</p>
+  <ul>
+    <li><strong>配置表/字典表</strong>：代码里硬编码关联的 dim 表，SQL 中用 JOIN 但字段名改了</li>
+    <li><strong>存储过程 / 视图嵌套</strong>：A 调用 B 视图，B 引用 C 表 — 需要递归展开</li>
+    <li><strong>业务语义关系</strong>：「不良资产余额」和「风险分类」有逻辑关联，但 SQL 里没有显式 JOIN</li>
+  </ul>
+
+  <div class="concept-box">
+    <strong>核心思路：</strong>SQL 解析 = 规则引擎（快但浅），LLM 补全 = 语义理解（慢但深）。两者互补：<code>confidence</code> 为 1.0 的是规则解析的确定结果，LLM 生成的关系标记为 0.7~0.9，供人工审核。
+  </div>
+
+  <h3>2.1 LLM 血缘补全器</h3>
+  <pre><code><span class="keyword">import</span> json
+<span class="keyword">import</span> re
+
+<span class="keyword">def</span> <span class="func">parse_llm_json_safely</span>(text: <span class="type">str</span>) -> <span class="type">list</span>[<span class="type">dict</span>]:
+    <span class="string">"""
+    三层 fallback 提取 LLM 返回的 JSON 数组
+    实战中最常见的 LLM 输出问题：```json 包裹 / 多余文字 / 不合法 JSON
+    """</span>
+    <span class="comment"># 第一层：尝试直接解析</span>
+    <span class="keyword">try</span>:
+        result = json.loads(text)
+        <span class="keyword">if</span> isinstance(result, list):
+            <span class="keyword">return</span> result
+    <span class="keyword">except</span> (json.JSONDecodeError, TypeError):
+        <span class="keyword">pass</span>
+
+    <span class="comment"># 第二层：正则提取 ```json ... ``` 代码块</span>
+    pattern = r<span class="string">"```(?:json)?\s*\n?(.*?)\n?```"</span>
+    match = re.search(pattern, text, re.DOTALL)
+    <span class="keyword">if</span> match:
+        <span class="keyword">try</span>:
+            result = json.loads(match.group(<span class="number">1</span>))
+            <span class="keyword">if</span> isinstance(result, list):
+                <span class="keyword">return</span> result
+        <span class="keyword">except</span> json.JSONDecodeError:
+            <span class="keyword">pass</span>
+
+    <span class="comment"># 第三层：正则提取 [...] 数组</span>
+    array_pattern = r<span class="string">"\[.*?\]"</span>
+    match = re.search(array_pattern, text, re.DOTALL)
+    <span class="keyword">if</span> match:
+        <span class="keyword">try</span>:
+            result = json.loads(match.group(<span class="number">0</span>))
+            <span class="keyword">if</span> isinstance(result, list):
+                <span class="keyword">return</span> result
+        <span class="keyword">except</span> json.JSONDecodeError:
+            <span class="keyword">pass</span>
+
+    <span class="keyword">return</span> []  <span class="comment"># 全部失败，返回空</span>
+
+
+class <span class="type">LLMLineageCompleter</span>:
+    <span class="string">"""
+    LLM 辅助血缘补全器
+    职责：发现 SQL 解析遗漏的隐式血缘关系
+    """</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, api_key: <span class="type">str</span>, model: <span class="type">str</span> = <span class="string">"glm-4-flash"</span>):
+        self.api_key = api_key
+        self.model = model
+        self.base_url = <span class="string">"https://open.bigmodel.cn/api/paas/v4/chat/completions"</span>
+
+    <span class="keyword">def</span> <span class="func">_call_llm</span>(self, prompt: <span class="type">str</span>) -> <span class="type">str</span>:
+        <span class="string">"""调用智谱 API（同步，简化演示）"""</span>
+        <span class="keyword">import</span> requests
+        resp = requests.post(
+            self.base_url,
+            headers={<span class="string">"Authorization"</span>: f<span class="string">"Bearer {self.api_key}"</span>},
+            json={
+                <span class="string">"model"</span>: self.model,
+                <span class="string">"messages"</span>: [{<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: prompt}],
+                <span class="string">"temperature"</span>: <span class="number">0.1</span>,  <span class="comment"># 低温度：血缘需要精确</span>
+            },
+            timeout=<span class="number">30</span>
+        )
+        resp.raise_for_status()
+        <span class="keyword">return</span> resp.json()[<span class="string">"choices"</span>][<span class="number">0</span>][<span class="string">"message"</span>][<span class="string">"content"</span>]
+
+    <span class="keyword">def</span> <span class="func">_build_prompt</span>(
+        self,
+        table_name: <span class="type">str</span>,
+        table_comment: <span class="type">str</span>,
+        columns: <span class="type">list</span>[<span class="type">dict</span>],
+        known_upstream: <span class="type">list</span>[<span class="type">str</span>],
+        all_tables: <span class="type">list</span>[<span class="type">str</span>]
+    ) -> <span class="type">str</span>:
+        <span class="string">"""构建血缘补全 Prompt"""</span>
+        cols_desc = <span class="string">"\n"</span>.join(
+            f<span class="string">"  - {c['name']}: {c.get('comment','')}(类型:{c.get('type','')})"</span>
+            <span class="keyword">for</span> c <span class="keyword">in</span> columns
+        )
+        <span class="keyword">return</span> f<span class="string">"""你是数据血缘分析专家。请分析以下表的隐式血缘关系。
+
+## 当前表
+表名: {table_name}
+表注释: {table_comment}
+字段:
+{cols_desc}
+
+## SQL解析已知的上游表
+{', '.join(known_upstream) if known_upstream else '（无）'}
+
+## 数仓中所有可用的表
+{', '.join(all_tables)}
+
+## 任务
+SQL 解析器只能识别显式引用。请基于业务语义，找出当前表可能存在但 SQL 解析遗漏的血缘关系。
+例如：
+- 字典表/维度表（如 dim_risk_level）虽然被 JOIN 但字段名被重命名
+- 配置表（如 config_xxx）在代码中关联但未出现在 SQL 里
+- 语义关联（如金额字段隐含币种依赖）
+
+请只返回 JSON 数组，每个元素包含：
+{{"upstream_table": "表名", "upstream_column": "字段名", "relationship": "业务关系说明", "confidence": 0.7}}
+
+如果找不到遗漏关系，返回空数组 []。"""</span>
+
+    <span class="keyword">def</span> <span class="func">complete</span>(
+        self,
+        table_name: <span class="type">str</span>,
+        table_comment: <span class="type">str</span>,
+        columns: <span class="type">list</span>[<span class="type">dict</span>],
+        known_upstream: <span class="type">list</span>[<span class="type">str</span>],
+        all_tables: <span class="type">list</span>[<span class="type">str</span>]
+    ) -> <span class="type">list</span>[LineageEdge]:
+        <span class="string">"""执行 LLM 血缘补全，返回新增的 LineageEdge"""</span>
+        prompt = self._build_prompt(
+            table_name, table_comment, columns,
+            known_upstream, all_tables
+        )
+        raw = self._call_llm(prompt)
+        suggestions = parse_llm_json_safely(raw)
+
+        new_edges = []
+        <span class="keyword">for</span> item <span class="keyword">in</span> suggestions:
+            edge = LineageEdge(
+                source_table=item.get(<span class="string">"upstream_table"</span>, <span class="string">""</span>),
+                source_column=item.get(<span class="string">"upstream_column"</span>, <span class="string">"*"</span>),
+                target_table=table_name,
+                target_column=<span class="string">"*"</span>,
+                transform_type=<span class="string">"llm_inferred"</span>,
+                confidence=item.get(<span class="string">"confidence"</span>, <span class="number">0.7</span>),
+                source=<span class="string">"llm"</span>
+            )
+            new_edges.append(edge)
+
+        <span class="keyword">return</span> new_edges</code></pre>
+
+  <div class="warn-box">
+    <strong>为什么 confidence 标记为 0.7~0.9？</strong>LLM 推断的关系未经代码验证，可能存在误判。在血缘图中用 <code>confidence</code> 字段区分来源：1.0 = SQL 解析确定性结果，&lt; 1.0 = LLM 推断需人工确认。这是「人机协同」的核心设计模式。
+  </div>
+</div>
+
+<!-- ============================== -->
+<!-- Section 4: 影响分析 -->
+<!-- ============================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📊</span> 三、影响分析 — 字段变更会波及谁？
+    <span class="time-tag">10 min</span>
+  </div>
+
+  <p>数仓开发中最常见的场景：<strong>「我要改 ODS 层某字段的类型/名称，下游哪些表会受影响？」</strong>这就是影响分析。</p>
+
+  <div class="concept-box">
+    <strong>数仓类比：</strong>影响分析就像「改一个 DIM 表的结构，查一下哪些 DWD/DWS/ADS 的 SQL 会报错」。你在 ETL 里改了源表字段，必须知道下游哪些作业会因此挂掉。
+  </div>
+
+  <h3>3.1 ImpactAnalyzer 影响分析器</h3>
+  <pre><code><span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> enum <span class="keyword">import</span> Enum
+
+<span class="keyword">class</span> <span class="type">ImpactLevel</span>(Enum):
+    HIGH = <span class="string">"high"</span>      <span class="comment"># 直接引用，必受影响</span>
+    MEDIUM = <span class="string">"medium"</span>  <span class="comment"># 间接依赖（聚合后引用）</span>
+    LOW = <span class="string">"low"</span>        <span class="comment"># LLM 推断的语义关联</span>
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="type">ImpactResult</span>:
+    <span class="string">"""单条影响记录"""</span>
+    table: <span class="type">str</span>
+    column: <span class="type">str</span>
+    level: ImpactLevel
+    path: <span class="type">list</span>[<span class="type">str</span>]          <span class="comment"># 变更传播路径</span>
+    transform_type: <span class="type">str</span>      <span class="comment"># direct / agg / derive</span>
+    confidence: <span class="type">float</span> = <span class="number">1.0</span>
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="type">ImpactReport</span>:
+    <span class="string">"""影响分析报告"""</span>
+    source_table: <span class="type">str</span>
+    source_column: <span class="type">str</span>
+    impacts: <span class="type">list</span>[ImpactResult] = field(default_factory=<span class="type">list</span>)
+
+    <span class="keyword">def</span> <span class="func">summary</span>(self) -> <span class="type">dict</span>:
+        <span class="string">"""生成影响摘要统计"""</span>
+        <span class="keyword">from</span> collections <span class="keyword">import</span> Counter
+        level_counts = Counter(i.level <span class="keyword">for</span> i <span class="keyword">in</span> self.impacts)
+        <span class="keyword">return</span> {
+            <span class="string">"source"</span>: f<span class="string">"{self.source_table}.{self.source_column}"</span>,
+            <span class="string">"total_impacts"</span>: len(self.impacts),
+            <span class="string">"high"</span>: level_counts.get(ImpactLevel.HIGH, <span class="number">0</span>),
+            <span class="string">"medium"</span>: level_counts.get(ImpactLevel.MEDIUM, <span class="number">0</span>),
+            <span class="string">"low"</span>: level_counts.get(ImpactLevel.LOW, <span class="number">0</span>),
+        }
+
+
+class <span class="type">ImpactAnalyzer</span>:
+    <span class="string">"""
+    血缘影响分析器
+    核心能力：给定一个变更源，沿血缘图 BFS 找出所有受影响的下游
+    """</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, graph: LineageGraph):
+        self.graph = graph
+
+    <span class="keyword">def</span> <span class="func">analyze</span>(
+        self, table: <span class="type">str</span>, column: <span class="type">str</span>,
+        max_depth: <span class="type">int</span> = <span class="number">10</span>
+    ) -> ImpactReport:
+        <span class="string">"""
+        分析某字段变更的下游影响
+        BFS 遍历字段级血缘图
+        """</span>
+        report = ImpactReport(source_table=table, source_column=column)
+        start = (table, column)
+        visited = {start}
+        queue = deque([(start, [table], <span class="number">1</span>)])  <span class="comment"># (当前节点, 路径, 深度)</span>
+
+        <span class="keyword">while</span> queue:
+            (cur_table, cur_col), path, depth = queue.popleft()
+            <span class="keyword">if</span> depth > max_depth:
+                <span class="keyword">continue</span>
+
+            <span class="comment"># 查找所有直接下游字段</span>
+            cur_key = (cur_table, cur_col)
+            <span class="keyword">for</span> (tgt_table, tgt_col) <span class="keyword">in</span> self.graph._col_down.get(cur_key, set()):
+                <span class="keyword">if</span> (tgt_table, tgt_col) <span class="keyword">in</span> visited:
+                    <span class="keyword">continue</span>
+                visited.add((tgt_table, tgt_col))
+
+                <span class="comment"># 查找这条边的信息</span>
+                edge_info = self._find_edge(cur_table, cur_col, tgt_table, tgt_col)
+                transform = edge_info.transform_type <span class="keyword">if</span> edge_info <span class="keyword">else</span> <span class="string">"unknown"</span>
+                conf = edge_info.confidence <span class="keyword">if</span> edge_info <span class="keyword">else</span> <span class="number">0.5</span>
+
+                <span class="comment"># 判断影响级别</span>
+                <span class="keyword">if</span> conf >= <span class="number">0.9</span> <span class="keyword">and</span> transform <span class="keyword">in</span> (<span class="string">"direct"</span>, <span class="string">"derive"</span>):
+                    level = ImpactLevel.HIGH
+                <span class="keyword">elif</span> conf >= <span class="number">0.7</span>:
+                    level = ImpactLevel.MEDIUM
+                <span class="keyword">else</span>:
+                    level = ImpactLevel.LOW
+
+                report.impacts.append(ImpactResult(
+                    table=tgt_table,
+                    column=tgt_col,
+                    level=level,
+                    path=path + [tgt_table],
+                    transform_type=transform,
+                    confidence=conf
+                ))
+                queue.append(((tgt_table, tgt_col), path + [tgt_table], depth + <span class="number">1</span>))
+
+        <span class="keyword">return</span> report
+
+    <span class="keyword">def</span> <span class="func">_find_edge</span>(self, src_t, src_c, tgt_t, tgt_c) -> <span class="keyword">Optional</span>[LineageEdge]:
+        <span class="string">"""根据起止字段找到对应的 Edge 对象"""</span>
+        <span class="keyword">for</span> e <span class="keyword">in</span> self.graph.edges:
+            <span class="keyword">if</span> (e.source_table == src_t <span class="keyword">and</span> e.source_column == src_c
+                <span class="keyword">and</span> e.target_table == tgt_t <span class="keyword">and</span> e.target_column == tgt_c):
+                <span class="keyword">return</span> e
+        <span class="keyword">return</span> <span class="keyword">None</span>
+
+    <span class="keyword">def</span> <span class="func">table_level_impact</span>(self, table: <span class="type">str</span>) -> <span class="type">list</span>[<span class="type">str</span>]:
+        <span class="string">"""表级影响分析：某张表的所有下游表（BFS 表级遍历）"""</span>
+        result = self.graph.bfs_downstream(table)
+        <span class="comment"># 移除自身</span>
+        result.pop(table, <span class="keyword">None</span>)
+        <span class="keyword">return</span> list(result.keys())</code></pre>
+
+  <h3>3.2 影响分析实战</h3>
+  <pre><code><span class="comment"># 假设要修改 ods_bid_info.bid_amount 的类型（DECIMAL→BIGINT）</span>
+analyzer = ImpactAnalyzer(graph)
+
+report = analyzer.analyze(<span class="string">"ods_bid_info"</span>, <span class="string">"bid_amount"</span>)
+print(json.dumps(report.summary(), indent=<span class="number">2</span>, ensure_ascii=<span class="keyword">False</span>))
+
+<span class="keyword">for</span> impact <span class="keyword">in</span> report.impacts:
+    tag = {
+        ImpactLevel.HIGH: <span class="string">"🔴 HIGH"</span>,
+        ImpactLevel.MEDIUM: <span class="string">"🟡 MEDIUM"</span>,
+        ImpactLevel.LOW: <span class="string">"🟢 LOW"</span>
+    }[impact.level]
+    print(f<span class="string">"{tag} → {impact.table}.{impact.column} (via {' → '.join(impact.path)})"</span>)
+
+<span class="comment"># 输出示例：</span>
+<span class="comment"># 🔴 HIGH  → dwd_bid_detail.bid_amount (via ods_bid_info → dwd_bid_detail)</span>
+<span class="comment"># 🟡 MEDIUM → dws_bid_daily.total_amount (via ods_bid_info → dwd_bid_detail → dws_bid_daily)</span>
+<span class="comment"># 🟡 MEDIUM → ads_bid_rank.rank_amount (via ods_bid_info → ... → ads_bid_rank)</span></code></pre>
+</div>
+
+<!-- ============================== -->
+<!-- Section 5: 异常检测 -->
+<!-- ============================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔍</span> 四、血缘异常检测 — 断裂、环路、孤儿节点
+    <span class="time-tag">10 min</span>
+  </div>
+
+  <p>数仓跑久了，血缘图会出现各种「病态」：</p>
+
+  <table class="compare-table">
+    <tr><th>异常类型</th><th>表现</th><th>数仓场景</th><th>严重度</th></tr>
+    <tr><td>血缘断裂</td><td>上游表被删但下游还在引用</td><td>ODS 源表下线，DWD 作业报错</td><td class="tag tag-red">严重</td></tr>
+    <tr><td>循环依赖</td><td>A→B→C→A 形成环</td><td>两个 DWS 表互相引用</td><td class="tag tag-red">严重</td></tr>
+    <tr><td>孤儿节点</td><td>表没有任何上下游关系</td><td>废弃的临时表未清理</td><td class="tag tag-orange">中等</td></tr>
+    <tr><td>长链依赖</td><td>依赖链深度 > 阈值（如 >5）</td><td>ODS→DWD→DWS→ADS 之外又套了一层</td><td class="tag tag-orange">中等</td></tr>
+    <tr><td>宽扇出</td><td>一张表被 >10 张下游引用</td><td>公共 DIM 表变更影响面过大</td><td class="tag tag-yellow">低</td></tr>
+  </table>
+
+  <h3>4.1 LineageAnomalyDetector 异常检测器</h3>
+  <pre><code><span class="keyword">from</span> enum <span class="keyword">import</span> Enum
+
+<span class="keyword">class</span> <span class="type">AnomalyType</span>(Enum):
+    BROKEN_LINEAGE = <span class="string">"血缘断裂"</span>     <span class="comment"># 引用了不存在的上游表</span>
+    CYCLE = <span class="string">"循环依赖"</span>          <span class="comment"># DAG 中存在环</span>
+    ORPHAN = <span class="string">"孤儿节点"</span>          <span class="comment"># 无上下游关系</span>
+    DEEP_CHAIN = <span class="string">"长链依赖"</span>        <span class="comment"># 依赖深度超阈值</span>
+    WIDE_FANOUT = <span class="string">"宽扇出"</span>        <span class="comment"># 被过多下游引用</span>
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="type">Anomaly</span>:
+    type: AnomalyType
+    severity: <span class="type">str</span>           <span class="comment"># "critical" / "warning" / "info"</span>
+    description: <span class="type">str</span>
+    tables: <span class="type">list</span>[<span class="type">str</span>]
+
+<span class="keyword">class</span> <span class="type">LineageAnomalyDetector</span>:
+    <span class="string">"""
+    血缘异常检测器
+    在图上跑 5 种检测规则
+    """</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(
+        self,
+        graph: LineageGraph,
+        known_tables: <span class="type">set</span>[<span class="type">str</span>],  <span class="comment"># 数据库中确实存在的表</span>
+        max_depth: <span class="type">int</span> = <span class="number">5</span>,
+        max_fanout: <span class="type">int</span> = <span class="number">10</span>
+    ):
+        self.graph = graph
+        self.known_tables = known_tables
+        self.max_depth = max_depth
+        self.max_fanout = max_fanout
+
+    <span class="keyword">def</span> <span class="func">detect_all</span>(self) -> <span class="type">list</span>[Anomaly]:
+        <span class="string">"""运行全部检测规则"""</span>
+        anomalies = []
+        anomalies.extend(self._detect_broken())
+        anomalies.extend(self._detect_cycles())
+        anomalies.extend(self._detect_orphans())
+        anomalies.extend(self._detect_deep_chains())
+        anomalies.extend(self._detect_wide_fanout())
+        <span class="keyword">return</span> anomalies
+
+    <span class="keyword">def</span> <span class="func">_detect_broken</span>(self) -> <span class="type">list</span>[Anomaly]:
+        <span class="string">"""检测血缘断裂：引用了不存在的上游表"""</span>
+        anomalies = []
+        <span class="keyword">for</span> edge <span class="keyword">in</span> self.graph.edges:
+            <span class="keyword">if</span> edge.source_table <span class="keyword">not in</span> self.known_tables:
+                anomalies.append(Anomaly(
+                    type=AnomalyType.BROKEN_LINEAGE,
+                    severity=<span class="string">"critical"</span>,
+                    description=
+                        f<span class="string">"{edge.target_table} 引用了不存在的上游表 "</span>
+                        f<span class="string">"{edge.source_table}（字段: {edge.source_column}）"</span>,
+                    tables=[edge.target_table, edge.source_table]
+                ))
+        <span class="keyword">return</span> anomalies
+
+    <span class="keyword">def</span> <span class="func">_detect_cycles</span>(self) -> <span class="type">list</span>[Anomaly]:
+        <span class="string">"""检测循环依赖：拓扑排序后仍有节点未处理 = 有环"""</span>
+        _, has_cycle = self.graph.topological_sort()
+        <span class="keyword">if</span> has_cycle:
+            <span class="comment"># 找出哪些节点参与环路（被拓扑排序遗漏的）</span>
+            sorted_tables, _ = self.graph.topological_sort()
+            cycle_nodes = [
+                t <span class="keyword">for</span> t <span class="keyword">in</span> self.graph.get_all_tables()
+                <span class="keyword">if</span> t <span class="keyword">not in</span> set(sorted_tables)
+            ]
+            <span class="keyword">return</span> [Anomaly(
+                type=AnomalyType.CYCLE,
+                severity=<span class="string">"critical"</span>,
+                description=f<span class="string">"检测到循环依赖，涉及表: {', '.join(cycle_nodes)}"</span>,
+                tables=cycle_nodes
+            )]
+        <span class="keyword">return</span> []
+
+    <span class="keyword">def</span> <span class="func">_detect_orphans</span>(self) -> <span class="type">list</span>[Anomaly]:
+        <span class="string">"""检测孤儿节点：既没有上游也没有下游的表"""</span>
+        anomalies = []
+        <span class="keyword">for</span> table <span class="keyword">in</span> self.graph.get_all_tables():
+            has_up = table <span class="keyword">in</span> self.graph._upstream <span class="keyword">or</span> any(
+                e.target_table == table <span class="keyword">for</span> e <span class="keyword">in</span> self.graph.edges
+            )
+            has_down = table <span class="keyword">in</span> self.graph._downstream <span class="keyword">or</span> any(
+                e.source_table == table <span class="keyword">for</span> e <span class="keyword">in</span> self.graph.edges
+            )
+            <span class="keyword">if not</span> has_up <span class="keyword">and not</span> has_down:
+                anomalies.append(Anomaly(
+                    type=AnomalyType.ORPHAN,
+                    severity=<span class="string">"warning"</span>,
+                    description=f<span class="string">"表 {table} 是孤儿节点，无任何血缘关系"</span>,
+                    tables=[table]
+                ))
+        <span class="keyword">return</span> anomalies
+
+    <span class="keyword">def</span> <span class="func">_detect_deep_chains</span>(self) -> <span class="type">list</span>[Anomaly]:
+        <span class="string">"""检测长链依赖：BFS 深度超过阈值"""</span>
+        anomalies = []
+        <span class="comment"># 只从入度为 0 的表（源头）开始计算</span>
+        all_tables = self.graph.get_all_tables()
+        in_degree = {t: <span class="number">0</span> <span class="keyword">for</span> t <span class="keyword">in</span> all_tables}
+        <span class="keyword">for</span> src, targets <span class="keyword">in</span> self.graph._downstream.items():
+            <span class="keyword">for</span> tgt <span class="keyword">in</span> targets:
+                <span class="keyword">if</span> tgt <span class="keyword">in</span> in_degree:
+                    in_degree[tgt] += <span class="number">1</span>
+
+        sources = [t <span class="keyword">for</span> t, d <span class="keyword">in</span> in_degree.items() <span class="keyword">if</span> d == <span class="number">0</span>]
+        <span class="keyword">for</span> src <span class="keyword">in</span> sources:
+            depths = self.graph.bfs_downstream(src)
+            <span class="keyword">for</span> table, depth <span class="keyword">in</span> depths.items():
+                <span class="keyword">if</span> depth > self.max_depth:
+                    anomalies.append(Anomaly(
+                        type=AnomalyType.DEEP_CHAIN,
+                        severity=<span class="string">"warning"</span>,
+                        description=
+                            f<span class="string">"{src} → {table} 依赖链深度为 {depth}，"</span>
+                            f<span class="string">"超过阈值 {self.max_depth}"</span>,
+                        tables=[src, table]
+                    ))
+        <span class="keyword">return</span> anomalies
+
+    <span class="keyword">def</span> <span class="func">_detect_wide_fanout</span>(self) -> <span class="type">list</span>[Anomaly]:
+        <span class="string">"""检测宽扇出：一张表被超过 N 张下游表引用"""</span>
+        anomalies = []
+        <span class="keyword">for</span> table, downstream <span class="keyword">in</span> self.graph._downstream.items():
+            <span class="keyword">if</span> len(downstream) > self.max_fanout:
+                anomalies.append(Anomaly(
+                    type=AnomalyType.WIDE_FANOUT,
+                    severity=<span class="string">"info"</span>,
+                    description=
+                        f<span class="string">"{table} 被 {len(downstream)} 张表引用，"</span>
+                        f<span class="string">"超过阈值 {self.max_fanout}"</span>,
+                    tables=[table] + list(downstream)
+                ))
+        <span class="keyword">return</span> anomalies</code></pre>
+
+  <h3>4.2 异常检测实战</h3>
+  <pre><code><span class="comment"># 假设数据库中只有这 4 张表</span>
+known = {<span class="string">"ods_bid_info"</span>, <span class="string">"dwd_bid_detail"</span>, <span class="string">"dws_bid_daily"</span>, <span class="string">"ads_bid_rank"</span>}
+
+<span class="comment"># 添加一个「幽灵引用」来模拟血缘断裂</span>
+graph.add_edge(LineageEdge(
+    <span class="string">"ods_deleted_table"</span>, <span class="string">"id"</span>,
+    <span class="string">"dwd_bid_detail"</span>, <span class="string">"ext_id"</span>,
+    confidence=<span class="number">0.8</span>, source=<span class="string">"llm"</span>
+))
+
+detector = LineageAnomalyDetector(graph, known_tables=known)
+anomalies = detector.detect_all()
+
+<span class="keyword">for</span> a <span class="keyword">in</span> anomalies:
+    tag = {
+        <span class="string">"critical"</span>: <span class="string">"🔴 CRITICAL"</span>,
+        <span class="string">"warning"</span>: <span class="string">"🟡 WARNING"</span>,
+        <span class="string">"info"</span>: <span class="string">"🔵 INFO"</span>
+    }[a.severity]
+    print(f<span class="string">"{tag} [{a.type.value}] {a.description}"</span>)
+
+<span class="comment"># 输出示例：</span>
+<span class="comment"># 🔴 CRITICAL [血缘断裂] dwd_bid_detail 引用了不存在的上游表 ods_deleted_table</span></code></pre>
+</div>
+
+<!-- ============================== -->
+<!-- Section 6: 串联实战 -->
+<!-- ============================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔗</span> 五、全链路串联 — 从 SQL 到影响报告
+    <span class="time-tag">综合</span>
+  </div>
+
+  <pre><code><span class="keyword">def</span> <span class="func">full_lineage_analysis</span>(sql: <span class="type">str</span>, all_tables: <span class="type">set</span>[<span class="type">str</span>]) -> <span class="type">dict</span>:
+    <span class="string">"""
+    完整血缘分析流程（Day 65 + Day 66 串联）
+    1. SQL 解析提取显式血缘
+    2. 拓扑排序验证 DAG
+    3. 异常检测
+    4. 影响分析
+    """</span>
+    <span class="comment"># Step 1: 解析 SQL（Day 65 的 SQLTableParser）</span>
+    <span class="comment"># table_parser = SQLTableParser()</span>
+    <span class="comment"># target, sources = table_parser.parse(sql)</span>
+    <span class="comment"># 为简化演示，直接构建图</span>
+
+    graph = LineageGraph()
+    <span class="comment"># ... 添加 edges（见前面的示例）</span>
+
+    <span class="comment"># Step 2: 拓扑排序</span>
+    order, has_cycle = graph.topological_sort()
+    print(f<span class="string">"[DAG] 排序: {order}, 有环: {has_cycle}"</span>)
+
+    <span class="comment"># Step 3: 异常检测</span>
+    detector = LineageAnomalyDetector(graph, known_tables=all_tables)
+    anomalies = detector.detect_all()
+    print(f<span class="string">"[异常] 检测到 {len(anomalies)} 个问题"</span>)
+
+    <span class="comment"># Step 4: 影响分析</span>
+    analyzer = ImpactAnalyzer(graph)
+    report = analyzer.analyze(<span class="string">"ods_bid_info"</span>, <span class="string">"bid_amount"</span>)
+    print(f<span class="string">"[影响] {report.summary()}"</span>)
+
+    <span class="keyword">return</span> {
+        <span class="string">"topo_order"</span>: order,
+        <span class="string">"has_cycle"</span>: has_cycle,
+        <span class="string">"anomalies"</span>: [
+            {<span class="string">"type"</span>: a.type.value, <span class="string">"severity"</span>: a.severity,
+             <span class="string">"desc"</span>: a.description}
+            <span class="keyword">for</span> a <span class="keyword">in</span> anomalies
+        ],
+        <span class="string">"impact_summary"</span>: report.summary()
+    }</code></pre>
+
+  <div class="flow-diagram">完整 P6 血缘系统数据流
+
+  SQL 文本 ──→ SQLTableParser ──→ 显式边 (confidence=1.0)
+                                         ↓
+                                   LineageGraph
+                                         ↑
+  表元数据 ──→ LLMLineageCompleter ──→ 隐式边 (confidence=0.7~0.9)
+                                         ↓
+                              ┌──────────┼──────────┐
+                         ImpactAnalyzer  AnomalyDetector  TopologicalSort
+                         (影响分析)      (异常检测)       (DAG 验证)
+                              └──────────┼──────────┘
+                                         ↓
+                                   血缘分析报告</div>
+</div>
+
+<!-- ============================== -->
+<!-- Section 7: 常见陷阱 -->
+<!-- ============================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">⚠️</span> 常见陷阱 Top 5
+  </div>
+
+  <ol>
+    <li><strong>DFS 不设 max_depth 导致栈溢出</strong> — 血缘图如果意外出现环（虽然理论上不该有），DFS 递归会无限展开。<br>
+    <span class="inline-code">fix:</span> 始终传 <code>max_depth</code> 参数，并在 <code>visited</code> 中检查已访问节点。</li>
+    <li><strong>LLM 编造不存在的表名</strong> — LLM 可能「幻觉」出一个不存在的表并声称有血缘关系。<br>
+    <span class="inline-code">fix:</span> LLM 返回后必须与 <code>known_tables</code> 交叉验证，过滤不存在的表。</li>
+    <li><strong>拓扑排序假设全连通</strong> — Kahn 算法只能检测「图内」的环，如果有孤立子图需要分别处理。<br>
+    <span class="inline-code">fix:</span> 对每个连通分量分别做拓扑排序。</li>
+    <li><strong>字段级血缘的别名问题</strong> — <code>SELECT a.id AS bid_id</code> 中 <code>id</code> 和 <code>bid_id</code> 是同一字段的不同名称。<br>
+    <span class="inline-code">fix:</span> 解析器需要维护别名映射表，归一化后再建边。</li>
+    <li><strong>影响分析只看字段级忽略表级</strong> — <code>SELECT *</code> 会让所有字段都变成隐式依赖。<br>
+    <span class="inline-code">fix:</span> 遇到 <code>SELECT *</code> 时，自动建立该表所有字段的血缘边。</li>
+  </ol>
+</div>
+
+<!-- ============================== -->
+<!-- Section 8: 最佳实践 -->
+<!-- ============================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">✅</span> 最佳实践速查表
+  </div>
+
+  <table class="compare-table">
+    <tr><th>场景</th><th>推荐做法</th><th>避免</th></tr>
+    <tr><td>图遍历选择</td><td>影响范围用 BFS，完整路径用 DFS</td><td>不区分场景都用 DFS</td></tr>
+    <tr><td>LLM 补全频率</td><td>只在 SQL 解析后增量补全，不全量跑</td><td>每次都调 LLM（贵且慢）</td></tr>
+    <tr><td>置信度阈值</td><td>报告时按 confidence 过滤，&lt;0.7 标记为「待确认」</td><td>把 LLM 结果和 SQL 结果同等对待</td></tr>
+    <tr><td>异常分级</td><td>critical 立即告警，warning 周报汇总，info 仅记录</td><td>所有异常都发告警（告警疲劳）</td></tr>
+    <tr><td>性能优化</td><td>血缘图变更时增量更新拓扑排序，不全量重算</td><td>每次查询都全量拓扑排序</td></tr>
+  </table>
+</div>
+
+<!-- ============================== -->
+<!-- Section 9: 总结 -->
+<!-- ============================== -->
+<div class="summary-box">
+  <h3>📝 Day 66 总结</h3>
+  <ul>
+    <li><strong>Python 图算法</strong>：BFS（影响范围）、DFS（完整路径）、Kahn 拓扑排序（DAG 验证 + 环检测） — 血缘图上的三大遍历工具</li>
+    <li><strong>LLM 血缘补全</strong>：发现 SQL 解析遗漏的隐式关系（字典表/配置表/语义关联），用 confidence 区分可信度</li>
+    <li><strong>影响分析</strong>：BFS 遍历字段级血缘图，按 transform_type + confidence 分 HIGH/MEDIUM/LOW 三级</li>
+    <li><strong>异常检测</strong>：5 种规则（断裂/环/孤儿/长链/宽扇出），复用拓扑排序做环检测</li>
+    <li><strong>全链路</strong>：SQL 解析 → 图构建 → LLM 补全 → 拓扑验证 → 异常检测 → 影响分析 → 报告</li>
+  </ul>
+  <p><strong>Day 67 预告：</strong>P6 收官 — 血缘可视化（Mermaid/HTML 交互图）+ FastAPI 血缘服务 API 部署</p>
+</div>
+
+<!-- ============================== -->
+<!-- Section 10: 练习 -->
+<!-- ============================== -->
+<div class="exercise-box">
+  <h3>🏋️ 课后练习</h3>
+  <ol>
+    <li><strong>环检测增强</strong>：在有环的图上，用 DFS 找出具体的环路路径（提示：维护 parent 映射，回溯到重复节点）</li>
+    <li><strong>LLM 结果校验</strong>：在 <code>LLMLineageCompleter.complete()</code> 中增加一步 — 用 <code>known_tables</code> 过滤 LLM 返回的不存在的表名</li>
+    <li><strong>LeetCode #210 课程表 II</strong>：给你 <code>numCourses</code> 门课和先修关系 <code>prerequisites</code>，返回一个合法的上课顺序（就是拓扑排序！）。用今天学的 Kahn 算法做。</li>
+  </ol>
+  <pre><code><span class="comment"># LeetCode #210 提示</span>
+<span class="keyword">def</span> <span class="func">findOrder</span>(numCourses: <span class="type">int</span>, prerequisites: <span class="type">list</span>[<span class="type">list</span>[<span class="type">int</span>]]) -> <span class="type">list</span>[<span class="type">int</span>]:
+    <span class="string">"""
+    和今天学的拓扑排序一模一样！
+    numCourses = 节点数
+    prerequisites[i] = [a, b] 表示学 a 之前要先学 b (b → a 的边)
+    """</span>
+    <span class="comment"># 你的代码...</span>
+    <span class="keyword">pass</span></code></pre>
+</div>
+
+</body>
+</html>

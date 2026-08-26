@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 67 - P7 智能数仓元数据管理平台（架构设计 + 元数据采集 + LLM字段注释）</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--purple:#9333ea;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#eff6ff,#c7d2fe);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #93c5fd; }
+  .header .badge { display:inline-block;background:#dbeafe;color:#1e40af;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--purple));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--purple);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#faf5ff;border-left:3px solid var(--purple);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--purple); }
+  .tip-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--accent); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  pre { background:#1e293b;color:#e2e8f0;padding:18px 20px;border-radius:10px;overflow-x:auto;font-size:13.5px;line-height:1.7;margin:14px 0;tab-size:4; }
+  pre .comment { color:#6b7280;font-style:italic; }
+  pre .keyword { color:#c084fc; }
+  pre .string { color:#34d399; }
+  pre .func { color:#60a5fa; }
+  pre .decorator { color:#f472b6; }
+  pre .number { color:#fb923c; }
+  pre .type { color:#fbbf24; }
+  pre .op { color:#f87171; }
+  h3 { font-size:16px;font-weight:700;margin:18px 0 10px;color:var(--text); }
+  p { font-size:14.5px;color:var(--text2);margin-bottom:10px; }
+  ul,ol { font-size:14.5px;color:var(--text2);padding-left:20px;margin-bottom:10px; }
+  li { margin-bottom:4px; }
+  strong { color:var(--text); }
+  code { background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:13px;color:#c084fc;font-family:'Cascadia Code','Fira Code',monospace; }
+  .nav { display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap; }
+  .nav a { text-decoration:none;padding:6px 14px;border-radius:8px;font-size:13px;background:var(--surface);color:var(--text2);border:1px solid var(--border);transition:all .2s; }
+  .nav a:hover { background:var(--accent);color:#fff;border-color:var(--accent); }
+  .nav a.active { background:var(--accent);color:#fff;border-color:var(--accent); }
+  table { width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px; }
+  th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border); }
+  td { padding:10px 14px;border:1px solid var(--border);color:var(--text2); }
+  .footer { text-align:center;padding:24px;color:var(--text3);font-size:13px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">P7 · 项目实战 Day 1/3</div>
+  <h1>Day 67 - 智能数仓元数据管理平台</h1>
+  <div class="subtitle">架构设计 + 元数据采集 + LLM 自动生成字段注释</div>
+</div>
+
+<div class="progress-bar">
+  <span class="label">整体进度</span>
+  <div class="track"><div class="fill" style="width:55.7%"></div></div>
+  <span class="percent">67/120</span>
+</div>
+
+<div class="nav">
+  <a href="day66.html">← Day 66</a>
+  <a href="#">Day 67</a>
+  <a href="day68.html">Day 68 →</a>
+</div>
+
+<!-- ============ Section 1: 项目背景 ============ -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🎯</span> 项目背景与目标
+    <span class="time-tag">5 min</span>
+  </div>
+
+  <h3>为什么做这个项目？</h3>
+  <p>作为数据开发工程师，你一定经历过这些痛点：</p>
+  <ul>
+    <li><strong>表太多记不住</strong> — 数仓几十上百张表，字段注释缺失或过时</li>
+    <li><strong>新人上手难</strong> — 没有文档，只能靠口头交接</li>
+    <li><strong>变更无感知</strong> — 谁改了什么字段、改了什么含义，全靠猜</li>
+    <li><strong>元数据分散</strong> — 信息schema、建表DDL、业务文档各管各的</li>
+  </ul>
+
+  <div class="concept-box">
+    <strong>本项目目标：</strong>构建一个元数据管理平台，自动从 MySQL <code>information_schema</code> 采集表结构，<br>
+    利用 LLM 智能生成/补全字段注释，对比历史快照检测变更，最终生成可交互的数仓文档。<br>
+    <strong>这正是你作为数仓工程师最熟悉也最需要的工具。</strong>
+  </div>
+
+  <h3>P7 三天规划</h3>
+  <table>
+    <tr><th>天数</th><th>主题</th><th>核心产出</th></tr>
+    <tr><td><strong>Day 67</strong></td><td>架构设计 + 元数据采集 + LLM 注释</td><td>元数据采集器 + LLM 注释生成</td></tr>
+    <tr><td>Day 68</td><td>变更检测 + 血缘关联 + 文档生成</td><td>Schema Diff + Markdown 文档输出</td></tr>
+    <tr><td>Day 69</td><td>Web 可视化面板 + 告警集成</td><td>FastAPI + 前端展示 + 邮件告警</td></tr>
+  </table>
+</div>
+
+<!-- ============ Section 2: 系统架构 ============ -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏗️</span> 系统架构设计
+    <span class="time-tag">10 min</span>
+  </div>
+
+  <h3>整体架构</h3>
+  <pre><span class="comment">┌─────────────────────────────────────────────────────────┐</span>
+<span class="comment">│              智能数仓元数据管理平台                       │</span>
+<span class="comment">├─────────────────────────────────────────────────────────┤</span>
+<span class="comment">│                                                         │</span>
+<span class="comment">│  ┌──────────┐   ┌──────────────┐   ┌───────────────┐    │</span>
+<span class="comment">│  │ MySQL    │──▶│ 元数据采集器  │──▶│ SQLite 存储   │    │</span>
+<span class="comment">│  │ info_schema│   │ Collector    │   │ (快照+注释)   │    │</span>
+<span class="comment">│  └──────────┘   └──────┬───────┘   └───────┬───────┘    │</span>
+<span class="comment">│                        │                   │            │</span>
+<span class="comment">│                        ▼                   ▼            │</span>
+<span class="comment">│               ┌──────────────┐   ┌───────────────┐    │</span>
+<span class="comment">│               │ LLM 注释生成  │   │ Schema Diff   │    │</span>
+<span class="comment">│               │ (批量补全)    │   │ (变更检测)    │    │</span>
+<span class="comment">│               └──────┬───────┘   └───────┬───────┘    │</span>
+<span class="comment">│                      │                   │            │</span>
+<span class="comment">│                      ▼                   ▼            │</span>
+<span class="comment">│               ┌──────────────┐   ┌───────────────┐    │</span>
+<span class="comment">│               │ Markdown文档  │   │ 告警通知      │    │</span>
+<span class="comment">│               │ 自动生成     │   │ (邮件/Webhook)│    │</span>
+<span class="comment">│               └──────────────┘   └───────────────┘    │</span>
+<span class="comment">│                                                         │</span>
+<span class="comment">│  ┌──────────────────────────────────────────────┐       │</span>
+<span class="comment">│  │  Day 69: FastAPI Web 面板 (表浏览/搜索/对比)  │       │</span>
+<span class="comment">│  └──────────────────────────────────────────────┘       │</span>
+<span class="comment">└─────────────────────────────────────────────────────────┘</span></pre>
+
+  <h3>数据模型设计</h3>
+  <p>我们用 SQLite 做本地存储（轻量、无需额外部署），三张核心表：</p>
+
+  <pre><span class="comment"># models.py — 元数据存储模型</span>
+<span class="keyword">import</span> sqlite3
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> typing <span class="keyword">import</span> Optional
+<span class="keyword">from</span> datetime <span class="keyword">import</span> datetime
+
+
+<span class="decorator">@dataclass</span>
+<span class="keyword">class</span> <span class="type">TableMeta</span>:
+    <span class="comment">"""表级元数据"""</span>
+    catalog: str          <span class="comment"># 数据库名</span>
+    table_name: str      <span class="comment"># 表名</span>
+    table_comment: str   <span class="comment"># 表注释（原始）</span>
+    table_type: str      <span class="comment"># BASE TABLE / VIEW</span>
+    engine: str          <span class="comment"># 存储引擎</span>
+    row_count: <span class="type">int</span> = <span class="number">0</span>    <span class="comment"># 行数估算</span>
+    data_length: <span class="type">int</span> = <span class="number">0</span> <span class="comment"># 数据大小(bytes)</span>
+    create_time: <span class=

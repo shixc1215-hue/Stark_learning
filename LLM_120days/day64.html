@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 64 - P5 收官：多轮对话优化 + FastAPI 部署</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--purple:#9333ea;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #fbbf24; }
+  .header .badge { display:inline-block;background:#fef9c3;color:#854d0e;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--purple));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--purple);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#faf5ff;border-left:3px solid var(--purple);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--purple); }
+  .tip-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--accent); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  pre { background:#1e293b;color:#e2e8f0;padding:18px 20px;border-radius:8px;overflow-x:auto;font-size:13.5px;line-height:1.6;margin:12px 0;tab-size:4; }
+  pre .comment { color:#64748b;font-style:italic; }
+  pre .keyword { color:#c084fc; }
+  pre .string { color:#86efac; }
+  pre .func { color:#93c5fd; }
+  pre .decorator { color:#fbbf24; }
+  pre .class-name { color:#67e8f9; }
+  pre .number { color:#fbbf24; }
+  pre .builtin { color:#f0abfc; }
+  code { background:var(--surface2);padding:2px 7px;border-radius:4px;font-size:13px;font-family:'Cascadia Code','Fira Code',Consolas,monospace;color:var(--accent2); }
+  pre code { background:none;padding:0;color:inherit;font-size:13.5px; }
+  .compare-table { width:100%;border-collapse:collapse;margin:14px 0;font-size:14px; }
+  .compare-table th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border); }
+  .compare-table td { padding:10px 14px;border:1px solid var(--border); }
+  .compare-table tr:hover { background:var(--surface2); }
+  .flow-chart { background:var(--surface2);padding:20px 24px;border-radius:8px;margin:14px 0;text-align:center;font-size:14px;overflow-x:auto; }
+  .flow-chart .step { display:inline-block;background:var(--accent);color:#fff;padding:8px 16px;border-radius:6px;margin:4px;font-weight:600; }
+  .flow-chart .arrow { display:inline-block;color:var(--text3);margin:4px 6px;font-weight:700; }
+  .flow-chart .step.active { background:var(--purple); }
+  .flow-chart .step.green { background:var(--green); }
+  .flow-chart .step.orange { background:var(--orange); }
+  ul,ol { padding-left:22px;margin:10px 0; }
+  li { margin:5px 0;font-size:14px;color:var(--text2); }
+  li strong { color:var(--text); }
+  .sub-list { list-style:none;padding-left:0;margin:4px 0 12px 0; }
+  .sub-list li::before { content:"›";color:var(--accent);font-weight:700;margin-right:8px; }
+  .tag { display:inline-block;font-size:12px;padding:2px 8px;border-radius:10px;font-weight:600;margin:2px; }
+  .tag-new { background:#dbeafe;color:#1d4ed8; }
+  .tag-review { background:#fef3c7;color:#92400e; }
+  .tag-core { background:#ede9fe;color:#5b21b6; }
+  .tag-practice { background:#dcfce7;color:#166534; }
+  h3 { font-size:16px;font-weight:700;margin:18px 0 10px;color:var(--text); }
+  .summary-box { background:linear-gradient(135deg,#eff6ff,#e0e7ff);border:1px solid #bfdbfe;border-radius:var(--radius);padding:20px 24px;margin:20px 0; }
+  .summary-box h3 { margin-top:0;color:var(--accent2); }
+  .finale-box { background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;border-radius:var(--radius);padding:24px 28px;margin:24px 0; }
+  .finale-box h3 { margin-top:0;color:#92400e; }
+  .footer { text-align:center;color:var(--text3);font-size:13px;margin-top:30px;padding-top:16px;border-top:1px solid var(--surface3); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Phase 4 · 项目实战 · P5 Day 3/3 🏁</div>
+  <h1>Day 64 — P5 收官：多轮对话优化 + FastAPI 部署</h1>
+  <div class="subtitle">上下文压缩 · 对话质量评估 · FastAPI WebSocket 实时对话 · 项目收官总结</div>
+</div>
+
+<div class="progress-bar">
+  <span class="label">LLM 120天进度</span>
+  <div class="track"><div class="fill" style="width:91.4%"></div></div>
+  <span class="percent">64/70</span>
+</div>
+
+<!-- ==================== 1. 概述 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">📋</span> 今日学习路线 <span class="time-tag">约 60 分钟</span></div>
+
+  <h3>Day 63 回顾</h3>
+  <p style="font-size:14px;color:var(--text2)">昨天完成了对话管理 + 回复生成：<code>ConversationState</code> 对话状态模型、<code>SessionManager</code> 会话存储（TTL 过期清理）、<code>SlotFillingManager</code> 槽位填充（缺啥追问）、<code>HybridResponder</code> 模板优先 + LLM 兜底混合回复、<code>ConversationManager</code> 全流程集成（4 轮 mock 对话演示）。</p>
+
+  <h3>今天要完成什么？</h3>
+  <ul>
+    <li><strong>上下文压缩</strong> — 长对话 Token 爆炸问题，摘要 + 滑动窗口双策略</li>
+    <li><strong>对话质量评估</strong> — 自动衡量多轮对话是否"聊得好"</li>
+    <li><strong>FastAPI WebSocket 部署</strong> — 真正的实时双向对话，不是 HTTP 请求-响应</li>
+    <li><strong>P5 三天收官总结</strong> — 知识图谱 + 核心收获 + 总进度</li>
+  </ul>
+
+  <div class="flow-chart">
+    <span class="step">用户消息</span><span class="arrow">→</span>
+    <span class="step active">上下文压缩</span><span class="arrow">→</span>
+    <span class="step">意图识别</span><span class="arrow">→</span>
+    <span class="step">槽位填充</span><span class="arrow">→</span>
+    <span class="step">回复生成</span><span class="arrow">→</span>
+    <span class="step">质量评估</span><span class="arrow">→</span>
+    <span class="step green">WebSocket 推送</span>
+  </div>
+
+  <div class="concept-box">
+    <strong>数仓类比：</strong>上下文压缩就像数仓中的 <strong>增量聚合</strong>。原始日志（每轮对话）保留最近 N 条明细，老数据用摘要（聚合表）替代，既不丢关键信息，又控制了存储量。对话质量评估则类似 ETL 的 <strong>数据质量校验</strong>——校验通过率越高，说明对话链路越稳定。
+  </div>
+</div>
+
+<!-- ==================== 2. Python 知识 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🐍</span> Python 知识：collections.deque 双端队列 / textwrap 摘要 / json-lines 流式写入 <span class="time-tag">15 min</span></div>
+
+  <h3>2.1 deque 高级用法 — 滑动窗口 + maxlen</h3>
+  <p style="font-size:14px;color:var(--text2)"><code>deque(maxlen=N)</code> 自动丢弃超出部分，非常适合做"保留最近 N 轮对话"的滑动窗口。Day 63 用过基础版，今天看进阶场景。</p>
+  <pre><code><span class="keyword">from</span> collections <span class="keyword">import</span> deque
+
+<span class="comment"># maxlen 自动淘汰最老的元素 — O(1) 复杂度</span>
+recent = deque(maxlen=<span class="number">5</span>)
+<span class="keyword">for</span> i <span class="keyword">in</span> <span class="builtin">range</span>(<span class="number">8</span>):
+    recent.<span class="func">append</span>(<span class="string">f"turn_{i}"</span>)
+<span class="builtin">print</span>(<span class="builtin">list</span>(recent))  <span class="comment"># ['turn_3', 'turn_4', 'turn_5', 'turn_6', 'turn_7']</span>
+
+<span class="comment"># 实际场景：保留最近N轮对话（每轮=用户消息+助手回复）</span>
+<span class="keyword">class</span> <span class="class-name">ConversationWindow</span>:
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, max_turns: <span class="builtin">int</span> = <span class="number">10</span>, max_chars: <span class="builtin">int</span> = <span class="number">4000</span>):
+        self._turns = deque(maxlen=max_turns)  <span class="comment"># 最多保留N轮</span>
+        self._max_chars = max_chars            <span class="comment"># 字符数硬上限</span>
+        self._total_chars = <span class="number">0</span>
+
+    <span class="keyword">def</span> <span class="func">add_turn</span>(self, role: <span class="builtin">str</span>, content: <span class="builtin">str</span>):
+        <span class="string">"""添加一轮对话，超字符上限则裁剪"""</span>
+        entry = {<span class="string">"role"</span>: role, <span class="string">"content"</span>: content}
+        self._total_chars += <span class="builtin">len</span>(content)
+
+        <span class="comment"># 超字符上限 → 从队头淘汰旧轮次</span>
+        <span class="keyword">while</span> self._total_chars > self._max_chars <span class="keyword">and</span> self._turns:
+            removed = self._turns.<span class="func">popleft</span>()
+            self._total_chars -= <span class="builtin">len</span>(removed[<span class="string">"content"</span>])
+
+        self._turns.<span class="func">append</span>(entry)
+
+    <span class="keyword">def</span> <span class="func">get_history</span>(self) -> <span class="builtin">list</span>[<span class="builtin">dict</span>]:
+        <span class="string">"""获取当前窗口内的对话历史"""</span>
+        <span class="keyword">return</span> <span class="builtin">list</span>(self._turns)
+
+    <span class="keyword">def</span> <span class="func">summary_stats</span>(self) -> <span class="builtin">dict</span>:
+        <span class="keyword">return</span> {
+            <span class="string">"turn_count"</span>: <span class="builtin">len</span>(self._turns),
+            <span class="string">"total_chars"</span>: self._total_chars,
+            <span class="string">"max_capacity"</span>: self._turns.maxlen
+        }
+
+<span class="comment"># 测试</span>
+win = ConversationWindow(max_turns=<span class="number">3</span>, max_chars=<span class="number">50</span>)
+win.<span class="func">add_turn</span>(<span class="string">"user"</span>, <span class="string">"查询资产A001"</span>)
+win.<span class="func">add_turn</span>(<span class="string">"assistant"</span>, <span class="string">"资产A001余额为100万"</span>)
+win.<span class="func">add_turn</span>(<span class="string">"user"</span>, <span class="string">"还有哪些风险"</span>)
+<span class="builtin">print</span>(win.<span class="func">summary_stats</span>())  <span class="comment"># {'turn_count': 3, 'total_chars': 28, 'max_capacity': 3}</span></code></pre>
+
+  <h3>2.2 textwrap — 长文本摘要截断</h3>
+  <p style="font-size:14px;color:var(--text2)">LLM 返回的对话历史可能很长，<code>textwrap.shorten()</code> 按词/字符边界截断，避免截到半个词。</p>
+  <pre><code><span class="keyword">import</span> textwrap
+
+<span class="comment"># shorten: 按词边界截断，不截断单词</span>
+long_text = <span class="string">"用户询问了资产编号A001的不良贷款余额为150万元，已逾期90天，"</span> \
+            <span class="string">"当前处置状态为诉讼中，预计回收率为60%，抵押物为位于XX路的房产。"</span>
+
+summary = textwrap.<span class="func">shorten</span>(long_text, width=<span class="number">40</span>, placeholder=<span class="string">"..."</span>)
+<span class="builtin">print</span>(summary)  <span class="comment"># '用户询问了资产编号A001的...'</span>
+
+<span class="comment"># 实际场景：将老对话压缩为摘要行</span>
+<span class="keyword">def</span> <span class="func">summarize_turns</span>(turns: <span class="builtin">list</span>[<span class="builtin">dict</span>], max_summary_len: <span class="builtin">int</span> = <span class="number">200</span>) -> <span class="builtin">str</span>:
+    <span class="string">"""将多轮对话压缩为一句摘要"""</span>
+    key_points = []
+    <span class="keyword">for</span> t <span class="keyword">in</span> turns:
+        role = <span class="string">"用户"</span> <span class="keyword">if</span> t[<span class="string">"role"</span>] == <span class="string">"user"</span> <span class="keyword">else</span> <span class="string">"助手"</span>
+        brief = textwrap.<span class="func">shorten</span>(t[<span class="string">"content"</span>], width=<span class="number">30</span>, placeholder=<span class="string">"..."</span>)
+        key_points.<span class="func">append</span>(<span class="string">f"<span class="builtin">{role}</span>:<span class="builtin">{brief}</span>"</span>)
+    full = <span class="string">"; "</span>.<span class="func">join</span>(key_points)
+    <span class="keyword">return</span> textwrap.<span class="func">shorten</span>(full, width=max_summary_len, placeholder=<span class="string">"..."</span>)</code></pre>
+
+  <h3>2.3 jsonlines (jsonl) — 对话日志流式写入</h3>
+  <p style="font-size:14px;color:var(--text2)">对话日志用 JSONL 格式（每行一个 JSON），比一个大 JSON 文件更安全——追加写入、断电不丢、方便 grep。</p>
+  <pre><code><span class="keyword">import</span> json
+<span class="keyword">from</span> pathlib <span class="keyword">import</span> Path
+<span class="keyword">from</span> datetime <span class="keyword">import</span> datetime
+
+<span class="comment"># 手写 JSONL 追加写入（无需第三方库）</span>
+<span class="keyword">def</span> <span class="func">append_jsonl</span>(filepath: <span class="builtin">str</span>, record: <span class="builtin">dict</span>):
+    <span class="string">"""追加一条 JSON 记录到文件末尾"""</span>
+    <span class="keyword">with</span> <span class="builtin">open</span>(filepath, <span class="string">"a"</span>, encoding=<span class="string">"utf-8"</span>) <span class="keyword">as</span> f:
+        f.<span class="func">write</span>(json.<span class="func">dumps</span>(record, ensure_ascii=<span class="keyword">False</span>) + <span class="string">"\n"</span>)
+
+<span class="comment"># 手写 JSONL 逐行读取</span>
+<span class="keyword">def</span> <span class="func">read_jsonl</span>(filepath: <span class="builtin">str</span>) -> <span class="builtin">list</span>[<span class="builtin">dict</span>]:
+    records = []
+    <span class="keyword">with</span> <span class="builtin">open</span>(filepath, <span class="string">"r"</span>, encoding=<span class="string">"utf-8"</span>) <span class="keyword">as</span> f:
+        <span class="keyword">for</span> line <span class="keyword">in</span> f:
+            line = line.<span class="func">strip</span>()
+            <span class="keyword">if</span> line:
+                records.<span class="func">append</span>(json.<span class="func">loads</span>(line))
+    <span class="keyword">return</span> records
+
+<span class="comment"># 实际场景：记录每轮对话</span>
+log_entry = {
+    <span class="string">"session_id"</span>: <span class="string">"abc-123"</span>,
+    <span class="string">"timestamp"</span>: datetime.<span class="func">now</span>().<span class="func">isoformat</span>(),
+    <span class="string">"turn"</span>: <span class="number">3</span>,
+    <span class="string">"role"</span>: <span class="string">"user"</span>,
+    <span class="string">"content"</span>: <span class="string">"查询资产A001的处置进度"</span>,
+    <span class="string">"intent"</span>: <span class="string">"query_progress"</span>,
+    <span class="string">"response_time_ms"</span>: <span class="number">342</span>
+}
+append_jsonl(<span class="string">"chat_logs/2026-08-17.jsonl"</span>, log_entry)
+<span class="comment"># 数仓类比: JSONL 就像增量日志表，每行一条记录，天然适合 streaming</span></code></pre>
+</div>
+
+<!-- ==================== 3. 核心实现 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🔧</span> 核心实现：上下文压缩 + 对话质量评估 <span class="time-tag">20 min</span></div>
+
+  <h3>3.1 ContextCompressor — 上下文压缩器</h3>
+  <p style="font-size:14px;color:var(--text2)">长对话的 Token 会指数增长。策略：<strong>最近 N 轮保留原文</strong>，更早的轮次压缩为摘要。这和数仓里的"明细 + 汇总"分层思路一致。</p>
+  <pre><code><span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> collections <span class="keyword">import</span> deque
+<span class="keyword">import</span> textwrap, json, time
+
+@dataclass
+<span class="keyword">class</span> <span class="class-name">CompressedContext</span>:
+    <span class="string">"""压缩后的上下文，给 LLM 用"""</span>
+    summary: <span class="builtin">str</span>               <span class="comment"># 历史摘要</span>
+    recent_turns: <span class="builtin">list</span>[<span class="builtin">dict</span>]  <span class="comment"># 最近N轮原文</span>
+    total_chars: <span class="builtin">int</span>           <span class="comment"># 压缩后总字符数</span>
+    compression_ratio: <span class="builtin">float</span>   <span class="comment"># 压缩比（原始/压缩后）</span>
+
+@dataclass
+<span class="keyword">class</span> <span class="class-name">ContextCompressor</span>:
+    <span class="string">"""双策略上下文压缩器"""</span>
+    recent_window: <span class="builtin">int</span> = <span class="number">6</span>       <span class="comment"># 保留最近N轮原文</span>
+    summary_max_chars: <span class="builtin">int</span> = <span class="number">300</span> <span class="comment"># 摘要最大字符数</span>
+    _all_turns: <span class="builtin">list</span> = field(default_factory=<span class="builtin">list</span>)
+
+    <span class="keyword">def</span> <span class="func">add_turn</span>(self, role: <span class="builtin">str</span>, content: <span class="builtin">str</span>):
+        <span class="string">"""添加一轮对话"""</span>
+        self._all_turns.<span class="func">append</span>({<span class="string">"role"</span>: role, <span class="string">"content"</span>: content})
+
+    <span class="keyword">def</span> <span class="func">compress</span>(self) -> CompressedContext:
+        <span class="string">"""
+        压缩策略：
+        1. 最近 recent_window 轮 → 保留原文（明细层）
+        2. 更早的轮次 → 压缩为摘要（汇总层）
+        类似数仓：DWD明细 + DWS汇总
+        """</span>
+        <span class="keyword">if</span> <span class="builtin">len</span>(self._all_turns) <= self.recent_window:
+            <span class="comment"># 对话还不够长，不需要压缩</span>
+            <span class="keyword">return</span> CompressedContext(
+                summary=<span class="string">""</span>,
+                recent_turns=[*self._all_turns],
+                total_chars=<span class="builtin">sum</span>(<span class="builtin">len</span>(t[<span class="string">"content"</span>]) <span class="keyword">for</span> t <span class="keyword">in</span> self._all_turns),
+                compression_ratio=<span class="number">1.0</span>
+            )
+
+        <span class="comment"># 分层：历史摘要 + 最近原文</span>
+        older_turns = self._all_turns[:-self.recent_window]
+        recent_turns = self._all_turns[-self.recent_window:]
+
+        <span class="comment"># 老对话压缩为摘要（实际中可调用 LLM 生成摘要）</span>
+        summary = self._build_summary(older_turns)
+
+        recent_chars = <span class="builtin">sum</span>(<span class="builtin">len</span>(t[<span class="string">"content"</span>]) <span class="keyword">for</span> t <span class="keyword">in</span> recent_turns)
+        original_chars = <span class="builtin">sum</span>(<span class="builtin">len</span>(t[<span class="string">"content"</span>]) <span class="keyword">for</span> t <span class="keyword">in</span> self._all_turns)
+        total_chars = <span class="builtin">len</span>(summary) + recent_chars
+
+        <span class="keyword">return</span> CompressedContext(
+            summary=summary,
+            recent_turns=recent_turns,
+            total_chars=total_chars,
+            compression_ratio=<span class="builtin">round</span>(original_chars / <span class="builtin">max</span>(total_chars, <span class="number">1</span>), <span class="number">2</span>)
+        )
+
+    <span class="keyword">def</span> <span class="func">_build_summary</span>(self, turns: <span class="builtin">list</span>[<span class="builtin">dict</span>]) -> <span class="builtin">str</span>:
+        <span class="string">"""将老对话压缩为摘要行"""</span>
+        <span class="comment"># 简化版：提取每轮要点拼接（实际可调 LLM 生成摘要）</span>
+        points = []
+        <span class="keyword">for</span> t <span class="keyword">in</span> turns:
+            brief = textwrap.<span class="func">shorten</span>(
+                t[<span class="string">"content"</span>], width=<span class="number">25</span>, placeholder=<span class="string">"..."</span>
+            )
+            role = <span class="string">"用户"</span> <span class="keyword">if</span> t[<span class="string">"role"</span>] == <span class="string">"user"</span> <span class="keyword">else</span> <span class="string">"助手"</span>
+            points.<span class="func">append</span>(<span class="string">f"<span class="builtin">{role}</span>:<span class="builtin">{brief}</span>"</span>)
+        raw = <span class="string">"; "</span>.<span class="func">join</span>(points)
+        <span class="keyword">return</span> textwrap.<span class="func">shorten</span>(
+            raw, width=self.summary_max_chars,
+            placeholder=<span class="string">"...(更多历史已省略)"</span>
+        )
+
+    <span class="keyword">def</span> <span class="func">build_llm_messages</span>(self) -> <span class="builtin">list</span>[<span class="builtin">dict</span>]:
+        <span class="string">"""构建给 LLM 的 messages 列表"""</span>
+        ctx = self.<span class="func">compress</span>()
+        messages = []
+        <span class="comment"># 如果有历史摘要，作为系统消息的一部分</span>
+        <span class="keyword">if</span> ctx.summary:
+            messages.<span class="func">append</span>({
+                <span class="string">"role"</span>: <span class="string">"system"</span>,
+                <span class="string">"content"</span>: <span class="string">f"以下是之前的对话摘要:\n<span class="builtin">{ctx.summary}</span>"</span>
+            })
+        <span class="comment"># 最近N轮原文</span>
+        messages.<span class="func">extend</span>(ctx.recent_turns)
+        <span class="keyword">return</span> messages
+
+<span class="comment"># 测试</span>
+comp = ContextCompressor(recent_window=<span class="number">3</span>)
+<span class="keyword">for</span> i <span class="keyword">in</span> <span class="builtin">range</span>(<span class="number">8</span>):
+    comp.<span class="func">add_turn</span>(
+        <span class="string">"user"</span> <span class="keyword">if</span> i % <span class="number">2</span> == <span class="number">0</span> <span class="keyword">else</span> <span class="string">"assistant"</span>,
+        <span class="string">f"第<span class="builtin">{i}</span>轮对话内容，讨论了AMC资产处置相关问题"</span>
+    )
+ctx = comp.<span class="func">compress</span>()
+<span class="builtin">print</span>(<span class="string">f"压缩比: <span class="builtin">{ctx.compression_ratio</span>}x"</span>)
+<span class="builtin">print</span>(<span class="string">f"摘要: <span class="builtin">{ctx.summary[:80]</span>..."</span>)
+<span class="builtin">print</span>(<span class="string">f"最近轮数: <span class="builtin">{<span class="builtin">len</span>(ctx.recent_turns)}</span>"</span>)</code></pre>
+
+  <h3>3.2 DialogueEvaluator — 对话质量评估器</h3>
+  <p style="font-size:14px;color:var(--text2)">怎么知道多轮对话"质量好不好"？定义 5 个可自动计算的指标：</p>
+
+  <table class="compare-table">
+    <tr><th>指标</th><th>含义</th><th>计算方式</th><th>健康阈值</th></tr>
+    <tr><td><code>completion_rate</code></td><td>槽位填写完成率</td><td>已完成意图数 / 总意图数</td><td>≥ 0.7</td></tr>
+    <tr><td><code>avg_turns</code></td><td>每个意图平均轮数</td><td>总轮数 / 已完成意图数</td><td>≤ 5</td></tr>
+    <tr><td><code>fallback_rate</code></td><td>兜底回复占比</td><td>fallback 次数 / 总轮次</td><td>≤ 0.15</td></tr>
+    <tr><td><code>response_time_p95</code></td><td>95 分位响应时间</td><td>排序取 95% 位置</td><td>≤ 3000ms</td></tr>
+    <tr><td><code>slot_hit_rate</code></td><td>实体提取命中率</td><td>提取到的槽位数 / 需要的槽位数</td></tr>
+  </table>
+
+  <pre><code><span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> statistics <span class="keyword">import</span> mean
+
+@dataclass
+<span class="keyword">class</span> <span class="class-name">DialogueMetrics</span>:
+    <span class="string">"""一次会话的质量指标"""</span>
+    session_id: <span class="builtin">str</span>
+    total_turns: <span class="builtin">int</span> = <span class="number">0</span>
+    completed_intents: <span class="builtin">int</span> = <span class="number">0</span>
+    total_intents: <span class="builtin">int</span> = <span class="number">0</span>
+    fallback_count: <span class="builtin">int</span> = <span class="number">0</span>
+    response_times: <span class="builtin">list</span> = field(default_factory=<span class="builtin">list</span>)
+    slots_filled: <span class="builtin">int</span> = <span class="number">0</span>
+    slots_needed: <span class="builtin">int</span> = <span class="number">0</span>
+
+    <span class="decorator">@property</span>
+    <span class="keyword">def</span> <span class="func">completion_rate</span>(self) -> <span class="builtin">float</span>:
+        <span class="keyword">return</span> self.completed_intents / <span class="builtin">max</span>(self.total_intents, <span class="number">1</span>)
+
+    <span class="decorator">@property</span>
+    <span class="keyword">def</span> <span class="func">avg_turns_per_intent</span>(self) -> <span class="builtin">float</span>:
+        <span class="keyword">return</span> <span class="builtin">round</span>(self.total_turns / <span class="builtin">max</span>(self.completed_intents, <span class="number">1</span>), <span class="number">1</span>)
+
+    <span class="decorator">@property</span>
+    <span class="keyword">def</span> <span class="func">fallback_rate</span>(self) -> <span class="builtin">float</span>:
+        <span class="keyword">return</span> self.fallback_count / <span class="builtin">max</span>(self.total_turns, <span class="number">1</span>)
+
+    <span class="decorator">@property</span>
+    <span class="keyword">def</span> <span class="func">response_time_p95</span>(self) -> <span class="builtin">float</span>:
+        <span class="keyword">if not</span> self.response_times:
+            <span class="keyword">return</span> <span class="number">0</span>
+        sorted_times = <span class="builtin">sorted</span>(self.response_times)
+        idx = <span class="builtin">int</span>(<span class="builtin">len</span>(sorted_times) * <span class="number">0.95</span>)
+        <span class="keyword">return</span> sorted_times[<span class="builtin">min</span>(idx, <span class="builtin">len</span>(sorted_times) - <span class="number">1</span>)]
+
+    <span class="decorator">@property</span>
+    <span class="keyword">def</span> <span class="func">slot_hit_rate</span>(self) -> <span class="builtin">float</span>:
+        <span class="keyword">return</span> self.slots_filled / <span class="builtin">max</span>(self.slots_needed, <span class="number">1</span>)
+
+    <span class="keyword">def</span> <span class="func">health_report</span>(self) -> <span class="builtin">dict</span>:
+        <span class="string">"""生成健康报告，标注异常项"""</span>
+        report = {
+            <span class="string">"session_id"</span>: self.session_id,
+            <span class="string">"completion_rate"</span>: self.completion_rate,
+            <span class="string">"avg_turns"</span>: self.avg_turns_per_intent,
+            <span class="string">"fallback_rate"</span>: self.fallback_rate,
+            <span class="string">"p95_ms"</span>: self.response_time_p95,
+            <span class="string">"slot_hit"</span>: self.slot_hit_rate,
+            <span class="string">"issues"</span>: []
+        }
+        <span class="comment"># 健康阈值检查</span>
+        <span class="keyword">if</span> self.completion_rate < <span class="number">0.7</span>:
+            report[<span class="string">"issues"</span>].<span class="func">append</span>(
+                <span class="string">f"完成率过低(<span class="builtin">{self.completion_rate:.0%}</span>)，检查槽位设计"</span>)
+        <span class="keyword">if</span> self.fallback_rate > <span class="number">0.15</span>:
+            report[<span class="string">"issues"</span>].<span class="func">append</span>(
+                <span class="string">f"兜底率过高(<span class="builtin">{self.fallback_rate:.0%}</span>)，扩充规则或训练数据"</span>)
+        <span class="keyword">if</span> self.response_time_p95 > <span class="number">3000</span>:
+            report[<span class="string">"issues"</span>].<span class="func">append</span>(
+                <span class="string">f"P95响应过慢(<span class="builtin">{self.response_time_p95:.0f</span>}ms)，检查LLM或网络"</span>)
+        <span class="keyword">return</span> report
+
+<span class="comment"># 测试</span>
+m = DialogueMetrics(
+    session_id=<span class="string">"test-001"</span>, total_turns=<span class="number">12</span>,
+    completed_intents=<span class="number">3</span>, total_intents=<span class="number">4</span>,
+    fallback_count=<span class="number">1</span>,
+    response_times=[<span class="number">200</span>, <span class="number">350</span>, <span class="number">800</span>, <span class="number">1500</span>, <span class="number">3200</span>],
+    slots_filled=<span class="number">8</span>, slots_needed=<span class="number">10</span>
+)
+<span class="builtin">print</span>(m.<span class="func">health_report</span>())</code></pre>
+</div>
+
+<!-- ==================== 4. FastAPI WebSocket ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🌐</span> FastAPI WebSocket 实时对话 <span class="time-tag">15 min</span></div>
+
+  <h3>4.1 为什么用 WebSocket 而不是 HTTP？</h3>
+  <table class="compare-table">
+    <tr><th>特性</th><th>HTTP 请求-响应</th><th>WebSocket 全双工</th></tr>
+    <tr><td>连接方式</td><td>每次请求新建 TCP 连接</td><td>一次握手，持久连接</td></tr>
+    <tr><td>通信方向</td><td>客户端发起，服务端回复</td><td>双方随时发送</td></tr>
+    <tr><td>适用场景</td><td>查数据、提交表单</td><td><strong>实时对话</strong>、通知推送</td></tr>
+    <tr><td>延迟</td><td>每次都有握手开销</td><td>消息即时送达</td></tr>
+    <tr><td>数仓类比</td><td>批量跑批查询</td><td>Kafka 实时流消费</td></tr>
+  </table>
+
+  <div class="concept-box">
+    <strong>核心概念：</strong>HTTP 就像"打电话问一个问题，挂掉，再打下一个"；WebSocket 就像"建立通话后一直聊"，双方随时说话，延迟更低、体验更好。智能客服天然适合 WebSocket。
+  </div>
+
+  <h3>4.2 完整 WebSocket 聊天服务</h3>
+  <pre><code><span class="comment"># chat_ws.py — FastAPI WebSocket 聊天服务</span>
+<span class="keyword">from</span> fastapi <span class="keyword">import</span> FastAPI, WebSocket, WebSocketDisconnect
+<span class="keyword">from</span> fastapi.middleware.cors <span class="keyword">import</span> CORSMiddleware
+<span class="keyword">from</span> contextlib <span class="keyword">import</span> asynccontextmanager
+<span class="keyword">import</span> json, time, uuid
+<span class="keyword">from</span> collections <span class="keyword">import</span> defaultdict
+
+app = FastAPI(title=<span class="string">"AMC 智能客服"</span>)
+
+app.<span class="func">add_middleware</span>(
+    CORSMiddleware,
+    allow_origins=[<span class="string">"*"</span>],
+    allow_methods=[<span class="string">"*"</span>],
+    allow_headers=[<span class="string">"*"</span>],
+)
+
+<span class="comment"># ========== 连接管理 ==========</span>
+<span class="keyword">class</span> <span class="class-name">ConnectionManager</span>:
+    <span class="string">"""管理所有活跃的 WebSocket 连接"""</span>
+    <span class="keyword">def</span> <span class="func">__init__</span>(self):
+        <span class="comment"># session_id → WebSocket 实例</span>
+        self._connections: <span class="builtin">dict</span>[<span class="builtin">str</span>, WebSocket] = {}
+        <span class="comment"># session_id → 对话历史</span>
+        self._histories: <span class="builtin">dict</span>[<span class="builtin">str</span>, <span class="builtin">list</span>] = defaultdict(<span class="builtin">list</span>)
+
+    <span class="keyword">async def</span> <span class="func">connect</span>(self, ws: WebSocket, session_id: <span class="builtin">str</span>):
+        <span class="keyword">await</span> ws.<span class="func">accept</span>()
+        self._connections[session_id] = ws
+        <span class="builtin">print</span>(<span class="string">f"[连接] <span class="builtin">{session_id}</span> 已建立"</span>)
+
+    <span class="keyword">def</span> <span class="func">disconnect</span>(self, session_id: <span class="builtin">str</span>):
+        self._connections.<span class="func">pop</span>(session_id, <span class="keyword">None</span>)
+        <span class="builtin">print</span>(<span class="string">f"[断开] <span class="builtin">{session_id}</span> 已离线"</span>)
+
+    <span class="keyword">async def</span> <span class="func">send_json</span>(self, session_id: <span class="builtin">str</span>, data: <span class="builtin">dict</span>):
+        <span class="string">"""向指定会话发送 JSON 消息"""</span>
+        ws = self._connections.<span class="func">get</span>(session_id)
+        <span class="keyword">if</span> ws:
+            <span class="keyword">await</span> ws.<span class="func">send_json</span>(data)
+
+manager = ConnectionManager()
+
+<span class="comment"># ========== 简化版意图处理（实际替换为 Day 62 的 IntentClassifier）==========</span>
+<span class="keyword">def</span> <span class="func">simple_process</span>(message: <span class="builtin">str</span>, history: <span class="builtin">list</span>) -> <span class="builtin">dict</span>:
+    <span class="string">"""简化版对话处理（演示用，实际接入 ConversationManager）"""</span>
+    start = time.<span class="func">time</span>()
+
+    <span class="comment"># 简单规则匹配</span>
+    msg_lower = message.<span class="func">lower</span>()
+    <span class="keyword">if</span> <span class="string">"你好"</span> <span class="keyword">in</span> msg_lower <span class="keyword">or</span> <span class="string">"hello"</span> <span class="keyword">in</span> msg_lower:
+        reply = <span class="string">"您好！我是AMC智能客服，可以帮您查询资产信息、了解处置进度、分析风险报告。请问需要什么帮助？"</span>
+        intent = <span class="string">"greeting"</span>
+    <span class="keyword">elif</span> <span class="string">"资产"</span> <span class="keyword">in</span> msg_lower <span class="keyword">or</span> <span class="string">"查询"</span> <span class="keyword">in</span> msg_lower:
+        reply = <span class="string">"请提供资产编号，我来为您查询详细信息。例如：A001、B003。"</span>
+        intent = <span class="string">"query_asset"</span>
+    <span class="keyword">elif</span> <span class="string">"风险"</span> <span class="keyword">in</span> msg_lower <span class="keyword">or</span> <span class="string">"报告"</span> <span class="keyword">in</span> msg_lower:
+        reply = <span class="string">"正在为您生成风险分析报告，请稍候...（实际中这里调用 LLM + RAG）"</span>
+        intent = <span class="string">"risk_report"</span>
+    <span class="keyword">else</span>:
+        reply = <span class="string">"抱歉，我暂时无法理解您的问题。您可以尝试询问：资产查询、风险报告、处置进度等。"</span>
+        intent = <span class="string">"fallback"</span>
+
+    elapsed_ms = <span class="builtin">int</span>((time.<span class="func">time</span>() - start) * <span class="number">1000</span>)
+
+    <span class="keyword">return</span> {
+        <span class="string">"reply"</span>: reply,
+        <span class="string">"intent"</span>: intent,
+        <span class="string">"response_time_ms"</span>: elapsed_ms,
+        <span class="string">"turn"</span>: <span class="builtin">len</span>(history) + <span class="number">1</span>
+    }
+
+<span class="comment"># ========== WebSocket 端点 ==========</span>
+@app.<span class="func">websocket</span>(<span class="string">"/ws/chat/{session_id}"</span>)
+<span class="keyword">async def</span> <span class="func">chat_endpoint</span>(ws: WebSocket, session_id: <span class="builtin">str</span>):
+    <span class="keyword">await</span> manager.<span class="func">connect</span>(ws, session_id)
+    history = manager._histories[session_id]
+
+    <span class="keyword">try</span>:
+        <span class="comment"># 发送欢迎消息</span>
+        <span class="keyword">await</span> manager.<span class="func">send_json</span>(session_id, {
+            <span class="string">"type"</span>: <span class="string">"system"</span>,
+            <span class="string">"content"</span>: <span class="string">"连接成功，AMC智能客服已就绪"</span>,
+            <span class="string">"session_id"</span>: session_id
+        })
+
+        <span class="comment"># 持续监听客户端消息</span>
+        <span class="keyword">while</span> <span class="keyword">True</span>:
+            <span class="comment"># 接收客户端发来的 JSON 消息</span>
+            data = <span class="keyword">await</span> ws.<span class="func">receive_json</span>()
+            user_msg = data.<span class="func">get</span>(<span class="string">"message"</span>, <span class="string">""</span>)
+
+            <span class="comment"># 记录用户消息</span>
+            history.<span class="func">append</span>({<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: user_msg})
+
+            <span class="comment"># 处理对话（实际中接入 ConversationManager）</span>
+            result = <span class="func">simple_process</span>(user_msg, history)
+
+            <span class="comment"># 记录助手回复</span>
+            history.<span class="func">append</span>({<span class="string">"role"</span>: <span class="string">"assistant"</span>, <span class="string">"content"</span>: result[<span class="string">"reply"</span>]})
+
+            <span class="comment"># 发送回复</span>
+            <span class="keyword">await</span> manager.<span class="func">send_json</span>(session_id, {
+                <span class="string">"type"</span>: <span class="string">"reply"</span>,
+                <span class="string">"content"</span>: result[<span class="string">"reply"</span>],
+                <span class="string">"intent"</span>: result[<span class="string">"intent"</span>],
+                <span class="string">"turn"</span>: result[<span class="string">"turn"</span>],
+                <span class="string">"response_time_ms"</span>: result[<span class="string">"response_time_ms"</span>]
+            })
+
+    <span class="keyword">except</span> WebSocketDisconnect:
+        manager.<span class="func">disconnect</span>(session_id)
+        <span class="comment"># 保存对话日志</span>
+        <span class="builtin">print</span>(<span class="string">f"[会话结束] <span class="builtin">{session_id}</span>，共 <span class="builtin">{<span class="builtin">len</span>(history)}</span> 轮"</span>)
+
+<span class="comment"># ========== HTTP 健康检查 ==========</span>
+@app.<span class="func">get</span>(<span class="string">"/health"</span>)
+<span class="keyword">async def</span> <span class="func">health</span>():
+    <span class="keyword">return</span> {
+        <span class="string">"status"</span>: <span class="string">"ok"</span>,
+        <span class="string">"active_sessions"</span>: <span class="builtin">len</span>(manager._connections)
+    }
+
+<span class="comment"># ========== 启动命令 ==========</span>
+<span class="comment"># uvicorn chat_ws:app --host 0.0.0.0 --port 8000 --reload</span></code></pre>
+
+  <div class="tip-box">
+    <strong>关键区别：</strong>WebSocket 端点用 <code>@app.websocket</code> 装饰器，接收/发送用 <code>await ws.receive_json()</code> / <code>await ws.send_json()</code>。连接一旦建立就在 <code>while True</code> 循环中持续通信，直到客户端断开触发 <code>WebSocketDisconnect</code>。
+  </div>
+
+  <h3>4.3 前端测试页面</h3>
+  <pre><code><span class="comment">&lt;!-- chat_test.html — 简单 WebSocket 测试页面 --&gt;</span>
+<span class="keyword">&lt;!</span>DOCTYPE html<span class="keyword">&gt;</span>
+&lt;html lang="zh-CN"&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;AMC智能客服测试&lt;/title&gt;
+  &lt;style&gt;
+    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; }
+    #chat-box { border: 1px solid #ddd; height: 400px; overflow-y: auto;
+               padding: 12px; background: #fafafa; border-radius: 8px; }
+    .msg { margin: 8px 0; padding: 8px 12px; border-radius: 8px; max-width: 80%; }
+    .msg.user { background: #dbeafe; margin-left: auto; text-align: right; }
+    .msg.bot { background: #f1f5f9; }
+    .msg.system { background: #fef3c7; font-size: 12px; text-align: center; }
+    input { width: calc(100% - 80px); padding: 10px; border: 1px solid #ddd;
+           border-radius: 8px; font-size: 14px; }
+    button { padding: 10px 16px; background: #3b82f6; color: white;
+             border: none; border-radius: 8px; cursor: pointer; }
+  &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;h2&gt;AMC智能客服&lt;/h2&gt;
+  &lt;div id="chat-box"&gt;&lt;/div&gt;
+  &lt;div style="display:flex;gap:8px;margin-top:12px"&gt;
+    &lt;input id="msg-input" placeholder="输入消息..." /&gt;
+    &lt;button onclick="sendMsg()"&gt;发送&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;script&gt;
+    const sessionId = crypto.randomUUID();
+    const ws = new WebSocket(`ws://localhost:8000/ws/chat/${sessionId}`);
+    const box = document.getElementById('chat-box');
+    const input = document.getElementById('msg-input');
+
+    function addMsg(text, cls) {
+      const div = document.createElement('div');
+      div.className = 'msg ' + cls;
+      div.textContent = text;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    ws.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      addMsg(data.content, data.type === 'system' ? 'system' : 'bot');
+    };
+
+    function sendMsg() {
+      const msg = input.value.trim();
+      if (!msg) return;
+      ws.send(JSON.stringify({ message: msg }));
+      addMsg(msg, 'user');
+      input.value = '';
+    }
+
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendMsg();
+    });
+  &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+</div>
+
+<!-- ==================== 5. 综合实战 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🏗️</span> 综合实战：完整 P5 聊天服务架构 <span class="time-tag">10 min</span></div>
+
+  <h3>5.1 完整项目结构</h3>
+  <pre><code>amc_chatbot/
+├── main.py                  <span class="comment"># FastAPI 入口 (HTTP + WebSocket)</span>
+├── chat_ws.py               <span class="comment"># WebSocket 连接管理</span>
+├── config.py                <span class="comment"># pydantic-settings 配置</span>
+├── models/
+│   ├── intents.py           <span class="comment"># IntentType 枚举 (Day 62)</span>
+│   ├── entities.py          <span class="comment"># AMC 实体定义</span>
+│   └── conversation.py      <span class="comment"># ConversationState 数据模型</span>
+├── core/
+│   ├── intent_classifier.py <span class="comment"># 混合意图分类 (规则+LLM)</span>
+│   ├── entity_extractor.py  <span class="comment"># 实体提取器</span>
+│   ├── slot_filling.py     <span class="comment"># 槽位填充管理器</span>
+│   ├── responder.py         <span class="comment"># 混合回复器 (模板+LLM)</span>
+│   ├── context.py           <span class="comment"># ContextCompressor 压缩器</span>
+│   └── evaluator.py         <span class="comment"># DialogueEvaluator 质量评估</span>
+├── api/
+│   ├── ws_router.py         <span class="comment"># WebSocket 路由</span>
+│   └── http_router.py       <span class="comment"># HTTP 路由 (健康检查/统计)</span>
+├── static/
+│   └── chat_test.html        <span class="comment"># 测试页面</span>
+├── logs/                    <span class="comment"># 对话日志 (JSONL)</span>
+└── requirements.txt</code></pre>
+
+  <h3>5.2 一次 WebSocket 请求的完整数据流</h3>
+
+  <div class="flow-chart">
+    <span class="step">① 用户发送消息</span><span class="arrow">→</span>
+    <span class="step active">② WebSocket 接收 JSON</span><span class="arrow">→</span>
+    <span class="step active">③ 意图识别 (规则+LLM)</span><span class="arrow">→</span>
+    <span class="step active">④ 实体提取</span><span class="arrow">→</span>
+    <span class="step orange">⑤ 槽位检查 (缺→追问)</span><span class="arrow">→</span>
+    <span class="step">⑥ 上下文压缩</span><span class="arrow">→</span>
+    <span class="step">⑦ 回复生成 (模板/LLM)</span><span class="arrow">→</span>
+    <span class="step green">⑧ WebSocket 推送回复</span>
+  </div>
+
+  <h3>5.3 生产级增强点（知道即可）</h3>
+  <ul>
+    <li><strong>心跳检测：</strong>客户端定时发 ping，服务端 30s 无心跳则断开（避免僵尸连接）</li>
+    <li><strong>断线重连：</strong>用 session_id 从服务端恢复对话历史</li>
+    <li><strong>限流：</strong>同一 session 每秒最多 5 条消息，防刷屏</li>
+    <li><strong>对话日志：</strong>每次回复后 JSONL 追加写入，定期归档</li>
+    <li><strong>质量监控：</strong>每次会话结束后自动生成 DialogueMetrics 报告</li>
+  </ul>
+</div>
+
+<!-- ==================== 6. P5 收官总结 ==================== -->
+<div class="finale-box">
+  <h3>🏆 P5 智能客服/对话系统 — 三天收官总结</h3>
+
+  <h3>知识图谱（Day 62 → 63 → 64）</h3>
+  <table class="compare-table">
+    <tr><th>天</th><th>主题</th><th>核心产出</th><th>Python 知识</th></tr>
+    <tr>
+      <td><strong>Day 62</strong></td>
+      <td>架构设计 + 意图识别</td>
+      <td>四层架构 / IntentType 枚举 / 混合分类器 / 实体提取 / RequestProcessor</td>
+      <td>dataclass 默认工厂 / 正则预编译 / Levenshtein 编辑距离</td>
+    </tr>
+    <tr>
+      <td><strong>Day 63</strong></td>
+      <td>对话管理 + 回复生成</td>
+      <td>ConversationState / SessionManager / SlotFillingManager / HybridResponder / ConversationManager</td>
+      <td>uuid 会话ID / deepcopy / match-case 路由</td>
+    </tr>
+    <tr>
+      <td><strong>Day 64</strong></td>
+      <td>多轮优化 + WebSocket 部署</td>
+      <td>ContextCompressor / DialogueEvaluator / WebSocket 聊天服务 / JSONL 日志</td>
+      <td>deque maxlen / textwrap / JSONL 流式写入 / FastAPI WebSocket</td>
+    </tr>
+  </table>
+
+  <h3>核心能力升级</h3>
+  <ul>
+    <li><strong>对话系统设计能力</strong> — 从单轮问答到多轮状态机，完整掌握意图→槽位→回复链路</li>
+    <li><strong>WebSocket 实时通信</strong> — 掌握全双工协议，区别于 HTTP 请求-响应模式</li>
+    <li><strong>上下文管理策略</strong> — 滑动窗口 + 摘要压缩双策略，控制 Token 成本</li>
+    <li><strong>自动化质量评估</strong> — 5 项可计算指标，无需人工标注就能评估对话质量</li>
+  </ul>
+
+  <h3>总进度</h3>
+  <table class="compare-table">
+    <tr><th>阶段</th><th>天数</th><th>状态</th></tr>
+    <tr><td>Phase 1A: Python核心+LLM API (D6-D18)</td><td>13天</td><td>✅ 已完成</td></tr>
+    <tr><td>Phase 1B: 工程进阶 (D19-D28)</td><td>10天</td><td>✅ 已完成</td></tr>
+    <tr><td>Phase 2: RAG+Agent (D29-D42)</td><td>14天</td><td>✅ 已完成</td></tr>
+    <tr><td>Phase 3: 微调部署 (D43-D49)</td><td>7天</td><td>✅ 已完成</td></tr>
+    <tr>
+      <td><strong>Phase 4: 项目实战 (D50-D70)</strong></td>
+      <td><strong>21天</strong></td>
+      <td><strong>P1-P5 已完成，剩余 P6-P8（D65-D70）</strong></td>
+    </tr>
+    <tr style="background:#fef3c7;font-weight:700"><td colspan="2">总计 64/70 天</td><td>91.4%</td></tr>
+  </table>
+</div>
+
+<!-- ==================== 7. 常见陷阱 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">⚠️</span> 常见陷阱 Top 5 <span class="time-tag">5 min</span></div>
+
+  <ol>
+    <li><strong>WebSocket 僵尸连接</strong> — 客户端断网但服务端不知道，连接占着内存。解决：加心跳 + 超时断开。
+      <pre><code><span class="comment"># 心跳超时检测</span>
+<span class="keyword">import</span> asyncio
+<span class="keyword">async def</span> <span class="func">heartbeat_watchdog</span>(ws, timeout=<span class="number">30</span>):
+    <span class="keyword">while</span> <span class="keyword">True</span>:
+        <span class="keyword">await</span> asyncio.<span class="func">sleep</span>(timeout)
+        <span class="keyword">try</span>:
+            <span class="keyword">await</span> asyncio.<span class="func">wait_for</span>(ws.<span class="func">send_json</span>({<span class="string">"type"</span>: <span class="string">"ping"</span>}), timeout=<span class="number">5</span>)
+        <span class="keyword">except</span> Exception:
+            <span class="keyword">await</span> ws.<span class="func">close</span>()
+            <span class="keyword">break</span></code></pre>
+    </li>
+    <li><strong>上下文压缩丢关键信息</strong> — 摘要截断时把关键实体/金额砍掉了。解决：摘要前先提取命名实体，确保关键信息保留。
+    </li>
+    <li><strong>JSONL 写入异常中断</strong> — 写到一半进程崩溃，JSONL 文件最后一行不完整。解决：先写临时文件，写完 rename 替换。
+    </li>
+    <li><strong>WebSocket 连接泄露</strong> — 异常退出没调用 <code>disconnect()</code>。解决：<code>finally</code> 块中务必清理。
+      <pre><code><span class="keyword">try</span>:
+    <span class="keyword">while</span> <span class="keyword">True</span>:
+        data = <span class="keyword">await</span> ws.<span class="func">receive_json</span>()
+        <span class="comment"># ...处理...</span>
+<span class="keyword">except</span> WebSocketDisconnect:
+    <span class="keyword">pass</span>
+<span class="keyword">finally</span>:
+    manager.<span class="func">disconnect</span>(session_id)  <span class="comment"># 无论如何都要清理</span></code></pre>
+    </li>
+    <li><strong>评估指标被平均分掩盖</strong> — 整体完成率 80% 但某些意图完成率为 0%。解决：按意图分组统计，不要只看全局。
+    </li>
+  </ol>
+</div>
+
+<!-- ==================== 8. 练习 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">💪</span> 课后练习 <span class="time-tag">约 15 min</span></div>
+
+  <ol>
+    <li><strong>增强 ContextCompressor</strong>：当历史轮次超过 10 轮时，调用 LLM（mock 即可）生成一句话摘要替代逐条拼接。
+      <div class="tip-box"><strong>提示：</strong>在 <code>_build_summary</code> 中加一个 <code>use_llm</code> 参数，True 时返回 mock 摘要。</div>
+    </li>
+    <li><strong>WebSocket 心跳集成</strong>：在 <code>chat_ws.py</code> 中加入心跳检测——客户端每 20 秒自动发 <code>{"type": "ping"}</code>，服务端超过 30 秒没收到任何消息则断开。
+      <div class="tip-box"><strong>提示：</strong>用 <code>asyncio.wait_for</code> + <code>receive_json</code> 设置超时。</div>
+    </li>
+    <li><strong>LeetCode #146 — LRU 缓存</strong>：用 <code>OrderedDict</code> 实现一个 LRU 缓存（容量 K，超容量淘汰最久未使用的）。这在对话缓存、Embedding 缓存中非常常用。
+      <pre><code><span class="keyword">from</span> collections <span class="keyword">import</span> OrderedDict
+
+<span class="keyword">class</span> <span class="class-name">LRUCache</span>:
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, capacity: <span class="builtin">int</span>):
+        self._cache = OrderedDict()
+        self._cap = capacity
+
+    <span class="keyword">def</span> <span class="func">get</span>(self, key: <span class="builtin">str</span>) -> <span class="builtin">str</span> | <span class="keyword">None</span>:
+        <span class="keyword">if</span> key <span class="keyword">not in</span> self._cache:
+            <span class="keyword">return</span> <span class="keyword">None</span>
+        self._cache.<span class="func">move_to_end</span>(key)  <span class="comment"># 标记为最近使用</span>
+        <span class="keyword">return</span> self._cache[key]
+
+    <span class="keyword">def</span> <span class="func">put</span>(self, key: <span class="builtin">str</span>, value: <span class="builtin">str</span>):
+        <span class="keyword">if</span> key <span class="keyword">in</span> self._cache:
+            self._cache.<span class="func">move_to_end</span>(key)
+        self._cache[key] = value
+        <span class="keyword">if</span> <span class="builtin">len</span>(self._cache) > self._cap:
+            self._cache.<span class="func">popitem</span>(last=<span class="keyword">False</span>)  <span class="comment"># 淘汰最旧的</span></code></pre>
+    </li>
+  </ol>
+</div>
+
+<!-- ==================== 9. 最佳实践 ==================== -->
+<div class="section">
+  <div class="section-title"><span class="icon">📌</span> 最佳实践速查表</div>
+
+  <table class="compare-table">
+    <tr><th>场景</th><th>推荐做法</th><th>避免</th></tr>
+    <tr>
+      <td>上下文管理</td>
+      <td>deque(maxlen) + 摘要双策略</td>
+      <td>把全部历史塞给 LLM</td>
+    </tr>
+    <tr>
+      <td>WebSocket 连接</td>
+      <td>finally 块清理 + 心跳超时</td>
+      <td>忽略异常断开、不做清理</td>
+    </tr>
+    <tr>
+      <td>对话日志</td>
+      <td>JSONL 追加写入 + 按日期分文件</td>
+      <td>一个大 JSON 存所有对话</td>
+    </tr>
+    <tr>
+      <td>质量评估</td>
+      <td>按意图分组统计 + 自动告警</td>
+      <td>只看全局平均分</td>
+    </tr>
+    <tr>
+      <td>模板 vs LLM</td>
+      <td>模板优先（快+稳定），LLM 兜底</td>
+      <td>所有回复都调 LLM（慢+贵）</td>
+    </tr>
+  </table>
+</div>
+
+<div class="footer">
+  <p>LLM 120天学习计划 · Day 64 · P5 智能客服/对话系统收官 🏁</p>
+  <p>下一课：Day 65 — P6 项目实战（Phase 4 继续）</p>
+</div>
+
+</body>
+</html>

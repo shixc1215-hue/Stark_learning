@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 65 - P6 数据血缘分析系统（架构设计 + 元数据模型 + SQL血缘解析）</title>
+<style>
+  :root { --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;--surface3:#e2e8f0;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--accent:#3b82f6;--accent2:#6366f1;--green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;--purple:#9333ea;--border:#cbd5e1;--radius:12px; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;padding:20px;max-width:900px;margin:0 auto; }
+  .header { background:linear-gradient(135deg,#ecfdf5,#a7f3d0);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;border:1px solid #34d399; }
+  .header .badge { display:inline-block;background:#d1fae5;color:#065f46;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px;letter-spacing:.5px; }
+  .header h1 { font-size:26px;font-weight:700;margin-bottom:6px; }
+  .header .subtitle { color:var(--text2);font-size:15px; }
+  .progress-bar { background:var(--surface);border-radius:var(--radius);padding:16px 24px;margin-bottom:24px;border:1px solid var(--border);display:flex;align-items:center;gap:16px; }
+  .progress-bar .track { flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--purple));border-radius:4px; }
+  .progress-bar .label { font-size:13px;color:var(--text3);white-space:nowrap; }
+  .progress-bar .percent { font-size:14px;font-weight:700;color:var(--purple);min-width:42px;text-align:right; }
+  .section { background:var(--surface);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border); }
+  .section-title { display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--surface3); }
+  .section-title .icon { font-size:22px; }
+  .section-title .time-tag { margin-left:auto;font-size:12px;color:var(--orange);background:#fff7ed;padding:3px 10px;border-radius:12px;font-weight:600; }
+  .concept-box { background:#faf5ff;border-left:3px solid var(--purple);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .concept-box strong { color:var(--purple); }
+  .tip-box { background:#eff6ff;border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .tip-box strong { color:var(--accent); }
+  .warn-box { background:#fffbeb;border-left:3px solid var(--yellow);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .warn-box strong { color:var(--yellow); }
+  .error-box { background:#fef2f2;border-left:3px solid var(--red);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .error-box strong { color:var(--red); }
+  .green-box { background:#f0fdf4;border-left:3px solid var(--green);padding:14px 18px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;color:var(--text2); }
+  .green-box strong { color:var(--green); }
+  pre { background:#1e293b;color:#e2e8f0;padding:16px 20px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.6;margin:14px 0; }
+  pre .comment { color:#94a3b8; }
+  pre .keyword { color:#c084fc; }
+  pre .string { color:#fbbf24; }
+  pre .function { color:#67e8f9; }
+  pre .number { color:#f87171; }
+  pre .decorator { color:#fb923c; }
+  pre .type { color:#34d399; }
+  pre .builtin { color:#60a5fa; }
+  code { background:var(--surface2);padding:2px 7px;border-radius:4px;font-size:13px;color:var(--accent2); }
+  h3 { font-size:16px;font-weight:700;margin:18px 0 10px;color:var(--text); }
+  h4 { font-size:14px;font-weight:600;margin:14px 0 8px;color:var(--accent2); }
+  ul, ol { padding-left:22px;margin:8px 0; }
+  li { margin:4px 0;font-size:14px; }
+  table { width:100%;border-collapse:collapse;margin:12px 0;font-size:13px; }
+  th { background:var(--surface2);padding:10px 14px;text-align:left;font-weight:600;border:1px solid var(--border); }
+  td { padding:10px 14px;border:1px solid var(--border); }
+  .nav { display:flex;gap:12px;margin-top:20px; }
+  .nav a { padding:10px 20px;border-radius:8px;background:var(--accent);color:#fff;text-decoration:none;font-size:14px;font-weight:600; }
+  .nav a:hover { background:var(--accent2); }
+  .vs-table td:first-child { font-weight:700;color:var(--accent2);white-space:nowrap;width:30%; }
+  .tag { display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;margin:2px 4px 2px 0; }
+  .tag-python { background:#dbeafe;color:#1d4ed8; }
+  .tag-llm { background:#ede9fe;color:#6d28d9; }
+  .tag-proj { background:#d1fae5;color:#065f46; }
+  .challenge { background:var(--surface);border:1px dashed var(--accent2);border-radius:8px;padding:18px 22px;margin:14px 0; }
+  .challenge h4 { color:var(--accent2);margin-top:0; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Phase 4 &middot; P6 数据血缘分析系统</div>
+  <h1>Day 65 &mdash; 数据血缘分析系统（架构设计 + 元数据模型 + SQL血缘解析）</h1>
+  <div class="subtitle">从数仓经验出发：用 Python + LLM 自动解析 SQL 血缘关系，构建数据治理基础</div>
+</div>
+
+<div class="progress-bar">
+  <span class="label">总进度</span>
+  <div class="track"><div class="fill" style="width:92.8%"></div></div>
+  <span class="percent">65/70</span>
+</div>
+
+<!-- ==================== Section 1: 项目总览 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🏗️</span>
+    P6 项目总览：数据血缘分析系统
+    <span class="time-tag">~15 min</span>
+  </div>
+
+  <h3>什么是数据血缘？</h3>
+  <div class="concept-box">
+    <strong>数据血缘（Data Lineage）</strong>追踪数据从源头到终点的完整流动路径——一张 ADS 报表字段，来自哪个 DWS 的哪列、经了怎样的计算逻辑、依赖哪些 DIM 维表。
+    <br>在数仓分层（ODS→DWD→DWS→ADS）中，血缘是数据治理的基石：影响分析、故障排查、合规审计都离不开它。
+  </div>
+
+  <h3>P6 三天路线图</h3>
+  <table>
+    <tr><th>天数</th><th>主题</th><th>核心产出</th></tr>
+    <tr><td><strong>Day 65</strong></td><td>架构设计 + 元数据模型 + SQL 血缘解析</td><td>元数据体系、SQL AST 解析器、列级血缘</td></tr>
+    <tr><td><strong>Day 66</strong></td><td>LLM 辅助血缘补全 + 影响分析 + 异常检测</td><td>LLM 语义标注、上下游影响分析、血缘断裂告警</td></tr>
+    <tr><td><strong>Day 67</strong></td><td>可视化 + FastAPI 血缘查询服务（P6 收官）</td><td>Mermaid 血缘图、REST API、影响面评估</td></tr>
+  </table>
+
+  <h3>四层架构</h3>
+  <pre><span class="comment"># 数仓经验 → Python 工程的完美映射</span>
+┌─────────────────────────────────────────────────┐
+│  <span class="keyword">API 层</span> (FastAPI)                              │
+│  血缘查询 / 影响分析 / 异常检测 / 可视化          │
+├─────────────────────────────────────────────────┤
+│  <span class="keyword">分析层</span> (Analyzer)                            │
+│  ImpactAnalyzer / AnomalyDetector / LLMAnnotator  │
+├─────────────────────────────────────────────────┤
+│  <span class="keyword">解析层</span> (Parser + Extractor)                    │
+│  SQLParser(AST) / LineageExtractor / ColumnResolver  │
+├─────────────────────────────────────────────────┤
+│  <span class="keyword">元数据层</span> (Metadata)                          │
+│  TableMeta / ColumnMeta / LineageGraph(NX)       │
+└─────────────────────────────────────────────────┘</pre>
+
+  <div class="tip-box">
+    <strong>数仓思维映射：</strong>元数据层 = 你的 ETL 元数据表；解析层 = ETL 中的 SQL 抽取逻辑；分析层 = 影响评估报表；API 层 = BI 查询入口。你已经有丰富的数仓经验，P6 是把这些经验"工程化"为可复用的系统。
+  </div>
+</div>
+
+<!-- ==================== Section 2: Python 知识 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🐍</span>
+    Python 知识：AST 抽象语法树 + 正则多模式匹配
+    <span class="time-tag">~20 min</span>
+  </div>
+
+  <h3>1. AST 抽象语法树（Python 内置 <code>ast</code> 模块）</h3>
+  <p>AST 是代码的结构化表示。数仓中大量 SQL 逻辑，解析血缘本质上就是"解析代码结构"——Python 的 <code>ast</code> 模块是最佳入门。</p>
+
+  <pre><span class="comment"># ast 模块：把 Python 代码变成一棵可遍历的树</span>
+<span class="keyword">import</span> ast
+
+<span class="comment"># 1. 解析代码为 AST</span>
+source = <span class="string">"""
+total = amount * rate
+result = round(total, 2)
+if total > 1000:
+    print("high")
+"""</span>
+tree = ast.parse(source)
+
+<span class="comment"># 2. 遍历所有节点 — 类似数仓的 ETL 扫描</span>
+<span class="keyword">class</span> <span class="type">VarVisitor</span>(ast.NodeVisitor):
+    <span class="string">"""收集所有被赋值的变量名"""</span>
+
+    <span class="keyword">def</span> <span class="function">__init__</span>(self):
+        self.assigned_vars = []   <span class="comment"># 赋值目标</span>
+        self.used_vars = []       <span class="comment"># 引用的变量</span>
+
+    <span class="keyword">def</span> <span class="function">visit_Assign</span>(self, node):
+        <span class="comment"># 提取赋值左边的变量名</span>
+        <span class="keyword">for</span> target <span class="keyword">in</span> node.targets:
+            <span class="keyword">if</span> isinstance(target, ast.Name):
+                self.assigned_vars.append(target.id)
+        <span class="comment"># 继续遍历子节点（右边的表达式）</span>
+        self.generic_visit(node)
+
+    <span class="keyword">def</span> <span class="function">visit_Name</span>(self, node):
+        <span class="comment"># 记录所有被引用的变量（非赋值目标）</span>
+        self.used_vars.append(node.id)
+        self.generic_visit(node)
+
+visitor = VarVisitor()
+visitor.visit(tree)
+<span class="builtin">print</span>(<span class="string">f"赋值变量: <span class="builtin">{visitor.assigned_vars}</span>"</span>)  <span class="comment"># ['total', 'result']</span>
+<span class="builtin">print</span>(<span class="string">f"引用变量: <span class="builtin">{visitor.used_vars}</span>"</span>)      <span class="comment"># ['amount', 'rate', 'total', 'round', ...]</span></pre>
+
+  <div class="tip-box">
+    <strong>数仓类比：</strong>AST 遍历 = 数据探查 profiling。<code>visit_Assign</code> 就像"找到目标字段"，<code>visit_Name</code> 就像"找到所有被引用的源字段"。血缘解析的思路完全一样！
+  </div>
+
+  <h3>2. 正则多模式匹配（sqlparse 的底层原理）</h3>
+  <p>SQL 解析常用"正则 + 组合"策略：把复杂的 SQL 拆成 INSERT、SELECT、FROM、JOIN 等子句，分别用正则提取。</p>
+
+  <pre><span class="keyword">import</span> re
+
+<span class="comment"># SQL 血缘解析常用的正则模式组合</span>
+SQL_PATTERNS = {
+    <span class="comment"># 1. 匹配 CREATE TABLE xxx AS / INSERT INTO xxx</span>
+    <span class="string">'target_table'</span>: re.compile(
+        r<span class="string">'(?:CREATE\s+TABLE|INSERT\s+INTO)\s+`?(\w+)`?'</span>,
+        re.IGNORECASE
+    ),
+
+    <span class="comment"># 2. 匹配 FROM / JOIN 后的表名</span>
+    <span class="string">'source_table'</span>: re.compile(
+        r<span class="string">'(?:FROM|JOIN)\s+`?(\w+)`?'</span>,
+        re.IGNORECASE
+    ),
+
+    <span class="comment"># 3. 匹配 SELECT 后的字段名（含别名 alias）</span>
+    <span class="string">'select_columns'</span>: re.compile(
+        r<span class="string">'SELECT\s+(.*?)\s+FROM'</span>,
+        re.IGNORECASE | re.DOTALL
+    ),
+
+    <span class="comment"># 4. 匹配字段别名: col AS alias / col alias</span>
+    <span class="string">'column_alias'</span>: re.compile(
+        r<span class="string">'`?(\w+)`?\s+(?:AS\s+)?`?(\w+)`?'</span>,
+        re.IGNORECASE
+    ),
+}
+
+<span class="comment"># 实战：从 SQL 提取表级血缘</span>
+sql = <span class="string">"""
+INSERT INTO dws_bid_daily_stat
+SELECT
+    b.bid_id,
+    b.company_name,
+    SUM(p.price) AS total_amount,
+    COUNT(*) AS bid_count
+FROM ods_bid_info b
+LEFT JOIN ods_bid_price p ON b.bid_id = p.bid_id
+WHERE b.status = 'active'
+GROUP BY b.bid_id, b.company_name
+"""</span>
+
+<span class="comment"># 提取目标表</span>
+target = SQL_PATTERNS[<span class="string">'target_table'</span>].search(sql)
+<span class="builtin">print</span>(<span class="string">f"目标表: <span class="builtin">{target.group(1) if target else 'N/A'}</span>"</span>)
+<span class="comment"># 输出: 目标表: dws_bid_daily_stat</span>
+
+<span class="comment"># 提取所有源表</span>
+sources = SQL_PATTERNS[<span class="string">'source_table'</span>].findall(sql)
+<span class="builtin">print</span>(<span class="string">f"源表: <span class="builtin">{sources}</span>"</span>)
+<span class="comment"># 输出: 源表: ['ods_bid_info', 'ods_bid_price']</span></pre>
+
+  <h3>3. <code>collections.defaultdict</code> 嵌套构建</h3>
+  <pre><span class="keyword">from</span> collections <span class="keyword">import</span> defaultdict
+
+<span class="comment"># 构建表级血缘图：table -> [依赖的上游表]</span>
+lineage = defaultdict(list)
+
+<span class="comment"># 批量填充（模拟解析多条 SQL 的结果）</span>
+sql_results = [
+    (<span class="string">'dws_bid_daily_stat'</span>, [<span class="string">'ods_bid_info'</span>, <span class="string">'ods_bid_price'</span>]),
+    (<span class="string">'ads_top_bidders'</span>, [<span class="string">'dws_bid_daily_stat'</span>, <span class="string">'dim_company'</span>]),
+    (<span class="string">'dwd_bid_detail'</span>, [<span class="string">'ods_bid_info'</span>]),
+]
+
+<span class="keyword">for</span> target, sources <span class="keyword">in</span> sql_results:
+    lineage[target].extend(sources)
+
+<span class="comment"># 查询某张表的完整上游</span>
+<span class="keyword">def</span> <span class="function">get_upstream</span>(table, graph, visited=None):
+    <span class="string">"""递归获取完整上游链路（类似数仓的递归依赖查询）"""</span>
+    <span class="keyword">if</span> visited <span class="keyword">is</span> None:
+        visited = <span class="builtin">set</span>()
+    <span class="keyword">if</span> table <span class="keyword">in</span> visited:
+        <span class="keyword">return</span> []  <span class="comment"># 防止循环依赖</span>
+    visited.add(table)
+    result = list(graph.get(table, []))
+    <span class="keyword">for</span> parent <span class="keyword">in</span> result:
+        result.extend(get_upstream(parent, graph, visited))
+    <span class="keyword">return</span> result
+
+<span class="builtin">print</span>(<span class="string">f"ads_top_bidders 完整上游: <span class="builtin">{get_upstream('ads_top_bidders', lineage)}</span>"</span>)
+<span class="comment"># ['dws_bid_daily_stat', 'ods_bid_info', 'ods_bid_price', 'dim_company']</span></pre>
+
+  <div class="green-box">
+    <strong>关键理解：</strong>递归上游查询 = 数仓中的"影响分析"——改了 ODS 表，能自动追溯到哪些 DWS/ADS 受影响。
+  </div>
+</div>
+
+<!-- ==================== Section 3: 元数据模型 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📊</span>
+    元数据模型设计（TableMeta / ColumnMeta / LineageEdge）
+    <span class="time-tag">~15 min</span>
+  </div>
+
+  <pre><span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> enum <span class="keyword">import</span> Enum
+<span class="keyword">from</span> typing <span class="keyword">import</span> Optional
+
+<span class="keyword">class</span> <span class="type">TableLayer</span>(Enum):
+    <span class="string">"""数仓分层枚举"""</span>
+    ODS = <span class="string">"ODS"</span>     <span class="comment"># 操作数据层（原始数据）</span>
+    DIM = <span class="string">"DIM"</span>     <span class="comment"># 维度表层</span>
+    DWD = <span class="string">"DWD"</span>     <span class="comment"># 明细数据层</span>
+    DWS = <span class="string">"DWS"</span>     <span class="comment"># 汇总数据层</span>
+    ADS = <span class="string">"ADS"</span>     <span class="comment"># 应用数据层</span>
+    TMP = <span class="string">"TMP"</span>     <span class="comment"># 临时表</span>
+
+@dataclass
+<span class="keyword">class</span> <span class="type">ColumnMeta</span>:
+    <span class="string">"""列级元数据——每张表的每个字段"""</span>
+    name: str                       <span class="comment"># 字段名</span>
+    data_type: str = <span class="string">"VARCHAR"</span>   <span class="comment"># 数据类型</span>
+    comment: str = <span class="string">""</span>               <span class="comment"># 字段注释</span>
+    is_pk: bool = False              <span class="comment"># 是否主键</span>
+    is_nullable: bool = True         <span class="comment"># 是否可空</span>
+    source_expr: str = <span class="string">""</span>          <span class="comment"># 来源表达式（如 SUM(price)）</span>
+
+@dataclass
+<span class="keyword">class</span> <span class="type">TableMeta</span>:
+    <span class="string">"""表级元数据——对应你数仓中的一张表"""</span>
+    table_name: str
+    layer: TableLayer
+    database: str = <span class="string">"ybt_dw"</span>
+    comment: str = <span class="string">""</span>
+    columns: list[ColumnMeta] = field(default_factory=list)
+    create_sql: str = <span class="string">""</span>         <span class="comment"># 建表 SQL（用于解析血缘）</span>
+    row_count: int = 0
+
+    <span class="keyword">def</span> <span class="function">get_column</span>(self, name: str) -> Optional[ColumnMeta]:
+        <span class="string">"""按字段名查找列元数据"""</span>
+        <span class="keyword">for</span> col <span class="keyword">in</span> self.columns:
+            <span class="keyword">if</span> col.name.lower() == name.lower():
+                <span class="keyword">return</span> col
+        <span class="keyword">return</span> None
+
+@dataclass
+<span class="keyword">class</span> <span class="type">LineageEdge</span>:
+    <span class="string">"""血缘关系边——从 source 到 target 的依赖"""</span>
+    source_table: str     <span class="comment"># 上游表</span>
+    source_column: str    <span class="comment"># 上游列</span>
+    target_table: str     <span class="comment"># 下游表</span>
+    target_column: str    <span class="comment"># 下游列</span>
+    transform_type: str = <span class="string">"direct"</span>  <span class="comment"># direct/agg/filter/derive</span>
+    transform_expr: str = <span class="string">""</span>      <span class="comment"># 转换表达式</span>
+    sql_origin: str = <span class="string">""</span>           <span class="comment"># 来源 SQL</span>
+
+<span class="comment"># ===== AMC 业务示例：构建数仓元数据 =====</span>
+ods_bid = TableMeta(
+    table_name=<span class="string">"ods_bid_info"</span>,
+    layer=TableLayer.ODS,
+    comment=<span class="string">"招标信息原始表"</span>,
+    columns=[
+        ColumnMeta(<span class="string">"bid_id"</span>, <span class="string">"VARCHAR(64)"</span>, <span class="string">"招标编号"</span>, is_pk=True),
+        ColumnMeta(<span class="string">"company_name"</span>, <span class="string">"VARCHAR(200)"</span>, <span class="string">"公司名称"</span>),
+        ColumnMeta(<span class="string">"status"</span>, <span class="string">"VARCHAR(20)"</span>, <span class="string">"招标状态"</span>),
+        ColumnMeta(<span class="string">"create_time"</span>, <span class="string">"DATETIME"</span>, <span class="string">"创建时间"</span>),
+    ]
+)
+
+dws_stat = TableMeta(
+    table_name=<span class="string">"dws_bid_daily_stat"</span>,
+    layer=TableLayer.DWS,
+    comment=<span class="string">"招标每日统计汇总"</span>,
+    columns=[
+        ColumnMeta(<span class="string">"bid_id"</span>, <span class="string">"VARCHAR(64)"</span>, <span class="string">"招标编号"</span>, is_pk=True,
+                   source_expr=<span class="string">"b.bid_id"</span>),
+        ColumnMeta(<span class="string">"total_amount"</span>, <span class="string">"DECIMAL(18,2)"</span>, <span class="string">"总金额"</span>,
+                   source_expr=<span class="string">"SUM(p.price)"</span>),
+        ColumnMeta(<span class="string">"bid_count"</span>, <span class="string">"INT"</span>, <span class="string">"投标次数"</span>,
+                   source_expr=<span class="string">"COUNT(*)"</span>),
+    ]
+)</pre>
+
+  <div class="concept-box">
+    <strong>设计理念：</strong>三个核心 dataclass 分别对三个粒度——<code>TableMeta</code> 是"表"，<code>ColumnMeta</code> 是"列"，<code>LineageEdge</code> 是"关系"。数仓分层用 Enum 约束，类型安全且可遍历。
+  </div>
+</div>
+
+<!-- ==================== Section 4: SQL 血缘解析器 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🔍</span>
+    SQL 血缘解析器（表级 + 列级）
+    <span class="time-tag">~25 min</span>
+  </div>
+
+  <h3>表级血缘解析</h3>
+  <pre><span class="keyword">import</span> re
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+
+@dataclass
+<span class="keyword">class</span> <span class="type">TableLineageResult</span>:
+    <span class="string">"""单条 SQL 解析出的表级血缘"""</span>
+    target_table: str                          <span class="comment"># 下游目标表</span>
+    source_tables: list[str] = field(default_factory=list)  <span class="comment"># 上游源表</span>
+    join_type: dict = field(default_factory=dict)  <span class="comment"># JOIN 类型: {表名: 'LEFT/INNER/...'}</span>
+    where_conditions: list[str] = field(default_factory=list)  <span class="comment"># WHERE 条件</span>
+
+<span class="keyword">class</span> <span class="type">SQLTableParser</span>:
+    <span class="string">"""
+    SQL 表级血缘解析器
+    核心思路：正则模式组合提取 → 表名标准化 → 去重
+    """</span>
+
+    <span class="comment"># 预编译正则（性能优化：编译一次，反复使用）</span>
+    RE_TARGET = re.compile(
+        r<span class="string">'(?:CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?)?`?(\w+)`?'
+        r'\s+(?:AS\s+)?SELECT'</span>, re.IGNORECASE
+    )
+    RE_INSERT = re.compile(
+        r<span class="string">'INSERT\s+(?:INTO|OVERWRITE)\s+`?(\w+)`?'</span>, re.IGNORECASE
+    )
+    RE_FROM = re.compile(r<span class="string">'FROM\s+`?(\w+)`?'</span>, re.IGNORECASE)
+    RE_JOIN = re.compile(
+        r<span class="string">'(LEFT|RIGHT|INNER|FULL|CROSS)?\s*JOIN\s+`?(\w+)`?'</span>, re.IGNORECASE
+    )
+    RE_SUBQUERY = re.compile(r<span class="string">'\(\s*SELECT'</span>, re.IGNORECASE)
+    <span class="comment"># 需要排除的关键字（不是表名）</span>
+    EXCLUDE_KEYWORDS = {
+        <span class="string">'SELECT'</span>, <span class="string">'WHERE'</span>, <span class="string">'AND'</span>, <span class="string">'OR'</span>, <span class="string">'ON'</span>, <span class="string">'AS'</span>,
+        <span class="string">'GROUP'</span>, <span class="string">'ORDER'</span>, <span class="string">'BY'</span>, <span class="string">'HAVING'</span>, <span class="string">'LIMIT'</span>,
+        <span class="string">'UNION'</span>, <span class="string">'EXCEPT'</span>, <span class="string">'INTERSECT'</span>, <span class="string">'SET'</span>, <span class="string">'INTO'</span>,
+    }
+
+    <span class="keyword">def</span> <span class="function">parse</span>(self, sql: str) -> TableLineageResult:
+        <span class="string">"""解析一条 SQL 的表级血缘"""</span>
+        sql_clean = self._remove_comments(sql)
+        sql_clean = self._remove_subqueries(sql_clean)
+
+        <span class="comment"># 1. 找目标表</span>
+        target = self._extract_target(sql_clean)
+
+        <span class="comment"># 2. 找所有源表（FROM + JOIN）</span>
+        sources, join_types = self._extract_sources(sql_clean)
+
+        <span class="comment"># 3. 找 WHERE 条件</span>
+        where = self._extract_where(sql_clean)
+
+        <span class="keyword">return</span> TableLineageResult(
+            target_table=target,
+            source_tables=sources,
+            join_type=join_types,
+            where_conditions=where,
+        )
+
+    <span class="keyword">def</span> <span class="function">_remove_comments</span>(self, sql: str) -> str:
+        <span class="string">"""去除 SQL 注释（单行 -- 和多行 /* */）"""</span>
+        sql = re.sub(r<span class="string">'--.*$'</span>, <span class="string">''</span>, sql, flags=re.MULTILINE)
+        sql = re.sub(r<span class="string">'/\*.*?\*/'</span>, <span class="string">''</span>, sql, flags=re.DOTALL)
+        <span class="keyword">return</span> sql.strip()
+
+    <span class="keyword">def</span> <span class="function">_remove_subqueries</span>(self, sql: str) -> str:
+        <span class="string">"""简化处理：将子查询标记为 [SUBQUERY]，避免误解析内部 FROM"""</span>
+        <span class="keyword">return</span> re.sub(
+            r<span class="string">'\(\s*SELECT\b[^)]*\)'</span>, <span class="string">'[SUBQUERY]'</span>, sql,
+            flags=re.IGNORECASE | re.DOTALL
+        )
+
+    <span class="keyword">def</span> <span class="function">_extract_target</span>(self, sql: str) -> str:
+        <span class="string">"""提取目标表名"""</span>
+        m = self.RE_TARGET.search(sql) <span class="keyword">or</span> self.RE_INSERT.search(sql)
+        <span class="keyword">return</span> m.group(1) <span class="keyword">if</span> m <span class="keyword">else</span> <span class="string">"UNKNOWN"</span>
+
+    <span class="keyword">def</span> <span class="function">_extract_sources</span>(self, sql: str) -> tuple[list[str], dict]:
+        <span class="string">"""提取源表和 JOIN 类型"""</span>
+        sources = []
+        join_types = {}
+
+        <span class="comment"># FROM 子句</span>
+        <span class="keyword">for</span> m <span class="keyword">in</span> self.RE_FROM.finditer(sql):
+            tbl = m.group(1)
+            <span class="keyword">if</span> tbl.upper() <span class="keyword">not in</span> self.EXCLUDE_KEYWORDS:
+                sources.append(tbl)
+
+        <span class="comment"># JOIN 子句（含类型）</span>
+        <span class="keyword">for</span> m <span class="keyword">in</span> self.RE_JOIN.finditer(sql):
+            jtype = m.group(1) <span class="keyword">or</span> <span class="string">"INNER"</span>  <span class="comment"># 省略默认 INNER</span>
+            tbl = m.group(2)
+            <span class="keyword">if</span> tbl.upper() <span class="keyword">not in</span> self.EXCLUDE_KEYWORDS:
+                sources.append(tbl)
+                join_types[tbl] = jtype.upper()
+
+        <span class="keyword">return</span> list(dict.fromkeys(sources)), join_types  <span class="comment"># 去重保序</span>
+
+    <span class="keyword">def</span> <span class="function">_extract_where</span>(self, sql: str) -> list[str]:
+        <span class="string">"""提取 WHERE 条件（简化版）"""</span>
+        m = re.search(r<span class="string">'WHERE\s+(.*?)(?:\s+GROUP\s+|\s+ORDER\s+|\s+LIMIT\s+|$)'</span>,
+                     sql, re.IGNORECASE | re.DOTALL)
+        <span class="keyword">if not</span> m:
+            <span class="keyword">return</span> []
+        <span class="comment"># 按 AND 拆分多个条件</span>
+        conds = re.split(r<span class="string">'\s+AND\s+'</span>, m.group(1), flags=re.IGNORECASE)
+        <span class="keyword">return</span> [c.strip() <span class="keyword">for</span> c <span class="keyword">in</span> conds <span class="keyword">if</span> c.strip()]
+
+<span class="comment"># ===== 实战：解析 AMC 数仓 SQL =====</span>
+parser = SQLTableParser()
+
+amc_sql = <span class="string">"""
+INSERT OVERWRITE TABLE dws_bid_daily_stat
+SELECT
+    b.bid_id,
+    b.company_name,
+    SUM(p.price) AS total_amount,
+    COUNT(*) AS bid_count
+FROM ods_bid_info b
+LEFT JOIN ods_bid_price p ON b.bid_id = p.bid_id
+WHERE b.status = 'active'
+GROUP BY b.bid_id, b.company_name
+"""</span>
+
+result = parser.parse(amc_sql)
+<span class="builtin">print</span>(<span class="string">f"目标表: <span class="builtin">{result.target_table}</span>"</span>)
+<span class="builtin">print</span>(<span class="string">f"源表: <span class="builtin">{result.source_tables}</span>"</span>)
+<span class="builtin">print</span>(<span class="string">f"JOIN: <span class="builtin">{result.join_type}</span>"</span>)
+<span class="builtin">print</span>(<span class="string">f"WHERE: <span class="builtin">{result.where_conditions}</span>"</span>)
+<span class="comment"># 目标表: dws_bid_daily_stat
+# 源表: ['ods_bid_info', 'ods_bid_price']
+# JOIN: {'ods_bid_price': 'LEFT'}
+# WHERE: ["b.status = 'active'"]</span></pre>
+
+  <h3>列级血缘解析</h3>
+  <pre><span class="keyword">import</span> re
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+
+@dataclass
+<span class="keyword">class</span> <span class="type">ColumnLineage</span>:
+    <span class="string">"""单列的血缘信息"""</span>
+    target_col: str                  <span class="comment"># 下游字段名</span>
+    source_cols: list[str]           <span class="comment"># 依赖的上游字段</span>
+    transform_type: str             <span class="comment"># direct / agg / derive / filter</span>
+    expression: str                 <span class="comment"># 完整表达式</span>
+
+<span class="keyword">class</span> <span class="type">SQLColumnParser</span>:
+    <span class="string">"""
+    列级血缘解析器
+    核心思路：
+    1. 提取 SELECT 子句
+    2. 识别列别名（AS）
+    3. 分析表达式中的源字段引用
+    """</span>
+
+    <span class="comment"># 聚合函数模式</span>
+    RE_AGG = re.compile(
+        r<span class="string">'\b(SUM|AVG|COUNT|MAX|MIN|GROUP_CONCAT)\s*\([^)]*\)'</span>, re.IGNORECASE
+    )
+    <span class="comment"># 字段引用模式: table.column 或单独 column</span>
+    RE_COL_REF = re.compile(r<span class="string">'`?(\w+)\.`?(\w+)`?'</span>)
+    <span class="comment"># CASE WHEN 模式（派生字段）</span>
+    RE_CASE = re.compile(r<span class="string">'\bCASE\b'</span>, re.IGNORECASE)
+
+    <span class="keyword">def</span> <span class="function">parse_select_columns</span>(self, sql: str) -> list[ColumnLineage]:
+        <span class="string">"""解析 SELECT 子句的列级血缘"""</span>
+        <span class="comment"># 1. 提取 SELECT ... FROM 之间的内容</span>
+        m = re.search(
+            r<span class="string">'SELECT\s+(.*?)\s+FROM'</span>, sql,
+            re.IGNORECASE | re.DOTALL
+        )
+        <span class="keyword">if not</span> m:
+            <span class="keyword">return</span> []
+
+        select_clause = m.group(1).strip()
+        results = []
+
+        <span class="comment"># 2. 按逗号拆分各列（注意排除函数内的逗号）</span>
+        columns = self._split_columns(select_clause)
+
+        <span class="keyword">for</span> col_expr <span class="keyword">in</span> columns:
+            col_expr = col_expr.strip()
+            <span class="keyword">if not</span> col_expr:
+                <span class="keyword">continue</span>
+
+            <span class="comment"># 3. 提取别名</span>
+            alias = self._extract_alias(col_expr)
+            expr = self._remove_alias(col_expr)
+
+            <span class="comment"># 4. 识别转换类型</span>
+            transform = self._classify_transform(expr)
+
+            <span class="comment"># 5. 提取源字段</span>
+            source_cols = self._extract_source_cols(expr)
+
+            results.append(ColumnLineage(
+                target_col=alias,
+                source_cols=source_cols,
+                transform_type=transform,
+                expression=expr,
+            ))
+
+        <span class="keyword">return</span> results
+
+    <span class="keyword">def</span> <span class="function">_split_columns</span>(self, select_clause: str) -> list[str]:
+        <span class="string">"""
+        智能拆分 SELECT 列（尊重函数括号内的逗号）
+        思路：用"括号深度"判断逗号是否属于函数内部
+        """</span>
+        columns = []
+        depth = 0
+        current = []
+
+        <span class="keyword">for</span> char <span class="keyword">in</span> select_clause:
+            <span class="keyword">if</span> char == <span class="string">'('</span>:
+                depth += 1
+            <span class="keyword">elif</span> char == <span class="string">')'</span>:
+                depth = max(0, depth - 1)
+            <span class="keyword">elif</span> char == <span class="string">','</span> <span class="keyword">and</span> depth == 0:
+                columns.append(<span class="string">''</span>.join(current).strip())
+                current = []
+                <span class="keyword">continue</span>
+            current.append(char)
+
+        <span class="keyword">if</span> current:
+            columns.append(<span class="string">''</span>.join(current).strip())
+
+        <span class="keyword">return</span> columns
+
+    <span class="keyword">def</span> <span class="function">_extract_alias</span>(self, col_expr: str) -> str:
+        <span class="string">"""提取列别名"""</span>
+        m = re.search(
+            r<span class="string">'(?:AS\s+)?`?(\w+)`?\s*$'</span>, col_expr, re.IGNORECASE
+        )
+        <span class="keyword">return</span> m.group(1) <span class="keyword">if</span> m <span class="keyword">else</span> col_expr.split(<span class="string">'.'</span>)[-1]
+
+    <span class="keyword">def</span> <span class="function">_remove_alias</span>(self, col_expr: str) -> str:
+        <span class="string">"""移除别名，保留表达式部分"""</span>
+        <span class="keyword">return</span> re.sub(
+            r<span class="string">'\s+(?:AS\s+)?`?\w+`?\s*$'</span>, <span class="string">''</span>,
+            col_expr, flags=re.IGNORECASE
+        ).strip()
+
+    <span class="keyword">def</span> <span class="function">_classify_transform</span>(self, expr: str) -> str:
+        <span class="string">"""分类转换类型"""</span>
+        <span class="keyword">if</span> self.RE_AGG.search(expr):
+            <span class="keyword">return</span> <span class="string">"agg"</span>      <span class="comment"># 聚合: SUM(), COUNT()</span>
+        <span class="keyword">if</span> self.RE_CASE.search(expr):
+            <span class="keyword">return</span> <span class="string">"derive"</span>   <span class="comment"># 派生: CASE WHEN</span>
+        <span class="keyword">if</span> <span class="string">'.'</span> <span class="keyword">in</span> expr <span class="keyword">and</span> expr.count(<span class="string">'.'</span>) == 1:
+            <span class="keyword">return</span> <span class="string">"direct"</span>   <span class="comment"># 直接映射: b.bid_id</span>
+        <span class="keyword">return</span> <span class="string">"derive"</span>       <span class="comment"># 其他: 默认派生</span>
+
+    <span class="keyword">def</span> <span class="function">_extract_source_cols</span>(self, expr: str) -> list[str]:
+        <span class="string">"""提取表达式中的源字段引用"""</span>
+        <span class="comment"># 移除函数名和关键字，只保留字段引用</span>
+        clean = re.sub(r<span class="string">'\b(?:SUM|AVG|COUNT|MAX|MIN|GROUP_CONCAT|DISTINCT)\b'</span>,
+                      <span class="string">''</span>, expr, flags=re.IGNORECASE)
+        clean = re.sub(r<span class="string">'[()*+\-/<>=!&|]'</span>, <span class="string">' '</span>, clean)
+
+        cols = []
+        <span class="keyword">for</span> part <span class="keyword">in</span> clean.split():
+            <span class="comment"># 匹配 table.column 格式</span>
+            m = re.match(r<span class="string">'^`?(\w+)`?\.`?(\w+)`?$'</span>, part)
+            <span class="keyword">if</span> m:
+                cols.append(f<span class="string">"<span class="builtin">{m.group(1)}</span>.<span class="builtin">{m.group(2)}</span>"</span>)
+        <span class="keyword">return</span> list(dict.fromkeys(cols))
+
+<span class="comment"># ===== 实战：解析列级血缘 =====</span>
+col_parser = SQLColumnParser()
+columns = col_parser.parse_select_columns(amc_sql)
+
+<span class="keyword">for</span> col <span class="keyword">in</span> columns:
+    <span class="builtin">print</span>(<span class="string">f"<span class="builtin">{col.target_col}</span>: <span class="builtin">{col.transform_type}</span> ← <span class="builtin">{col.source_cols}</span>"</span>)
+<span class="comment"># bid_id: direct ← ['ods_bid_info.bid_id']
+# company_name: direct ← ['ods_bid_info.company_name']
+# total_amount: agg ← ['ods_bid_price.price']
+# bid_count: agg ← []</span></pre>
+
+  <div class="tip-box">
+    <strong>数仓经验优势：</strong>你做 ybt_dw 时手动梳理过 ODS→DWD→DWS→ADS 的字段来源。SQLColumnParser 就是把这个"手动过程"自动化——提取每个下游字段依赖了哪些上游字段、经过了什么计算。
+  </div>
+</div>
+
+<!-- ==================== Section 5: LLM 实战 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">🤖</span>
+    LLM 实战：智能血缘标注 + SQL 语义理解
+    <span class="time-tag">~20 min</span>
+  </div>
+
+  <h3>场景：为什么需要 LLM？</h3>
+  <table class="vs-table">
+    <tr><th>维度</th><th>正则解析</th><th>LLM 辅助</th></tr>
+    <tr><td>表级血缘</td><td>✅ 准确率高（FROM/JOIN 规范）</td><td>没必要，浪费 Token</td></tr>
+    <tr><td>列级血缘（简单映射）</td><td>✅ <code>b.bid_id → bid_id</code></td><td>没必要</td></tr>
+    <tr><td>列级血缘（复杂表达式）</td><td>⚠️ <code>IFNULL(a,0)*rate+bonus</code></td><td>✅ 能理解语义</td></tr>
+    <tr><td>业务含义标注</td><td>❌ 无法理解 <code>total_amount</code> 是"含税"</td><td>✅ 根据注释+上下文推断</td></tr>
+    <tr><td>血缘断裂检测</td><td>⚠️ 只能看结构</td><td>✅ 判断逻辑是否合理</td></tr>
+  </table>
+
+  <h3>LLM 血缘标注器</h3>
+  <pre><span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass
+<span class="keyword">from</span> typing <span class="keyword">import</span> Optional
+
+@dataclass
+<span class="keyword">class</span> <span class="type">LLMAnnotation</span>:
+    <span class="string">"""LLM 对血缘关系的语义标注"""</span>
+    table_name: str
+    column_name: str
+    business_meaning: str     <span class="comment"># 业务含义（中文）</span>
+    data_quality_risk: str    <span class="comment"># 数据质量风险提示</span>
+    suggestion: str           <span class="comment"># 优化建议</span>
+
+<span class="keyword">class</span> <span class="type">LineageAnnotator</span>:
+    <span class="string">"""
+    用 LLM 对血缘关系进行语义标注
+    适用场景：复杂表达式 / 业务含义推断 / 风险提示
+    """</span>
+
+    ANNOTATE_PROMPT = <span class="string">"""你是一个数据仓库血缘分析专家。
+请分析以下 SQL 字段的血缘关系，给出语义标注。
+
+## 目标表信息
+- 表名: {target_table}
+- 表注释: {target_comment}
+- 层级: {target_layer}
+
+## 字段信息
+- 字段名: {column_name}
+- 表达式: {expression}
+- 上游依赖: {source_columns}
+
+## 源表信息
+{source_table_info}
+
+## 请以 JSON 格式返回：
+{{
+  "business_meaning": "该字段在业务上的含义",
+  "data_quality_risk": "该字段可能存在的数据质量风险",
+  "suggestion": "对该字段或表达式的优化建议"
+}}
+
+只返回 JSON，不要其他内容。"""</span>
+
+    <span class="keyword">def</span> <span class="function">annotate</span>(self, column_lineage, target_meta, source_metas) -> LLMAnnotation:
+        <span class="string">"""
+        对单列血缘进行 LLM 语义标注
+        """</span>
+        prompt = self.ANNOTATE_PROMPT.format(
+            target_table=target_meta.table_name,
+            target_comment=target_meta.comment,
+            target_layer=target_meta.layer.value,
+            column_name=column_lineage.target_col,
+            expression=column_lineage.expression,
+            source_columns=<span class="string">", "</span>.join(column_lineage.source_cols),
+            source_table_info=self._build_source_info(
+                column_lineage.source_cols, source_metas
+            ),
+        )
+
+        <span class="comment"># 调用 LLM（这里用 mock 演示，实际用 zhipuai SDK）</span>
+        response = self._call_llm(prompt)
+        <span class="keyword">return</span> self._parse_response(response, column_lineage)
+
+    <span class="keyword">def</span> <span class="function">_build_source_info</span>(self, source_cols, source_metas):
+        <span class="string">"""构建源表字段信息描述"""</span>
+        info_lines = []
+        <span class="keyword">for</span> col <span class="keyword">in</span> source_cols:
+            parts = col.split(<span class="string">'.'</span>)
+            <span class="keyword">if</span> len(parts) == 2:
+                tbl, col_name = parts
+                <span class="keyword">for</span> meta <span class="keyword">in</span> source_metas:
+                    <span class="keyword">if</span> meta.table_name == tbl:
+                        col_meta = meta.get_column(col_name)
+                        desc = col_meta.comment <span class="keyword">if</span> col_meta <span class="keyword">else</span> <span class="string">"未知"</span>
+                        info_lines.append(
+                            f<span class="string">"- {tbl}.{col_name}: {desc}"</span>
+                        )
+                        <span class="keyword">break</span>
+        <span class="keyword">return</span> <span class="string">"\n"</span>.join(info_lines) <span class="keyword">or</span> <span class="string">"无源表信息"</span>
+
+    <span class="keyword">def</span> <span class="function">_call_llm</span>(self, prompt: str) -> dict:
+        <span class="string">"""调用 LLM（mock 版，实际替换为 zhipuai）"""</span>
+        <span class="comment"># 实际代码：</span>
+        <span class="comment"># from zhipuai import ZhipuAI</span>
+        <span class="comment"># client = ZhipuAI(api_key="xxx")</span>
+        <span class="comment"># resp = client.chat.completions.create(</span>
+        <span class="comment">#     model="glm-4-flash",</span>
+        <span class="comment">#     messages=[{"role":"user","content":prompt}],</span>
+        <span class="comment">#     temperature=0.1,</span>
+        <span class="comment"># )</span>
+        <span class="comment"># return json.loads(resp.choices[0].message.content)</span>
+        <span class="keyword">return</span> {
+            <span class="string">"business_meaning"</span>: <span class="string">"各投标的总金额汇总，反映项目资金规模"</span>,
+            <span class="comment"># 模拟返回，实际由 LLM 生成</span>
+            <span class="string">"data_quality_risk"</span>: <span class="string">"若 ods_bid_price.price 为 NULL，SUM 会自动跳过，</span>
+<span class="string">可能导致 total_amount 比预期偏低"</span>,
+            <span class="string">"suggestion"</span>: <span class="string">"建议添加 COALESCE(p.price, 0) 处理空值，</span>
+<span class="string">并增加 COUNT(p.price) 校验非空行数"</span>,
+        }
+
+    <span class="keyword">def</span> <span class="function">_parse_response</span>(self, response, column_lineage) -> LLMAnnotation:
+        <span class="string">"""解析 LLM 返回（含容错）"""</span>
+        <span class="keyword">return</span> LLMAnnotation(
+            table_name=<span class="string">"dws_bid_daily_stat"</span>,
+            column_name=column_lineage.target_col,
+            business_meaning=response.get(<span class="string">"business_meaning"</span>, <span class="string">""</span>),
+            data_quality_risk=response.get(<span class="string">"data_quality_risk"</span>, <span class="string">""</span>),
+            suggestion=response.get(<span class="string">"suggestion"</span>, <span class="string">""</span>),
+        )
+
+<span class="comment"># ===== 演示 =====</span>
+annotator = LineageAnnotator()
+total_col = ColumnLineage(
+    target_col=<span class="string">"total_amount"</span>,
+    source_cols=[<span class="string">"ods_bid_price.price"</span>],
+    transform_type=<span class="string">"agg"</span>,
+    expression=<span class="string">"SUM(p.price)"</span>,
+)
+annotation = annotator.annotate(total_col, dws_stat, [ods_bid])
+<span class="builtin">print</span>(<span class="string">f"业务含义: <span class="builtin">{annotation.business_meaning}</span>"</span>)
+<span class="builtin">print</span>(<span class="string">f"质量风险: <span class="builtin">{annotation.data_quality_risk}</span>"</span>)
+<span class="builtin">print</span>(<span class="string">f"优化建议: <span class="builtin">{annotation.suggestion}</span>"</span>)</pre>
+
+  <div class="green-box">
+    <strong>LLM 价值定位：</strong>正则解析负责"结构准确"（90% 场景），LLM 负责"语义理解"（10% 复杂场景）。这是正确的分工——不要让 LLM 做它不擅长的事。
+  </div>
+</div>
+
+<!-- ==================== Section 6: 项目结构 + 常见陷阱 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📁</span>
+    项目结构规范 + 常见陷阱 Top5
+    <span class="time-tag">~10 min</span>
+  </div>
+
+  <h3>P6 项目结构</h3>
+  <pre>lineage_system/
+├── config.py              <span class="comment"># 配置（pydantic-settings）</span>
+├── main.py                <span class="comment"># FastAPI 入口</span>
+├── models/
+│   ├── metadata.py        <span class="comment"># TableMeta / ColumnMeta / LineageEdge</span>
+│   └── schema.py          <span class="comment"># Pydantic API Schema</span>
+├── core/
+│   ├── sql_parser.py      <span class="comment"># SQLTableParser + SQLColumnParser</span>
+│   ├── lineage_graph.py   <span class="comment"># 血缘图构建 + 遍历算法</span>
+│   └── llm_annotator.py   <span class="comment"># LineageAnnotator</span>
+├── analyzers/
+│   ├── impact.py          <span class="comment"># 影响分析（上下游追溯）</span>
+│   ├── anomaly.py         <span class="comment"># 血缘异常检测</span>
+│   └── visualizer.py      <span class="comment"># Mermaid 图生成</span>
+├── api/
+│   ├── lineage.py         <span class="comment"># 血缘查询接口</span>
+│   └── impact.py          <span class="comment"># 影响分析接口</span>
+├── data/
+│   ├── metadata.json       <span class="comment"># 元数据存储</span>
+│   └── sql_scripts/       <span class="comment"># 待解析的 SQL 文件</span>
+└── tests/
+    └── test_parser.py     <span class="comment"># 解析器单元测试</span></pre>
+
+  <h3>常见陷阱 Top5</h3>
+  <table>
+    <tr><th>#</th><th>陷阱</th><th>后果</th><th>解法</th></tr>
+    <tr><td>1</td><td>子查询内的 FROM 被误识别为外层表</td><td>血缘出现幽灵表</td><td>先移除子查询再解析（<code>_remove_subqueries</code>）</td></tr>
+    <tr><td>2</td><td><code>SELECT col AS alias</code> 的 alias 没被正确识别</td><td>目标列名错误</td><td>用正则 <code>$</code> 锚定末尾提取 alias</td></tr>
+    <tr><td>3</td><td>字符串常量 <code>'active'</code> 被识别为列名</td><td>虚假的源字段</td><td>排除引号内内容（非 <code>\w+</code>）</td></tr>
+    <tr><td>4</td><td>循环依赖导致递归死循环</td><td>栈溢出</td><td>递归时维护 visited 集合</td></tr>
+    <tr><td>5</td><td>LLM 输出 JSON 格式不稳定</td><td>解析失败</td><td>三层容错：json.loads → 正则提取 → fallback</td></tr>
+  </table>
+</div>
+
+<!-- ==================== Section 7: 练习 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">💪</span>
+    今日练习
+    <span class="time-tag">~15 min</span>
+  </div>
+
+  <div class="challenge">
+    <h4>练习 1：增强 SQLTableParser</h4>
+    <p>当前解析器不支持 <code>CREATE TABLE ... AS SELECT ... UNION ALL SELECT ...</code>。请增强 <code>_extract_sources</code> 方法，使其能正确处理 UNION ALL 中的多段 FROM。</p>
+  </div>
+
+  <div class="challenge">
+    <h4>练习 2：血缘图遍历 — 影响面评估</h4>
+    <p>给定表级血缘图（用 <code>defaultdict(list)</code> 表示），实现 <code>get_downstream(table, graph)</code> 函数：查询某张表的<strong>所有下游表</strong>（即依赖该表的所有表），用递归 + visited 防循环。</p>
+  </div>
+
+  <div class="challenge">
+    <h4>练习 3：LeetCode #49 — 字母异位词分组</h4>
+    <p>用 <code>defaultdict(list)</code> + <code>sorted(str)</code> 作为 key，将字母异位词分组。这题锻炼的是"用不变特征做分组"的思维，和血缘分析中"用表名做图节点"的思路一致。</p>
+  </div>
+</div>
+
+<!-- ==================== Section 8: 总结 ==================== -->
+<div class="section">
+  <div class="section-title">
+    <span class="icon">📋</span>
+    Day 65 总结
+  </div>
+
+  <table>
+    <tr><th>模块</th><th>知识点</th><th>数仓映射</th></tr>
+    <tr><td>Python</td><td>ast.NodeVisitor / 正则多模式组合 / defaultdict 嵌套 / 递归图遍历</td><td>代码结构探查 ≈ 数据 profiling</td></tr>
+    <tr><td>元数据</td><td>TableMeta / ColumnMeta / LineageEdge / Enum 分层</td><td>元数据表 + 血缘关系表</td></tr>
+    <tr><td>解析器</td><td>SQLTableParser（表级）/ SQLColumnParser（列级）/ 括号深度拆分</td><td>ETL SQL 抽取逻辑自动化</td></tr>
+    <tr><td>LLM</td><td>LineageAnnotator（语义标注）/ 结构解析 + LLM 语义 = 最佳分工</td><td>专家经验数字化</td></tr>
+  </table>
+
+  <div class="green-box">
+    <strong>Day 66 预告：</strong>LLM 辅助血缘补全 + ImpactAnalyzer 影响分析器（改了源表自动算影响面）+ AnomalyDetector 血缘异常检测（断裂/孤立/循环）。
+  </div>
+</div>
+
+<div class="nav">
+  <a href="day64.html">← Day 64</a>
+  <a href="day66.html">Day 66 →</a>
+</div>
+
+</body>
+</html>
